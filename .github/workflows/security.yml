@@ -26,7 +26,9 @@ jobs:
       - run: python scripts/check_secrets.py
 
   dependency-review:
-    if: github.event_name == 'pull_request'
+    # Dependency review is free for public repositories. Private repositories need
+    # GitHub Code Security; set ENABLE_GITHUB_CODE_SECURITY=true after enabling it.
+    if: github.event_name == 'pull_request' && (github.event.repository.private == false || vars.ENABLE_GITHUB_CODE_SECURITY == 'true')
     runs-on: ubuntu-latest
     permissions:
       contents: read

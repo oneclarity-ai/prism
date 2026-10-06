@@ -13,6 +13,9 @@ permissions:
 
 jobs:
   analyze:
+    # CodeQL is free for public repositories. Private repositories need GitHub Code Security.
+    # Set ENABLE_GITHUB_CODE_SECURITY=true as a repository variable after enabling that product.
+    if: github.event.repository.private == false || vars.ENABLE_GITHUB_CODE_SECURITY == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -20,7 +23,7 @@ jobs:
       packages: read
     steps:
       - uses: actions/checkout@v4
-      - uses: github/codeql-action/init@v3
+      - uses: github/codeql-action/init@v4
         with:
           languages: python
-      - uses: github/codeql-action/analyze@v3
+      - uses: github/codeql-action/analyze@v4
