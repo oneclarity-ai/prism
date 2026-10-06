@@ -24,6 +24,7 @@ directory users are in scope and explicitly starts or stops Teams automation.
 - Track projects, tasks, blockers, commitments, escalations, and daily updates.
 - Apply deterministic safety validation before AI-proposed state changes or messages.
 - Preserve issue-scoped conversation evidence and organisational memory.
+- Let managers save working preferences, decision guidance, and team context for the agent.
 - Produce a five-section daily manager brief and send it through Microsoft Graph mail.
 - Expose versioned FastAPI endpoints, OpenAPI documentation, and a local dashboard.
 - Record Azure OpenAI token usage and configured cost estimates.
@@ -40,43 +41,394 @@ static management dashboard. An optional in-process scheduler runs daily automat
 See [ARCHITECTURE.md](ARCHITECTURE.md) for components, data flow, background processing,
 and security boundaries.
 
-## Requirements
+### Daily operating flow
+
+Prism runs a manager-controlled loop throughout the workday. Follow-ups stay limited to
+employees selected for the active automation run; if a response names someone outside that
+scope, Prism records the dependency and explains that it cannot contact them yet.
+
+```mermaid
+flowchart LR
+    A[Morning message] --> B[Employee responds]
+    B --> C[Prism records the update]
+    C --> D{Blocker?}
+    D -->|Yes| E[Contact the right owner]
+    D -->|No| F[Keep monitoring]
+    E --> F
+    F --> G[End-of-day brief]
+    G --> H[Manager receives email]
+```
+
+### What Prism includes
+
+Prism combines daily communication automation with manager-defined context:
+
+- **Manager memory:** Save useful facts, team context, working agreements, and recurring
+  guidance in the dashboard.
+- **Working style:** Record how the manager prefers updates, follow-ups, escalation, and
+  decision summaries to be handled.
+- **Decision guidance:** Add rules such as when to escalate, what evidence is needed, or
+  who owns a particular type of decision.
+- **Current work context:** Track projects, tasks, blockers, commitments, risks, and
+  employee updates in PostgreSQL.
+- **Context-aware responses:** When relevant, Prism supplies the saved guidance and current
+  operational context while processing a reply. The current message and validated records
+  remain the source of truth; saved memory does not silently override them.
+- **Manager visibility:** Review conversations, agent actions, unresolved issues, follow-ups,
+  and the end-of-day brief from the dashboard.
+
+Manager memory is supporting context, not unrestricted instruction. Prism still applies
+recipient-scope checks, structured decision validation, and audit logging before changing
+state or sending a Teams message.
+
+## Local setup guide
+
+This section takes you from a fresh checkout to a local Prism instance connected to
+Microsoft Teams. Start with automation disabled, verify the dashboard, and only then expose
+the webhook and message selected people.
+
+### 1. Install prerequisites
+
+You need:
 
 - Python 3.11 or 3.12
 - PostgreSQL 14 or newer
-- GNU Make for the documented convenience commands, or the equivalent commands directly
-- A Microsoft Entra ID app registration for Teams automation
-- A public HTTPS endpoint for Microsoft Graph change notifications
+- GNU Make
+- A Microsoft Entra ID tenant and permission to register an application
+- ngrok or another stable public HTTPS tunnel for local Graph webhooks
 - Azure OpenAI only if LLM-backed reply analysis is enabled
 
-Docker Engine with Compose can replace the local Python and PostgreSQL requirements.
+On macOS with Homebrew:
 
-## Quick start
+```bash
+brew install python@3.11 postgresql@16 ngrok/ngrok/ngrok
+brew services start postgresql@16
+```
+
+On Linux, install the same packages through your distribution package manager. Docker
+Compose is an alternative to installing Python and PostgreSQL locally; see [Run with
+Docker](#run-with-docker).
+
+### 2. Clone Prism and create a Python environment
 
 ```bash
 git clone https://github.com/oneclarity-ai/prism.git
 cd prism
 cp .env.example .env
-make setup
+python3.11 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements-dev.txt
 ```
 
-Create a local PostgreSQL database and update `DATABASE_URL` in `.env`:
+If your shell does not support `source`, activate the environment using the equivalent
+command for your platform. Every later command using `python`, `alembic`, or `uvicorn`
+should run with `.venv` activated.
+
+### 3. Create or connect to PostgreSQL
+
+For a new local database:
 
 ```bash
 createuser --pwprompt prism
 createdb --owner=prism prism
+```
+
+Set this value in `.env`:
+
+```dotenv
+DATABASE_URL=postgresql+psycopg://prism:<password>@localhost:5432/prism
+```
+
+If the database already exists, keep it and only point `DATABASE_URL` at it. Do not run
+integration tests against a database containing useful data; use a separate test database.
+
+### 4. Configure safe local defaults
+
+Open `.env` and generate the two local secrets:
+
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+Put the first output in `OPERATOR_API_TOKEN` and the second in
+`MICROSOFT_TOKEN_ENCRYPTION_KEY`. Keep these values private and stable. Changing the
+Fernet key later makes already-stored Microsoft tokens unreadable.
+
+Keep these settings while doing the initial setup:
+
+```dotenv
+APP_ENV=development
+INTELLIGENCE_LLM_ENABLED=false
+AUTOMATION_SCHEDULER_ENABLED=false
+MICROSOFT_WEBHOOK_BASE_URL=
+```
+
+Leave the Microsoft and Azure OpenAI values blank until the corresponding setup steps are
+complete. Never commit `.env`.
+
+### 5. Run migrations and start Prism
+
+```bash
 make migrate
 make dev
 ```
 
-Open:
+Open these URLs in the same computer:
 
 - Dashboard: <http://127.0.0.1:8000/dashboard/>
-- OpenAPI: <http://127.0.0.1:8000/docs>
-- Health: <http://127.0.0.1:8000/health>
+- OpenAPI documentation: <http://127.0.0.1:8000/docs>
+- Health check: <http://127.0.0.1:8000/health>
+- Database health check: <http://127.0.0.1:8000/health/db>
 
-The core API and dashboard work without Microsoft or Azure credentials. Teams automation
-remains unavailable until the Microsoft settings are configured.
+At this stage, the dashboard and core API should work without Microsoft credentials. Do not
+start automation yet.
+
+### 6. Register the Microsoft Entra application
+
+Prism uses delegated Microsoft Graph permissions. Messages and email are sent as the
+connected manager account; Prism does not use an application identity to impersonate every
+user.
+
+In the [Microsoft Entra admin center](https://entra.microsoft.com/):
+
+1. Open **Identity > Applications > App registrations** and select **New registration**.
+2. Give the app a local name such as `Prism Local`.
+3. Choose **Accounts in this organizational directory only** (single tenant).
+4. Under **Redirect URI**, choose **Web** and add:
+
+   ```text
+   http://localhost:8000/api/v1/microsoft/auth/callback
+   ```
+
+5. Select **Register** and copy the **Application (client) ID** and **Directory (tenant) ID**.
+6. Open **Certificates & secrets**, create a **new client secret**, and copy its **Value**
+   immediately. Do not use the secret ID; Prism needs the secret value.
+7. Open **API permissions > Add a permission > Microsoft Graph > Delegated permissions**.
+8. Add these permissions:
+
+   ```text
+   User.Read
+   User.Read.All
+   Chat.Create
+   Chat.Read
+   ChatMessage.Send
+   Mail.Send
+   ```
+
+   Prism also requests the standard `openid`, `profile`, and `offline_access` scopes during
+   sign-in so it can identify the connected account and refresh delegated access.
+9. Select **Grant admin consent** if your tenant requires administrator approval. Confirm
+   that the permissions show a green consent status.
+
+Microsoft’s official references are [Register an application](https://learn.microsoft.com/en-us/graph/auth-register-app-v2),
+[Graph permissions](https://learn.microsoft.com/en-us/graph/permissions-reference), and
+[redirect URI guidance](https://learn.microsoft.com/en-us/entra/identity-platform/reply-url).
+
+Copy the values into `.env`:
+
+```dotenv
+MICROSOFT_TENANT_ID=<directory-tenant-id>
+MICROSOFT_CLIENT_ID=<application-client-id>
+MICROSOFT_CLIENT_SECRET=<client-secret-value>
+MICROSOFT_REDIRECT_URI=http://localhost:8000/api/v1/microsoft/auth/callback
+```
+
+Restart Prism after changing `.env`.
+
+### 7. Connect the manager account
+
+1. Open the dashboard and select **Connect Microsoft account**.
+2. Sign in with the manager account that should send Teams messages and email.
+3. Accept the requested delegated permissions.
+4. Confirm that the dashboard shows the connected display name and email.
+
+If Microsoft shows `AADSTS50011`, the redirect URI in Entra does not exactly match
+`MICROSOFT_REDIRECT_URI`, including the scheme, hostname, path, and trailing slash behavior.
+If consent is denied, ask a tenant administrator to grant the configured permissions.
+
+### 8. Import people and choose the managed scope
+
+From the Teams automation panel:
+
+1. Select **Import active directory users**.
+2. Review the imported directory list.
+3. Add only the people Prism is allowed to manage.
+4. Confirm that the managed-people count is correct.
+
+Importing the directory does not send messages. Starting automation sends the first check-in
+only to the explicitly selected managed people.
+
+### 9. Expose the local webhook with ngrok
+
+Microsoft Graph must reach Prism over a public HTTPS URL. Keep Prism running on port `8000`
+and open a second terminal:
+
+```bash
+ngrok config add-authtoken <your-ngrok-auth-token>
+ngrok http 8000
+```
+
+Copy the HTTPS forwarding address, for example:
+
+```text
+https://example.ngrok-free.app
+```
+
+Set only the public origin—without a trailing slash—in `.env`:
+
+```dotenv
+MICROSOFT_WEBHOOK_BASE_URL=https://example.ngrok-free.app
+OPERATOR_API_TOKEN=<the-same-random-token-generated-earlier>
+```
+
+Restart Prism after changing the URL. Prism will create the webhook endpoint at:
+
+```text
+https://example.ngrok-free.app/api/v1/microsoft/teams/webhook
+```
+
+The dashboard’s management APIs are protected whenever a webhook URL is configured. Click
+the key icon in the dashboard and enter the same `OPERATOR_API_TOKEN` value. The token is
+stored in that browser’s local storage and sent as `X-Manager-Operator-Token`.
+
+The default free ngrok URL can change whenever ngrok restarts. If it changes, stop Prism
+automation, update `MICROSOFT_WEBHOOK_BASE_URL`, restart Prism, and start automation again so
+the Graph subscription points to the new URL. A stable reserved domain or deployed HTTPS
+endpoint is recommended for anything beyond local testing.
+
+### 10. Start and verify automation
+
+Before starting, verify:
+
+- Microsoft account is connected.
+- The intended people are the only managed people.
+- ngrok is running and forwards to port `8000`.
+- `MICROSOFT_WEBHOOK_BASE_URL` has no trailing slash.
+- The operator token is entered in the dashboard.
+- You are testing with people who have agreed to receive the messages.
+
+Select **Start automation**. Prism sends the initial Teams message only to the selected
+managed people and creates reply listeners for their direct conversations.
+
+Use this safe first test:
+
+1. Select one test employee.
+2. Start automation.
+3. Confirm that employee receives the check-in.
+4. Reply with a normal work update and confirm Prism acknowledges it.
+5. Reply with a synthetic blocker that names another selected employee.
+6. Confirm Prism contacts that owner and records the dependency.
+7. Stop automation immediately after the test if you do not want scheduled messages.
+
+If the named owner is not part of the active managed run, Prism records the dependency and
+tells the source employee that the owner cannot be contacted in the current run.
+
+### 11. Enable scheduled daily automation
+
+After the manual test succeeds, set the schedule in `.env`:
+
+```dotenv
+AUTOMATION_SCHEDULER_ENABLED=true
+MANAGER_TIMEZONE=Asia/Kolkata
+DAILY_CHECKIN_TIME=10:00
+DAILY_FOLLOWUP_TIME=13:00
+DAILY_DIGEST_TIME=19:30
+```
+
+Restart Prism. The scheduler runs inside the API process, so enable it in only one process.
+It performs morning check-ins, follow-ups, listener renewal, memory consolidation, and the
+end-of-day five-section brief.
+
+The digest email is sent to the connected manager account. `MANAGER_NOTIFICATION_EMAIL` is
+optional and is used for configured manager alert routing; it is not required for the normal
+connected-account digest.
+
+You can send a one-time digest from the dashboard’s **Send digest** button. Use **Run daily
+cycle** only for controlled testing because it can trigger due automation actions.
+
+### 12. Add manager memory and working preferences
+
+Open the dashboard’s memory and knowledge areas to record:
+
+- How the manager prefers updates to be written.
+- What evidence is needed before escalating an issue.
+- How blockers and ownership should be handled.
+- Team working agreements and recurring context.
+- Decision ownership and escalation guidance.
+
+Prism supplies relevant saved context when processing replies. Current messages, explicit
+managed scope, database state, and deterministic validation remain authoritative; saved
+memory cannot directly authorize an out-of-scope message.
+
+### 13. Enable Azure OpenAI analysis (optional)
+
+Prism can run without Azure OpenAI. Enable it only after the deterministic Teams workflow is
+working:
+
+```dotenv
+INTELLIGENCE_LLM_ENABLED=true
+AZURE_OPENAI_ENDPOINT=https://<resource-name>.openai.azure.com
+AZURE_OPENAI_API_KEY=<key>
+AZURE_OPENAI_DEPLOYMENT=<chat-deployment-name>
+AZURE_OPENAI_REASONING_DEPLOYMENT=
+AZURE_OPENAI_API_VERSION=2024-10-21
+```
+
+The deployment names must match deployments in your Azure OpenAI resource. Restart Prism
+after changing these values. `LLM_MODEL_PRICING` is optional and is used only to estimate
+costs in the dashboard; leave it as `{}` if you do not want cost estimates.
+
+Do not place Azure keys in the README, issue reports, screenshots, browser storage, or Git.
+Use a managed secret store for anything beyond local development.
+
+### 14. Troubleshooting
+
+**`ERR_NGROK_8012` or “connection refused”**
+
+The ngrok agent is running, but Prism is not reachable at the forwarded address. Confirm that
+Prism is running on port `8000`, that ngrok uses `ngrok http 8000`, and that the forwarding
+address in `MICROSOFT_WEBHOOK_BASE_URL` matches the currently running tunnel.
+
+**Dashboard returns `401` or `503` for management actions**
+
+Click the dashboard key icon and enter the exact value of `OPERATOR_API_TOKEN`. A `503`
+usually means a public webhook URL or non-development `APP_ENV` is configured but the token
+is blank. Restart Prism after changing `.env`.
+
+**Microsoft returns `AADSTS50011`**
+
+The redirect URI is not an exact match. Check the Entra Web redirect URI and
+`MICROSOFT_REDIRECT_URI` character by character. For same-computer local development, use:
+
+```text
+http://localhost:8000/api/v1/microsoft/auth/callback
+```
+
+**Automation starts but replies are not processed**
+
+Confirm that ngrok is still running, the public webhook URL is current, automation is active,
+and the listener has not expired. Use **Renew listener** for a controlled test, or stop and
+start automation after changing the ngrok URL. Check the dashboard activity and delivery-health
+sections for failed runs.
+
+**Only one person receives a message**
+
+That is expected when only one person is in the managed list at the time automation starts.
+Importing people does not add them to the managed scope; add them explicitly before starting
+the next run.
+
+**The daily email is not received**
+
+Confirm the connected Microsoft account, `Mail.Send` delegated permission, the configured
+timezone and `DAILY_DIGEST_TIME`, and that the scheduler is enabled in exactly one Prism
+process. Use **Send digest** once to test email delivery independently of the schedule.
+
+**Database connection errors**
+
+Confirm PostgreSQL is running, the database exists, the credentials in `DATABASE_URL` are
+correct, and migrations have been applied with `make migrate`.
 
 ## Run with Docker
 
@@ -122,39 +474,15 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
 Never commit `.env`. Changing `MICROSOFT_TOKEN_ENCRYPTION_KEY` without reauthorizing the
 Microsoft connection makes stored tokens unreadable.
 
-## Microsoft Teams setup
-
-Create a single-tenant Entra ID **Web** app registration with this local redirect URI:
-
-```text
-http://localhost:8000/api/v1/microsoft/auth/callback
-```
-
-Grant administrator consent for these delegated Microsoft Graph permissions:
-
-```text
-User.Read
-User.Read.All
-Chat.Create
-Chat.Read
-ChatMessage.Send
-Mail.Send
-```
-
-Set the Microsoft variables in `.env`, expose port `8000` through a public HTTPS URL for
-development, and set that origin as `MICROSOFT_WEBHOOK_BASE_URL`. Restart Prism after a
-configuration change. For production, use a stable HTTPS deployment and a secret manager;
-development tunnels are not a production deployment strategy.
-
-Once connected from the dashboard:
-
-1. Import the directory.
-2. Mark only intended recipients as managed.
-3. Start automation for the selected people.
-4. Verify the first message and reply flow in a test account.
+## Microsoft Graph behavior
 
 Every Graph notification is matched to an active subscription and validated with its
-encrypted `clientState` before Prism fetches or stores the message.
+encrypted `clientState` before Prism fetches or stores the message. Graph subscriptions are
+renewed periodically while automation is running; the dashboard also exposes a manual
+listener-renewal action for controlled testing.
+
+For production, use a stable HTTPS deployment and a managed secret store. An ngrok tunnel is
+intended for local development and testing, not as a production deployment strategy.
 
 ## API and authentication
 
