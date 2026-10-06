@@ -483,12 +483,14 @@ correct, and migrations have been applied with `make migrate`.
 
 ```bash
 cp .env.example .env
+# Set a unique local-only database password in .env before continuing.
+# For example: PRISM_DATABASE_PASSWORD=choose-a-long-local-password
 docker compose up --build
 ```
 
 Compose starts PostgreSQL, applies Alembic migrations, and starts Prism on port `8000`.
-The included password is for local development only. Replace it before using a persistent
-or remotely reachable environment.
+Compose deliberately refuses to start until `PRISM_DATABASE_PASSWORD` is set in `.env`.
+Choose a unique local password; do not use a default value or commit `.env`.
 
 Stop the services with `docker compose down`. Add `--volumes` only when you intentionally
 want to delete the local PostgreSQL data volume.
@@ -624,6 +626,4 @@ boundaries. Changes are recorded in [CHANGELOG.md](CHANGELOG.md).
 
 ## Licence
 
-No open-source licence has been selected yet. Until the copyright holder adds a licence,
-the code is source-available for review but is **not** granted for use, modification, or
-redistribution. Selecting and adding a licence is a blocker for the first public release.
+Prism is licensed under the [MIT License](LICENSE).

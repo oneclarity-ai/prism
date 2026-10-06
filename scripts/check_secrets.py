@@ -1,4 +1,4 @@
-"""Fail when tracked files contain common high-confidence secret formats."""
+"""Fail when versioned or nonignored files contain likely credentials."""
 
 from __future__ import annotations
 
@@ -14,6 +14,48 @@ PATTERNS = {
     "AWS access key": re.compile(r"\b(?:AKIA|ASIA)[0-9A-Z]{16}\b"),
     "Slack token": re.compile(r"\bxox[baprs]-[A-Za-z0-9-]{20,}\b"),
 }
+SENSITIVE_ASSIGNMENT_KEYS = {
+    "AZURE_OPENAI_API_KEY",
+    "MICROSOFT_CLIENT_SECRET",
+    "MICROSOFT_TOKEN_ENCRYPTION_KEY",
+    "OPERATOR_API_TOKEN",
+}
+SAFE_PLACEHOLDERS = {
+    "",
+    "change-me",
+    "replace-with-a-local-password",
+}
+
+
+def is_safe_placeholder(value: str) -> bool:
+    """Return whether an example value cannot authenticate to a service."""
+
+    normalized = value.casefold()
+    return (
+        value in SAFE_PLACEHOLDERS
+        or normalized in {"fake", "test", "example", "dummy"}
+        or normalized.startswith(("fake-", "test-", "example-", "dummy-"))
+        or (value.startswith("<") and value.endswith(">"))
+    )
+
+
+def assignment_findings(content: str) -> list[tuple[int, str]]:
+    """Find populated sensitive environment settings outside safe examples."""
+
+    findings: list[tuple[int, str]] = []
+    for line_number, line in enumerate(content.splitlines(), start=1):
+        match = re.match(r"\s*([A-Z][A-Z0-9_]*)=(.*)\s*$", line)
+        if not match:
+            continue
+        key, value = match.groups()
+        value = value.strip().rstrip(",").strip().strip('"').strip("'")
+        if key in SENSITIVE_ASSIGNMENT_KEYS and not is_safe_placeholder(value):
+            findings.append((line_number, f"configured {key}"))
+        if key == "DATABASE_URL" and "://" in value:
+            password_match = re.search(r"://[^:@/\s]+:([^@/\s]+)@", value)
+            if password_match and not is_safe_placeholder(password_match.group(1)):
+                findings.append((line_number, "configured DATABASE_URL password"))
+    return findings
 
 
 def tracked_files() -> list[Path]:
@@ -37,12 +79,14 @@ def main() -> int:
             for match in pattern.finditer(content):
                 line = content.count("\n", 0, match.start()) + 1
                 findings.append(f"{path.relative_to(ROOT)}:{line}: possible {name}")
+        for line, description in assignment_findings(content):
+            findings.append(f"{path.relative_to(ROOT)}:{line}: possible {description}")
 
     if findings:
         print("Potential secrets found in tracked files:")
         print("\n".join(findings))
         return 1
-    print("No high-confidence secret patterns found in tracked files.")
+    print("No likely credentials found in versioned or nonignored files.")
     return 0
 
 

@@ -4,7 +4,7 @@ services:
     environment:
       POSTGRES_DB: prism
       POSTGRES_USER: prism
-      POSTGRES_PASSWORD: ${PRISM_DATABASE_PASSWORD:-change-me}
+      POSTGRES_PASSWORD: ${PRISM_DATABASE_PASSWORD:?Set PRISM_DATABASE_PASSWORD in .env before starting Compose}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U prism -d prism"]
       interval: 5s
@@ -18,7 +18,7 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql+psycopg://prism:${PRISM_DATABASE_PASSWORD:-change-me}@db:5432/prism
+      DATABASE_URL: postgresql+psycopg://prism:${PRISM_DATABASE_PASSWORD:?Set PRISM_DATABASE_PASSWORD in .env before starting Compose}@db:5432/prism
     command: >-
       sh -c "alembic upgrade head &&
       uvicorn app.main:app --host 0.0.0.0 --port 8000"

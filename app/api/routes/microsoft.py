@@ -77,7 +77,7 @@ def complete_microsoft_authentication(
 
 @router.post("/directory/sync", response_model=DirectorySyncResult)
 def sync_active_organization_users(db: Session = Depends(get_db)) -> DirectorySyncResult:
-    """Import/update active the organization directory users. It never starts messaging them."""
+    """Import or update active directory users in the organization without messaging them."""
 
     return MicrosoftDirectoryService.sync_active_users(db)
 

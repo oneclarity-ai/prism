@@ -9,7 +9,8 @@ def test_dashboard_is_served() -> None:
     assert response.status_code == 200
     assert "Prism" in response.text
     assert "Today's AI cost" in response.text
-    assert "family=Geist" in response.text
+    assert "/dashboard/styles.css" in response.text
+    assert "fonts.googleapis.com" not in response.text
     assert "Teams automation" in response.text
     assert "Start automation" in response.text
     assert "Connect Microsoft account" in response.text

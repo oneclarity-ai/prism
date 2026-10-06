@@ -938,6 +938,6 @@ setTheme(localStorage.getItem("manager-agent-theme") || (window.matchMedia("(pre
 document.querySelectorAll("[data-tab-target]").forEach((button) => button.addEventListener("click", () => setActiveTab(button.dataset.tabTarget)));
 setActiveTab(state.activeTab);
 const microsoftResult = new URLSearchParams(window.location.search);
-if (microsoftResult.get("microsoft") === "connected") setStatus("Microsoft account connected. Import your the organization directory next.");
+if (microsoftResult.get("microsoft") === "connected") setStatus("Microsoft account connected. Import your organization directory next.");
 if (microsoftResult.get("microsoft_error")) setStatus(microsoftResult.get("microsoft_error"), true);
 loadDashboard();
