@@ -31,7 +31,9 @@ class MicrosoftConnection(TimestampMixin, Base):
     display_name: Mapped[str] = mapped_column(String(255), nullable=False)
     encrypted_access_token: Mapped[str] = mapped_column(Text, nullable=False)
     encrypted_refresh_token: Mapped[str] = mapped_column(Text, nullable=False)
-    access_token_expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    access_token_expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
     granted_scopes: Mapped[str] = mapped_column(Text, nullable=False)
     last_connected_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

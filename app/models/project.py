@@ -24,7 +24,10 @@ class Project(TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(255), index=True, nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text)
     status: Mapped[ProjectStatus] = mapped_column(
-        Enum(ProjectStatus, name="project_status"), default=ProjectStatus.PLANNING, nullable=False, index=True
+        Enum(ProjectStatus, name="project_status"),
+        default=ProjectStatus.PLANNING,
+        nullable=False,
+        index=True,
     )
     priority: Mapped[Priority] = mapped_column(
         Enum(Priority, name="priority"), default=Priority.MEDIUM, nullable=False, index=True

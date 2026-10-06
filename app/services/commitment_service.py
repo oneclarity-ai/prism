@@ -58,12 +58,18 @@ class CommitmentService:
         limit: int,
         offset: int,
     ) -> tuple[list[Commitment], int]:
-        statement = (select(Commitment).join(Employee, Employee.id == Commitment.employee_id)
-                     .where(Employee.is_active.is_(True))
-                     .order_by(Commitment.deadline, Commitment.created_at))
-        count_statement = (select(func.count()).select_from(Commitment)
-                           .join(Employee, Employee.id == Commitment.employee_id)
-                           .where(Employee.is_active.is_(True)))
+        statement = (
+            select(Commitment)
+            .join(Employee, Employee.id == Commitment.employee_id)
+            .where(Employee.is_active.is_(True))
+            .order_by(Commitment.deadline, Commitment.created_at)
+        )
+        count_statement = (
+            select(func.count())
+            .select_from(Commitment)
+            .join(Employee, Employee.id == Commitment.employee_id)
+            .where(Employee.is_active.is_(True))
+        )
         filters = [
             (Commitment.status, status),
             (Commitment.employee_id, employee_id),
@@ -74,12 +80,12 @@ class CommitmentService:
             if value is not None:
                 statement = statement.where(column == value)
                 count_statement = count_statement.where(column == value)
-        return list(db.scalars(statement.limit(limit).offset(offset))), db.scalar(count_statement) or 0
+        return list(db.scalars(statement.limit(limit).offset(offset))), db.scalar(
+            count_statement
+        ) or 0
 
     @staticmethod
-    def mark_missed(
-        db: Session, commitment_id: uuid.UUID, reason: str | None = None
-    ) -> Commitment:
+    def mark_missed(db: Session, commitment_id: uuid.UUID, reason: str | None = None) -> Commitment:
         commitment = CommitmentService.get(db, commitment_id)
         if commitment.status != CommitmentStatus.OPEN:
             raise RuleViolationError("Only open commitments can be marked missed")
@@ -107,7 +113,11 @@ class CommitmentService:
 
     @staticmethod
     def revise(
-        db: Session, commitment_id: uuid.UUID, data: CommitmentRevisionCreate, *, commit: bool = True
+        db: Session,
+        commitment_id: uuid.UUID,
+        data: CommitmentRevisionCreate,
+        *,
+        commit: bool = True,
     ) -> Commitment:
         original = CommitmentService.get(db, commitment_id)
         if original.status != CommitmentStatus.MISSED:
@@ -115,7 +125,9 @@ class CommitmentService:
         if original.missed_at is None:
             raise RuleViolationError("A missed commitment must have a recorded missed timestamp")
         if data.deadline <= original.deadline:
-            raise RuleViolationError("A revised ETA must be later than the original commitment deadline")
+            raise RuleViolationError(
+                "A revised ETA must be later than the original commitment deadline"
+            )
 
         CommitmentService._validate_links(
             db, original.employee_id, original.task_id, original.blocker_id
@@ -191,7 +203,9 @@ class CommitmentService:
         )
         if not overdue:
             return []
-        previous = {commitment.id: CommitmentService._snapshot(commitment) for commitment in overdue}
+        previous = {
+            commitment.id: CommitmentService._snapshot(commitment) for commitment in overdue
+        }
         for commitment in overdue:
             commitment.status = CommitmentStatus.MISSED
             commitment.missed_at = check_time
@@ -261,7 +275,9 @@ class CommitmentService:
             if task is None:
                 raise NotFoundError("Task was not found")
             if task.status in [TaskStatus.DONE, TaskStatus.CANCELLED]:
-                raise RuleViolationError("A completed or cancelled task cannot receive a new commitment")
+                raise RuleViolationError(
+                    "A completed or cancelled task cannot receive a new commitment"
+                )
         if blocker_id is not None:
             blocker = db.get(Blocker, blocker_id)
             if blocker is None:
@@ -271,7 +287,9 @@ class CommitmentService:
             if blocker.dependency_owner_ids and employee_id not in blocker.dependency_owner_ids:
                 raise RuleViolationError("Blocker commitments must belong to the dependency owner")
         if task is not None and blocker is not None and blocker.task_id not in (None, task.id):
-            raise RuleViolationError("Commitment task and blocker links must refer to the same task")
+            raise RuleViolationError(
+                "Commitment task and blocker links must refer to the same task"
+            )
 
     @staticmethod
     def _snapshot(commitment: Commitment) -> dict[str, object]:

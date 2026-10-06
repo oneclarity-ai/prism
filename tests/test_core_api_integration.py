@@ -64,14 +64,21 @@ def test_employee_project_task_workflow() -> None:
         assert client.get("/api/v1/employees/{}".format(employee_id)).json()["aliases"] == [
             "Teammate-{}".format(suffix)
         ]
-        assert client.delete(
-            "/api/v1/employees/{}/aliases/{}".format(employee_id, alias_response.json()["id"])
-        ).status_code == 204
+        assert (
+            client.delete(
+                "/api/v1/employees/{}/aliases/{}".format(employee_id, alias_response.json()["id"])
+            ).status_code
+            == 204
+        )
         assert client.get("/api/v1/employees/{}/aliases".format(employee_id)).json() == []
 
         project_response = client.post(
             "/api/v1/projects",
-            json={"name": "Integration Project", "owner_id": employee_id, "target_date": "2026-12-31"},
+            json={
+                "name": "Integration Project",
+                "owner_id": employee_id,
+                "target_date": "2026-12-31",
+            },
         )
         assert project_response.status_code == 201
         project_id = project_response.json()["id"]
@@ -101,12 +108,27 @@ def test_employee_project_task_workflow() -> None:
         )
         assert daily_update_response.status_code == 201
         daily_update_id = daily_update_response.json()["id"]
-        assert daily_update_response.json()["expected_outcome"] == "A tested workflow running in staging"
-        assert client.get("/api/v1/daily-updates/{}".format(daily_update_id)).json()["expected_outcome"] == "A tested workflow running in staging"
-        assert client.post(
-            "/api/v1/daily-updates",
-            json={"employee_id": employee_id, "update_date": "2026-12-01", "today_summary": "Duplicate"},
-        ).status_code == 409
+        assert (
+            daily_update_response.json()["expected_outcome"]
+            == "A tested workflow running in staging"
+        )
+        assert (
+            client.get("/api/v1/daily-updates/{}".format(daily_update_id)).json()[
+                "expected_outcome"
+            ]
+            == "A tested workflow running in staging"
+        )
+        assert (
+            client.post(
+                "/api/v1/daily-updates",
+                json={
+                    "employee_id": employee_id,
+                    "update_date": "2026-12-01",
+                    "today_summary": "Duplicate",
+                },
+            ).status_code
+            == 409
+        )
 
         blocker_response = client.post(
             "/api/v1/blockers",
@@ -121,24 +143,39 @@ def test_employee_project_task_workflow() -> None:
         assert blocker_response.status_code == 201
         blocker_id = blocker_response.json()["id"]
         assert client.get("/api/v1/tasks/{}".format(task_id)).json()["status"] == "blocked"
-        assert client.patch(
-            "/api/v1/tasks/{}".format(task_id), json={"status": "in_progress"}
-        ).status_code == 422
-        assert client.patch(
-            "/api/v1/blockers/{}".format(blocker_id), json={"status": "resolved"}
-        ).status_code == 200
-        assert client.patch(
-            "/api/v1/tasks/{}".format(task_id), json={"status": "in_progress"}
-        ).status_code == 200
+        assert (
+            client.patch(
+                "/api/v1/tasks/{}".format(task_id), json={"status": "in_progress"}
+            ).status_code
+            == 422
+        )
+        assert (
+            client.patch(
+                "/api/v1/blockers/{}".format(blocker_id), json={"status": "resolved"}
+            ).status_code
+            == 200
+        )
+        assert (
+            client.patch(
+                "/api/v1/tasks/{}".format(task_id), json={"status": "in_progress"}
+            ).status_code
+            == 200
+        )
 
-        assert client.patch(
-            "/api/v1/tasks/{}".format(task_id),
-            json={"deadline": "2026-12-02T09:00:00Z"},
-        ).status_code == 422
-        assert client.patch(
-            "/api/v1/projects/{}".format(project_id),
-            json={"target_date": "2027-01-15"},
-        ).status_code == 422
+        assert (
+            client.patch(
+                "/api/v1/tasks/{}".format(task_id),
+                json={"deadline": "2026-12-02T09:00:00Z"},
+            ).status_code
+            == 422
+        )
+        assert (
+            client.patch(
+                "/api/v1/projects/{}".format(project_id),
+                json={"target_date": "2027-01-15"},
+            ).status_code
+            == 422
+        )
 
         tasks_response = client.get("/api/v1/tasks", params={"owner_id": employee_id})
         assert tasks_response.status_code == 200

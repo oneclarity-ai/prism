@@ -7,7 +7,12 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models.enums import ActivityEventType, EscalationDecisionType, EscalationStatus, EscalationType
+from app.models.enums import (
+    ActivityEventType,
+    EscalationDecisionType,
+    EscalationStatus,
+    EscalationType,
+)
 from app.models.escalation import Escalation
 from app.models.escalation_decision import EscalationDecision
 from app.models.task import Task
@@ -16,8 +21,7 @@ from app.services.common import get_active_employee, get_employee, get_project, 
 from app.services.errors import ConflictError, NotFoundError, RuleViolationError
 from app.services.memory_service import MemoryService
 
-
-YASH_APPROVAL_TYPES = {
+MANAGER_APPROVAL_TYPES = {
     EscalationType.ARCHITECTURE_CHANGE,
     EscalationType.PROJECT_DEADLINE_CHANGE,
     EscalationType.PRODUCTION_DEPLOYMENT,
@@ -32,17 +36,26 @@ class EscalationService:
     def create(db: Session, data: EscalationCreate) -> Escalation:
         EscalationService._validate_links(db, data.employee_id, data.project_id, data.task_id)
         payload = data.model_dump()
-        requires_approval = bool(data.requires_yash_approval or data.escalation_type in YASH_APPROVAL_TYPES)
-        payload["requires_yash_approval"] = requires_approval
-        payload["status"] = EscalationStatus.PENDING_APPROVAL if requires_approval else EscalationStatus.OPEN
+        requires_approval = bool(
+            data.requires_manager_approval or data.escalation_type in MANAGER_APPROVAL_TYPES
+        )
+        payload["requires_manager_approval"] = requires_approval
+        payload["status"] = (
+            EscalationStatus.PENDING_APPROVAL if requires_approval else EscalationStatus.OPEN
+        )
         escalation = Escalation(**payload)
         db.add(escalation)
         try:
             db.flush()
             MemoryService.record_transition(
-                db, event_type=ActivityEventType.ESCALATION_CREATED, entity_type="escalation",
-                entity_id=escalation.id, previous=None, current=EscalationService._snapshot(escalation),
-                subject_employee_id=escalation.employee_id, project_id=escalation.project_id,
+                db,
+                event_type=ActivityEventType.ESCALATION_CREATED,
+                entity_type="escalation",
+                entity_id=escalation.id,
+                previous=None,
+                current=EscalationService._snapshot(escalation),
+                subject_employee_id=escalation.employee_id,
+                project_id=escalation.project_id,
                 task_id=escalation.task_id,
             )
             db.commit()
@@ -62,43 +75,75 @@ class EscalationService:
     @staticmethod
     def decisions(db: Session, escalation_id: uuid.UUID) -> list[EscalationDecision]:
         EscalationService.get(db, escalation_id)
-        return list(db.scalars(select(EscalationDecision).where(
-            EscalationDecision.escalation_id == escalation_id
-        ).order_by(EscalationDecision.decided_at)))
+        return list(
+            db.scalars(
+                select(EscalationDecision)
+                .where(EscalationDecision.escalation_id == escalation_id)
+                .order_by(EscalationDecision.decided_at)
+            )
+        )
 
     @staticmethod
-    def list(db: Session, *, status: EscalationStatus | None, employee_id: uuid.UUID | None,
-             project_id: uuid.UUID | None, task_id: uuid.UUID | None,
-             requires_yash_approval: bool | None, limit: int, offset: int) -> tuple[list[Escalation], int]:
+    def list(
+        db: Session,
+        *,
+        status: EscalationStatus | None,
+        employee_id: uuid.UUID | None,
+        project_id: uuid.UUID | None,
+        task_id: uuid.UUID | None,
+        requires_manager_approval: bool | None,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[Escalation], int]:
         statement = select(Escalation).order_by(Escalation.created_at.desc(), Escalation.id)
         count_statement = select(func.count()).select_from(Escalation)
         for column, value in [
-            (Escalation.status, status), (Escalation.employee_id, employee_id),
-            (Escalation.project_id, project_id), (Escalation.task_id, task_id),
-            (Escalation.requires_yash_approval, requires_yash_approval),
+            (Escalation.status, status),
+            (Escalation.employee_id, employee_id),
+            (Escalation.project_id, project_id),
+            (Escalation.task_id, task_id),
+            (Escalation.requires_manager_approval, requires_manager_approval),
         ]:
             if value is not None:
                 statement = statement.where(column == value)
                 count_statement = count_statement.where(column == value)
-        return list(db.scalars(statement.limit(limit).offset(offset))), db.scalar(count_statement) or 0
+        return list(db.scalars(statement.limit(limit).offset(offset))), db.scalar(
+            count_statement
+        ) or 0
 
     @staticmethod
-    def approve(db: Session, escalation_id: uuid.UUID, data: EscalationDecisionCreate) -> Escalation:
+    def approve(
+        db: Session, escalation_id: uuid.UUID, data: EscalationDecisionCreate
+    ) -> Escalation:
         escalation = EscalationService.get(db, escalation_id)
         EscalationService._require_pending_approval(escalation)
         approver = get_active_employee(db, data.decided_by)
         action = EscalationService._authorized_action_for(escalation, data.authorized_action)
         previous = EscalationService._snapshot(escalation)
         escalation.status = EscalationStatus.APPROVED
-        db.add(EscalationDecision(escalation_id=escalation.id, decision=EscalationDecisionType.APPROVED,
-                                  decided_by=approver.id, reason=data.reason, authorized_action=action))
+        db.add(
+            EscalationDecision(
+                escalation_id=escalation.id,
+                decision=EscalationDecisionType.APPROVED,
+                decided_by=approver.id,
+                reason=data.reason,
+                authorized_action=action,
+            )
+        )
         try:
             db.flush()
             MemoryService.record_transition(
-                db, event_type=ActivityEventType.ESCALATION_APPROVED, entity_type="escalation",
-                entity_id=escalation.id, previous=previous, current=EscalationService._snapshot(escalation),
-                subject_employee_id=escalation.employee_id, actor_employee_id=approver.id,
-                project_id=escalation.project_id, task_id=escalation.task_id, reason=data.reason,
+                db,
+                event_type=ActivityEventType.ESCALATION_APPROVED,
+                entity_type="escalation",
+                entity_id=escalation.id,
+                previous=previous,
+                current=EscalationService._snapshot(escalation),
+                subject_employee_id=escalation.employee_id,
+                actor_employee_id=approver.id,
+                project_id=escalation.project_id,
+                task_id=escalation.task_id,
+                reason=data.reason,
             )
             EscalationService._execute_authorized_action(db, escalation, approver.id, data.reason)
             db.commit()
@@ -115,15 +160,29 @@ class EscalationService:
         decider = get_active_employee(db, data.decided_by)
         previous = EscalationService._snapshot(escalation)
         escalation.status = EscalationStatus.REJECTED
-        db.add(EscalationDecision(escalation_id=escalation.id, decision=EscalationDecisionType.REJECTED,
-                                  decided_by=decider.id, reason=data.reason, authorized_action=None))
+        db.add(
+            EscalationDecision(
+                escalation_id=escalation.id,
+                decision=EscalationDecisionType.REJECTED,
+                decided_by=decider.id,
+                reason=data.reason,
+                authorized_action=None,
+            )
+        )
         try:
             db.flush()
             MemoryService.record_transition(
-                db, event_type=ActivityEventType.ESCALATION_REJECTED, entity_type="escalation",
-                entity_id=escalation.id, previous=previous, current=EscalationService._snapshot(escalation),
-                subject_employee_id=escalation.employee_id, actor_employee_id=decider.id,
-                project_id=escalation.project_id, task_id=escalation.task_id, reason=data.reason,
+                db,
+                event_type=ActivityEventType.ESCALATION_REJECTED,
+                entity_type="escalation",
+                entity_id=escalation.id,
+                previous=previous,
+                current=EscalationService._snapshot(escalation),
+                subject_employee_id=escalation.employee_id,
+                actor_employee_id=decider.id,
+                project_id=escalation.project_id,
+                task_id=escalation.task_id,
+                reason=data.reason,
             )
             db.commit()
         except IntegrityError as exc:
@@ -141,9 +200,15 @@ class EscalationService:
         escalation.status = EscalationStatus.ACKNOWLEDGED
         db.flush()
         MemoryService.record_transition(
-            db, event_type=ActivityEventType.ESCALATION_ACKNOWLEDGED, entity_type="escalation",
-            entity_id=escalation.id, previous=previous, current=EscalationService._snapshot(escalation),
-            subject_employee_id=escalation.employee_id, project_id=escalation.project_id, task_id=escalation.task_id,
+            db,
+            event_type=ActivityEventType.ESCALATION_ACKNOWLEDGED,
+            entity_type="escalation",
+            entity_id=escalation.id,
+            previous=previous,
+            current=EscalationService._snapshot(escalation),
+            subject_employee_id=escalation.employee_id,
+            project_id=escalation.project_id,
+            task_id=escalation.task_id,
         )
         db.commit()
         db.refresh(escalation)
@@ -155,35 +220,53 @@ class EscalationService:
         if escalation.status in {EscalationStatus.RESOLVED, EscalationStatus.REJECTED}:
             raise RuleViolationError("Only active escalations can be resolved")
         if escalation.status == EscalationStatus.PENDING_APPROVAL:
-            raise RuleViolationError("A pending approval must be approved or rejected before resolution")
+            raise RuleViolationError(
+                "A pending approval must be approved or rejected before resolution"
+            )
         previous = EscalationService._snapshot(escalation)
         escalation.status = EscalationStatus.RESOLVED
         escalation.resolved_at = datetime.now(timezone.utc)
         db.flush()
         MemoryService.record_transition(
-            db, event_type=ActivityEventType.ESCALATION_RESOLVED, entity_type="escalation",
-            entity_id=escalation.id, previous=previous, current=EscalationService._snapshot(escalation),
-            subject_employee_id=escalation.employee_id, project_id=escalation.project_id, task_id=escalation.task_id,
+            db,
+            event_type=ActivityEventType.ESCALATION_RESOLVED,
+            entity_type="escalation",
+            entity_id=escalation.id,
+            previous=previous,
+            current=EscalationService._snapshot(escalation),
+            subject_employee_id=escalation.employee_id,
+            project_id=escalation.project_id,
+            task_id=escalation.task_id,
         )
         db.commit()
         db.refresh(escalation)
         return escalation
 
     @staticmethod
-    def _execute_authorized_action(db: Session, escalation: Escalation, actor_employee_id: uuid.UUID, reason: str) -> None:
+    def _execute_authorized_action(
+        db: Session, escalation: Escalation, actor_employee_id: uuid.UUID, reason: str
+    ) -> None:
         """Apply the only protected V1 mutations in the approval transaction."""
         if escalation.escalation_type == EscalationType.PROJECT_DEADLINE_CHANGE:
             if escalation.project is None or escalation.requested_target_date is None:
-                raise RuleViolationError("Project deadline approval is missing its requested target date")
+                raise RuleViolationError(
+                    "Project deadline approval is missing its requested target date"
+                )
             project = escalation.project
             validate_date_range(project.start_date, escalation.requested_target_date)
             previous = {"target_date": project.target_date}
             project.target_date = escalation.requested_target_date
             db.flush()
             MemoryService.record_transition(
-                db, event_type=ActivityEventType.PROJECT_TARGET_DATE_CHANGED, entity_type="project", entity_id=project.id,
-                previous=previous, current={"target_date": project.target_date}, actor_employee_id=actor_employee_id,
-                project_id=project.id, reason=reason,
+                db,
+                event_type=ActivityEventType.PROJECT_TARGET_DATE_CHANGED,
+                entity_type="project",
+                entity_id=project.id,
+                previous=previous,
+                current={"target_date": project.target_date},
+                actor_employee_id=actor_employee_id,
+                project_id=project.id,
+                reason=reason,
             )
         elif escalation.escalation_type == EscalationType.APPROVAL_REQUIRED and escalation.task_id:
             if escalation.requested_deadline is None:
@@ -195,9 +278,17 @@ class EscalationService:
             task.deadline = escalation.requested_deadline
             db.flush()
             MemoryService.record_transition(
-                db, event_type=ActivityEventType.TASK_DEADLINE_CHANGED, entity_type="task", entity_id=task.id,
-                previous=previous, current={"deadline": task.deadline}, subject_employee_id=task.owner_id,
-                actor_employee_id=actor_employee_id, project_id=task.project_id, task_id=task.id, reason=reason,
+                db,
+                event_type=ActivityEventType.TASK_DEADLINE_CHANGED,
+                entity_type="task",
+                entity_id=task.id,
+                previous=previous,
+                current={"deadline": task.deadline},
+                subject_employee_id=task.owner_id,
+                actor_employee_id=actor_employee_id,
+                project_id=task.project_id,
+                task_id=task.id,
+                reason=reason,
             )
 
     @staticmethod
@@ -213,14 +304,18 @@ class EscalationService:
 
     @staticmethod
     def _require_pending_approval(escalation: Escalation) -> None:
-        if not escalation.requires_yash_approval:
+        if not escalation.requires_manager_approval:
             raise RuleViolationError("This escalation does not require an approval decision")
         if escalation.status != EscalationStatus.PENDING_APPROVAL:
             raise RuleViolationError("Only pending approvals can be decided")
 
     @staticmethod
-    def _validate_links(db: Session, employee_id: uuid.UUID | None, project_id: uuid.UUID | None,
-                        task_id: uuid.UUID | None) -> None:
+    def _validate_links(
+        db: Session,
+        employee_id: uuid.UUID | None,
+        project_id: uuid.UUID | None,
+        task_id: uuid.UUID | None,
+    ) -> None:
         if employee_id is not None:
             get_employee(db, employee_id)
         if project_id is not None:
@@ -231,7 +326,9 @@ class EscalationService:
     @staticmethod
     def _snapshot(escalation: Escalation) -> dict[str, object]:
         return {
-            "status": escalation.status, "requires_yash_approval": escalation.requires_yash_approval,
+            "status": escalation.status,
+            "requires_manager_approval": escalation.requires_manager_approval,
             "requested_target_date": escalation.requested_target_date,
-            "requested_deadline": escalation.requested_deadline, "resolved_at": escalation.resolved_at,
+            "requested_deadline": escalation.requested_deadline,
+            "resolved_at": escalation.resolved_at,
         }

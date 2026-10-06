@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query, status
-from sqlalchemy import or_, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -15,9 +15,9 @@ from app.schemas.intelligence import (
     ChangeRead,
     DailyBrief,
     DecisionRead,
-    DependencyGraphRead,
     DependencyEdgeCreate,
     DependencyEdgeRead,
+    DependencyGraphRead,
     EmployeeManagementState,
     IntelligenceCycleResult,
     ManagementQueryAnswer,
@@ -36,7 +36,6 @@ from app.services.management_state_service import ManagementStateService
 from app.services.manager_feedback_service import ManagerFeedbackService
 from app.services.risk_intelligence_service import RiskIntelligenceService
 from app.services.temporal_memory_service import TemporalMemoryService
-
 
 router = APIRouter(prefix="/api/v2/management", tags=["management intelligence"])
 
@@ -68,15 +67,26 @@ def dependency_graph(include_resolved: bool = False, db: Session = Depends(get_d
     return DependencyGraphService.graph(db, include_resolved=include_resolved)
 
 
-@router.post("/dependencies", response_model=DependencyEdgeRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/dependencies", response_model=DependencyEdgeRead, status_code=status.HTTP_201_CREATED
+)
 def create_dependency(payload: DependencyEdgeCreate, db: Session = Depends(get_db)):
     edge = DependencyGraphService.create(db, payload)
     return DependencyEdgeRead(
-        id=edge.id, source_entity_type=edge.source_entity_type, source_entity_id=edge.source_entity_id,
-        target_entity_type=edge.target_entity_type, target_entity_id=edge.target_entity_id,
-        relation_type=edge.relation_type, status=edge.status, blocker_id=edge.blocker_id,
-        task_id=edge.task_id, project_id=edge.project_id, valid_from=edge.valid_from,
-        valid_until=edge.valid_until, confidence=edge.confidence, reopened_from_id=edge.reopened_from_id,
+        id=edge.id,
+        source_entity_type=edge.source_entity_type,
+        source_entity_id=edge.source_entity_id,
+        target_entity_type=edge.target_entity_type,
+        target_entity_id=edge.target_entity_id,
+        relation_type=edge.relation_type,
+        status=edge.status,
+        blocker_id=edge.blocker_id,
+        task_id=edge.task_id,
+        project_id=edge.project_id,
+        valid_from=edge.valid_from,
+        valid_until=edge.valid_until,
+        confidence=edge.confidence,
+        reopened_from_id=edge.reopened_from_id,
         evidence=([f"message:{edge.source_message_id}"] if edge.source_message_id else []),
     )
 
@@ -84,13 +94,21 @@ def create_dependency(payload: DependencyEdgeCreate, db: Session = Depends(get_d
 @router.post("/dependencies/{edge_id}/resolve", response_model=DependencyEdgeRead)
 def resolve_dependency(edge_id: uuid.UUID, db: Session = Depends(get_db)):
     edge = DependencyGraphService.resolve(db, edge_id)
-    return next(item for item in DependencyGraphService.edges(db, include_resolved=True) if item.id == edge.id)
+    return next(
+        item
+        for item in DependencyGraphService.edges(db, include_resolved=True)
+        if item.id == edge.id
+    )
 
 
 @router.post("/dependencies/{edge_id}/reopen", response_model=DependencyEdgeRead)
 def reopen_dependency(edge_id: uuid.UUID, db: Session = Depends(get_db)):
     edge = DependencyGraphService.reopen(db, edge_id)
-    return next(item for item in DependencyGraphService.edges(db, include_resolved=True) if item.id == edge.id)
+    return next(
+        item
+        for item in DependencyGraphService.edges(db, include_resolved=True)
+        if item.id == edge.id
+    )
 
 
 @router.get("/dependencies/{entity_type}/{entity_id}/impact")
@@ -110,9 +128,13 @@ def refresh_risks(db: Session = Depends(get_db)):
 
 @router.get("/risks", response_model=list[RiskRead])
 def risks(status_filter: str = Query("active", alias="status"), db: Session = Depends(get_db)):
-    return list(db.scalars(select(ManagementRisk).where(
-        ManagementRisk.status == status_filter
-    ).order_by(ManagementRisk.last_evaluated_at.desc())))
+    return list(
+        db.scalars(
+            select(ManagementRisk)
+            .where(ManagementRisk.status == status_filter)
+            .order_by(ManagementRisk.last_evaluated_at.desc())
+        )
+    )
 
 
 @router.get("/decisions", response_model=list[DecisionRead])
@@ -151,8 +173,13 @@ def changes(
     db: Session = Depends(get_db),
 ):
     return ChangeIntelligenceService.changes(
-        db, since=since, until=until, employee_id=employee_id,
-        project_id=project_id, entity_type=entity_type, limit=limit,
+        db,
+        since=since,
+        until=until,
+        employee_id=employee_id,
+        project_id=project_id,
+        entity_type=entity_type,
+        limit=limit,
     )
 
 

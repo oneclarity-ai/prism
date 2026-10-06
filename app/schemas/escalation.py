@@ -23,7 +23,7 @@ class EscalationCreate(Schema):
     project_id: Optional[uuid.UUID] = None
     task_id: Optional[uuid.UUID] = None
     context: Optional[str] = None
-    requires_yash_approval: bool = False
+    requires_manager_approval: bool = False
     requested_target_date: Optional[date] = None
     requested_deadline: Optional[datetime] = None
 
@@ -56,7 +56,7 @@ class EscalationRead(ORMResponse):
     requested_target_date: Optional[date]
     requested_deadline: Optional[datetime]
     status: EscalationStatus
-    requires_yash_approval: bool
+    requires_manager_approval: bool
     created_at: datetime
     resolved_at: Optional[datetime]
     updated_at: datetime

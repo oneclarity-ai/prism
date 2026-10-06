@@ -277,7 +277,7 @@ function renderTeamsActivity(messages) {
 }
 
 function renderAgentHealth(runs) {
-  const actionable = runs.filter((run) => run.status === "failed" || run.status === "pending" || run.needs_yash_review);
+  const actionable = runs.filter((run) => run.status === "failed" || run.status === "pending" || run.needs_manager_review);
   $("#agent-health-count").textContent = actionable.length;
   renderList("#agent-health-list", actionable, (run) => {
     const employee = nameFor(run.source_employee_id);
@@ -377,7 +377,7 @@ function renderTeamsAutomation() {
   $("#managed-people-count").textContent = managedEmployees.length;
   $("#available-people-count").textContent = availableEmployees.length;
   renderList("#managed-team-list", managedEmployees, teamMember, "No people selected yet.");
-  renderList("#available-team-list", availableEmployees, teamMember, "Everyone imported from Softtrine is already managed.");
+  renderList("#available-team-list", availableEmployees, teamMember, "Everyone imported from the organization is already managed.");
 }
 
 async function loadDashboard() {
@@ -938,6 +938,6 @@ setTheme(localStorage.getItem("manager-agent-theme") || (window.matchMedia("(pre
 document.querySelectorAll("[data-tab-target]").forEach((button) => button.addEventListener("click", () => setActiveTab(button.dataset.tabTarget)));
 setActiveTab(state.activeTab);
 const microsoftResult = new URLSearchParams(window.location.search);
-if (microsoftResult.get("microsoft") === "connected") setStatus("Microsoft account connected. Import your Softtrine directory next.");
+if (microsoftResult.get("microsoft") === "connected") setStatus("Microsoft account connected. Import your the organization directory next.");
 if (microsoftResult.get("microsoft_error")) setStatus(microsoftResult.get("microsoft_error"), true);
 loadDashboard();

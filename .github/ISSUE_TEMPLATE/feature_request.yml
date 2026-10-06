@@ -1,0 +1,39 @@
+name: Feature request
+description: Propose a scoped improvement to Prism
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user or maintainer problem should Prism solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe behavior and scope, not only implementation details.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: textarea
+    id: security
+    attributes:
+      label: Security, privacy, and compatibility impact
+      description: Consider Teams recipients, permissions, stored data, APIs, and migrations.
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched existing issues, discussions, and pull requests.
+          required: true
+        - label: This request contains no confidential or personal data.
+          required: true

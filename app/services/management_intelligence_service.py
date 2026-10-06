@@ -15,7 +15,8 @@ class ManagementIntelligenceService:
         risks = RiskIntelligenceService.evaluate(db, as_of=as_of)
         decisions = ManagementDecisionService.decide(db, as_of=as_of)
         return IntelligenceCycleResult(
-            risks_evaluated=len(risks), active_risks=len(risks), decisions_created=len(decisions),
+            risks_evaluated=len(risks),
+            active_risks=len(risks),
+            decisions_created=len(decisions),
             no_action=sum(item.action == "NO_ACTION" for item in decisions),
         )
-

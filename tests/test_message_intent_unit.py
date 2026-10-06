@@ -1,5 +1,5 @@
-from types import SimpleNamespace
 import uuid
+from types import SimpleNamespace
 
 from app.schemas.response_decision import OutgoingDecision, ResponseDecision
 from app.services.development_service import DevelopmentService
@@ -40,11 +40,13 @@ def test_response_bookkeeping_is_derived_from_actual_messages() -> None:
         reason="inconsistent provider bookkeeping",
         confidence=0.9,
         needs_clarification=False,
-        messages=[OutgoingDecision(
-            recipient_id=employee_id,
-            kind="conversation",
-            text="I’ve noted your question.",
-        )],
+        messages=[
+            OutgoingDecision(
+                recipient_id=employee_id,
+                kind="conversation",
+                text="I’ve noted your question.",
+            )
+        ],
     )
 
     normalized = ResponseService.normalize_response_intent(decision)

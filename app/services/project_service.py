@@ -6,10 +6,9 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models.enums import ActivityEventType, ProjectStatus
-from app.models.project import Project
-from app.models.enums import BlockerSeverity, EscalationType
+from app.models.enums import ActivityEventType, BlockerSeverity, EscalationType, ProjectStatus
 from app.models.escalation import Escalation
+from app.models.project import Project
 from app.schemas.escalation import EscalationCreate
 from app.schemas.management import ProjectTargetDateChangeRequest
 from app.schemas.project import ProjectCreate, ProjectUpdate
@@ -51,7 +50,9 @@ class ProjectService:
         if owner_id is not None:
             statement = statement.where(Project.owner_id == owner_id)
             count_statement = count_statement.where(Project.owner_id == owner_id)
-        return list(db.scalars(statement.limit(limit).offset(offset))), db.scalar(count_statement) or 0
+        return list(db.scalars(statement.limit(limit).offset(offset))), db.scalar(
+            count_statement
+        ) or 0
 
     @staticmethod
     def update(db: Session, project_id: uuid.UUID, data: ProjectUpdate) -> Project:

@@ -1,4 +1,5 @@
 """Structured answers to what changed, without replaying raw conversations."""
+
 from __future__ import annotations
 
 import uuid
@@ -30,10 +31,12 @@ class ChangeIntelligenceService:
             ActivityEvent.occurred_at <= until,
         )
         if employee_id:
-            query = query.where(or_(
-                ActivityEvent.subject_employee_id == employee_id,
-                ActivityEvent.actor_employee_id == employee_id,
-            ))
+            query = query.where(
+                or_(
+                    ActivityEvent.subject_employee_id == employee_id,
+                    ActivityEvent.actor_employee_id == employee_id,
+                )
+            )
         if project_id:
             query = query.where(ActivityEvent.project_id == project_id)
         if entity_type:
@@ -49,11 +52,17 @@ class ChangeIntelligenceService:
         if reason:
             summary += f": {reason}"
         return ChangeRead(
-            event_id=event.id, event_type=event.event_type.value,
-            entity_type=event.entity_type, entity_id=event.entity_id,
-            employee_id=event.subject_employee_id, project_id=event.project_id,
-            task_id=event.task_id, occurred_at=event.occurred_at,
-            summary=summary, previous=metadata.get("previous"), current=metadata.get("new"),
-            evidence=[f"event:{event.id}"] + ([f"{event.source_type}:{event.source_id}"] if event.source_id else []),
+            event_id=event.id,
+            event_type=event.event_type.value,
+            entity_type=event.entity_type,
+            entity_id=event.entity_id,
+            employee_id=event.subject_employee_id,
+            project_id=event.project_id,
+            task_id=event.task_id,
+            occurred_at=event.occurred_at,
+            summary=summary,
+            previous=metadata.get("previous"),
+            current=metadata.get("new"),
+            evidence=[f"event:{event.id}"]
+            + ([f"{event.source_type}:{event.source_id}"] if event.source_id else []),
         )
-

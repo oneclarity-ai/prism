@@ -101,7 +101,7 @@ class MessageDeliveryStatus(StringEnum):
 class SenderType(StringEnum):
     EMPLOYEE = "employee"
     AGENT = "agent"
-    YASH = "yash"
+    MANAGER = "manager"
     SYSTEM = "system"
 
 

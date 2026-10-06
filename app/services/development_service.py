@@ -32,44 +32,44 @@ class DevelopmentService:
         events = [
             JourneyEventRead(
                 event_type="raised",
-                title="Jambu raised the blocker",
+                title="Taylor raised the blocker",
                 detail="[Preview] Connector updates need the Status API changes.",
                 occurred_at=now,
             ),
             JourneyEventRead(
                 event_type="dependency_request",
-                title="Agent asked Shubham for an ETA",
+                title="Agent asked Morgan for an ETA",
                 detail="[Preview] When do you expect the Status API changes to be ready?",
                 occurred_at=now + timedelta(seconds=1),
             ),
             JourneyEventRead(
                 event_type="dependency_reply",
-                title="Shubham replied about the dependency",
+                title="Morgan replied about the dependency",
                 detail="[Preview] I will share the changes by 6 PM IST.",
                 occurred_at=now + timedelta(seconds=2),
             ),
             JourneyEventRead(
                 event_type="resolved",
                 title="Blocker resolved",
-                detail="[Preview] Shubham confirmed the changes were shared.",
+                detail="[Preview] Morgan confirmed the changes were shared.",
                 occurred_at=now + timedelta(seconds=3),
             ),
         ]
         commitment = JourneyCommitmentRead(
             id=commitment_id,
-            owner_name="Shubham",
+            owner_name="Morgan",
             description="[Preview] Provide the Status API changes",
             deadline=now + timedelta(hours=2),
             status=CommitmentStatus.COMPLETED,
         )
         journey = JourneyRead(
             blocker_id=blocker_id,
-            title="Jambu's preview blocker",
+            title="Taylor's preview blocker",
             description=DevelopmentService.DUMMY_MARKER,
             status=BlockerStatus.RESOLVED,
             severity=BlockerSeverity.MEDIUM,
-            blocked_employee_name="Jambu",
-            dependency_owner_name="Shubham",
+            blocked_employee_name="Taylor",
+            dependency_owner_name="Morgan",
             started_at=now,
             last_activity_at=now + timedelta(seconds=3),
             events=events,

@@ -166,7 +166,7 @@ def upgrade() -> None:
         sa.Column("reason", sa.Text(), nullable=False),
         sa.Column("context", sa.Text(), nullable=True),
         sa.Column("status", sa.Enum("OPEN", "ACKNOWLEDGED", "RESOLVED", name="escalation_status"), nullable=False),
-        sa.Column("requires_yash_approval", sa.Boolean(), server_default=sa.text("true"), nullable=False),
+        sa.Column("requires_manager_approval", sa.Boolean(), server_default=sa.text("true"), nullable=False),
         sa.Column("resolved_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
@@ -178,7 +178,7 @@ def upgrade() -> None:
     op.create_index(op.f("ix_escalations_employee_id"), "escalations", ["employee_id"], unique=False)
     op.create_index(op.f("ix_escalations_escalation_type"), "escalations", ["escalation_type"], unique=False)
     op.create_index(op.f("ix_escalations_project_id"), "escalations", ["project_id"], unique=False)
-    op.create_index(op.f("ix_escalations_requires_yash_approval"), "escalations", ["requires_yash_approval"], unique=False)
+    op.create_index(op.f("ix_escalations_requires_manager_approval"), "escalations", ["requires_manager_approval"], unique=False)
     op.create_index(op.f("ix_escalations_severity"), "escalations", ["severity"], unique=False)
     op.create_index(op.f("ix_escalations_status"), "escalations", ["status"], unique=False)
     op.create_index(op.f("ix_escalations_task_id"), "escalations", ["task_id"], unique=False)
@@ -208,7 +208,7 @@ def upgrade() -> None:
         sa.Column("conversation_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("employee_id", postgresql.UUID(as_uuid=True), nullable=True),
         sa.Column("direction", sa.Enum("INBOUND", "OUTBOUND", name="message_direction"), nullable=False),
-        sa.Column("sender_type", sa.Enum("EMPLOYEE", "AGENT", "YASH", "SYSTEM", name="sender_type"), nullable=False),
+        sa.Column("sender_type", sa.Enum("EMPLOYEE", "AGENT", "MANAGER", "SYSTEM", name="sender_type"), nullable=False),
         sa.Column("external_message_id", sa.String(length=255), nullable=True),
         sa.Column("content", sa.Text(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),

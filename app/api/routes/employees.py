@@ -53,7 +53,9 @@ def list_employee_aliases(
     return EmployeeAliasService.list(db, employee_id)
 
 
-@router.post("/{employee_id}/aliases", response_model=EmployeeAliasRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{employee_id}/aliases", response_model=EmployeeAliasRead, status_code=status.HTTP_201_CREATED
+)
 def create_employee_alias(
     employee_id: uuid.UUID, payload: EmployeeAliasCreate, db: Session = Depends(get_db)
 ) -> EmployeeAliasRead:

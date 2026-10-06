@@ -1,4 +1,5 @@
 """Pure deterministic policy used by V2 decisions and scenario evaluation."""
+
 from __future__ import annotations
 
 
@@ -37,4 +38,3 @@ class ManagementPolicy:
         if signals.get("ordinary_update"):
             return "ACKNOWLEDGE" if signals.get("acknowledgement_useful") else "NO_ACTION"
         return "NO_ACTION"
-

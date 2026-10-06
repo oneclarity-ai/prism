@@ -24,7 +24,7 @@ from app.models.project import Project
 from app.models.task import Task
 
 
-def test_management_findings_and_yash_approval_escalations() -> None:
+def test_management_findings_and_manager_approval_escalations() -> None:
     suffix = uuid.uuid4().hex[:12]
     client = TestClient(app)
     employee_id: Optional[str] = None
@@ -36,14 +36,22 @@ def test_management_findings_and_yash_approval_escalations() -> None:
     try:
         employee = client.post(
             "/api/v1/employees",
-            json={"name": "Escalation Owner", "email": "escalation-{}@example.invalid".format(suffix), "role": "Engineer"},
+            json={
+                "name": "Escalation Owner",
+                "email": "escalation-{}@example.invalid".format(suffix),
+                "role": "Engineer",
+            },
         )
         assert employee.status_code == 201
         employee_id = employee.json()["id"]
 
         project = client.post(
             "/api/v1/projects",
-            json={"name": "Escalation Project", "owner_id": employee_id, "target_date": "2026-12-31"},
+            json={
+                "name": "Escalation Project",
+                "owner_id": employee_id,
+                "target_date": "2026-12-31",
+            },
         )
         assert project.status_code == 201
         project_id = project.json()["id"]
@@ -92,23 +100,34 @@ def test_management_findings_and_yash_approval_escalations() -> None:
         assert target_change.status_code == 201
         escalation_ids.append(target_change.json()["id"])
         assert target_change.json()["escalation_type"] == "project_deadline_change"
-        assert target_change.json()["requires_yash_approval"] is True
+        assert target_change.json()["requires_manager_approval"] is True
         assert target_change.json()["status"] == "pending_approval"
-        assert client.get("/api/v1/projects/{}".format(project_id)).json()["target_date"] == "2026-12-31"
+        assert (
+            client.get("/api/v1/projects/{}".format(project_id)).json()["target_date"]
+            == "2026-12-31"
+        )
         approved = client.post(
             "/api/v1/escalations/{}/approve".format(target_change.json()["id"]),
             json={"decided_by": employee_id, "reason": "Approved after reviewing the vendor plan"},
         )
         assert approved.status_code == 200
         assert approved.json()["status"] == "approved"
-        assert client.get("/api/v1/projects/{}".format(project_id)).json()["target_date"] == "2027-01-15"
-        decisions = client.get("/api/v1/escalations/{}/decisions".format(target_change.json()["id"]))
+        assert (
+            client.get("/api/v1/projects/{}".format(project_id)).json()["target_date"]
+            == "2027-01-15"
+        )
+        decisions = client.get(
+            "/api/v1/escalations/{}/decisions".format(target_change.json()["id"])
+        )
         assert decisions.status_code == 200
         assert decisions.json()[0]["decision"] == "approved"
-        assert client.post(
-            "/api/v1/escalations/{}/approve".format(target_change.json()["id"]),
-            json={"decided_by": employee_id, "reason": "Second decision must fail"},
-        ).status_code == 422
+        assert (
+            client.post(
+                "/api/v1/escalations/{}/approve".format(target_change.json()["id"]),
+                json={"decided_by": employee_id, "reason": "Second decision must fail"},
+            ).status_code
+            == 422
+        )
 
         task_change = client.post(
             "/api/v1/tasks/{}/deadline-change-requests".format(task_id),
@@ -121,10 +140,13 @@ def test_management_findings_and_yash_approval_escalations() -> None:
         escalation_ids.append(task_change.json()["id"])
         assert task_change.json()["status"] == "pending_approval"
         assert client.get("/api/v1/tasks/{}".format(task_id)).json()["deadline"] is None
-        assert client.post(
-            "/api/v1/escalations/{}/approve".format(task_change.json()["id"]),
-            json={"decided_by": employee_id, "reason": "Approved revised delivery plan"},
-        ).status_code == 200
+        assert (
+            client.post(
+                "/api/v1/escalations/{}/approve".format(task_change.json()["id"]),
+                json={"decided_by": employee_id, "reason": "Approved revised delivery plan"},
+            ).status_code
+            == 200
+        )
         saved_deadline = client.get("/api/v1/tasks/{}".format(task_id)).json()["deadline"]
         assert datetime.fromisoformat(saved_deadline).astimezone(timezone.utc) == datetime(
             2027, 1, 20, 10, 0, tzinfo=timezone.utc
@@ -135,25 +157,31 @@ def test_management_findings_and_yash_approval_escalations() -> None:
             json={
                 "escalation_type": "architecture_change",
                 "reason": "Proposed database topology change",
-                "requires_yash_approval": False,
+                "requires_manager_approval": False,
                 "project_id": project_id,
             },
         )
         assert architecture_change.status_code == 201
         escalation_id = architecture_change.json()["id"]
         escalation_ids.append(escalation_id)
-        assert architecture_change.json()["requires_yash_approval"] is True
+        assert architecture_change.json()["requires_manager_approval"] is True
         assert architecture_change.json()["status"] == "pending_approval"
-        assert client.post("/api/v1/escalations/{}/acknowledge".format(escalation_id)).status_code == 422
+        assert (
+            client.post("/api/v1/escalations/{}/acknowledge".format(escalation_id)).status_code
+            == 422
+        )
         rejected = client.post(
             "/api/v1/escalations/{}/reject".format(escalation_id),
-            json={"decided_by": employee_id, "reason": "No architecture decision is authorised in V1"},
+            json={
+                "decided_by": employee_id,
+                "reason": "No architecture decision is authorised in V1",
+            },
         )
         assert rejected.status_code == 200
         assert rejected.json()["status"] == "rejected"
-        assert client.post(
-            "/api/v1/escalations/{}/resolve".format(escalation_id)
-        ).status_code == 422
+        assert (
+            client.post("/api/v1/escalations/{}/resolve".format(escalation_id)).status_code == 422
+        )
     finally:
         with SessionLocal() as db:
             if escalation_ids:

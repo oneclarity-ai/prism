@@ -22,7 +22,6 @@ from app.models.conversation import Conversation
 from app.models.employee import Employee
 from app.models.enums import (
     AgentRunStatus,
-    BlockerStatus,
     ConversationChannel,
     ConversationType,
     MessageDeliveryStatus,
@@ -31,9 +30,9 @@ from app.models.enums import (
 )
 from app.models.message import Message
 from app.models.response_state import ConversationQuestion
+from app.schemas.response_decision import IssueDecision, OutgoingDecision, ResponseDecision
 from app.services.microsoft_service import MicrosoftService
 from app.services.response_service import ResponseService
-from app.schemas.response_decision import ResponseDecision, IssueDecision, OutgoingDecision
 
 
 def test_named_owner_handoff_acknowledges_source_and_contacts_owner(monkeypatch) -> None:
@@ -45,18 +44,18 @@ def test_named_owner_handoff_acknowledges_source_and_contacts_owner(monkeypatch)
 
     with SessionLocal() as db:
         source = Employee(
-            name="Ajay Test",
-            email="ajay-handoff-{}@example.invalid".format(suffix),
+            name="Bailey Test",
+            email="bailey-handoff-{}@example.invalid".format(suffix),
             role="Engineer",
-            teams_user_id="test-ajay-{}".format(suffix),
+            teams_user_id="test-bailey-{}".format(suffix),
             is_managed=True,
         )
         owner_first_name = "Owner" + suffix[:8]
         owner = Employee(
             name=owner_first_name + " Test",
-            email="vaibhav-handoff-{}@example.invalid".format(suffix),
+            email="jordan-handoff-{}@example.invalid".format(suffix),
             role="Engineer",
-            teams_user_id="test-vaibhav-{}".format(suffix),
+            teams_user_id="test-jordan-{}".format(suffix),
             is_managed=True,
         )
         db.add_all([source, owner])
@@ -105,13 +104,15 @@ def test_named_owner_handoff_acknowledges_source_and_contacts_owner(monkeypatch)
             reply_to_external_id=owner_question.external_message_id,
         )
         db.add(handoff)
-        db.add(ConversationQuestion(
-            conversation_id=source_conversation.id,
-            message_id=owner_question.id,
-            blocker_id=blocker.id,
-            awaiting_field="owner",
-            asked_to_employee_id=source.id,
-        ))
+        db.add(
+            ConversationQuestion(
+                conversation_id=source_conversation.id,
+                message_id=owner_question.id,
+                blocker_id=blocker.id,
+                awaiting_field="owner",
+                asked_to_employee_id=source.id,
+            )
+        )
         db.flush()
         db.add(
             AgentRun(
@@ -126,7 +127,9 @@ def test_named_owner_handoff_acknowledges_source_and_contacts_owner(monkeypatch)
         db.commit()
 
         def fake_send(db_session, recipient, content):
-            conversation_id = source_conversation.id if recipient.id == source.id else owner_conversation.id
+            conversation_id = (
+                source_conversation.id if recipient.id == source.id else owner_conversation.id
+            )
             message = Message(
                 conversation_id=conversation_id,
                 employee_id=recipient.id,
@@ -141,13 +144,38 @@ def test_named_owner_handoff_acknowledges_source_and_contacts_owner(monkeypatch)
             return message
 
         def decision_for_handoff(context, message):
-            return ResponseDecision(should_respond=True, response_type="dependency_followup", reason="Explicit owner answer",
-                confidence=.99, needs_clarification=False, issues=[IssueDecision(key="api", blocker_id=blocker.id,
-                    operation="set_owners", description=blocker.description, dependency_owner_ids=[owner.id], evidence=message.content)],
-                messages=[OutgoingDecision(recipient_id=source.id, issue_key="api", kind="acknowledgement",
-                    text="Thanks, I've noted that {} owns this.".format(owner_first_name)),
-                    OutgoingDecision(recipient_id=owner.id, issue_key="api", kind="dependency_followup",
-                        text="The status API changes are needed. Any idea when this might be ready?", awaiting_field="eta")])
+            return ResponseDecision(
+                should_respond=True,
+                response_type="dependency_followup",
+                reason="Explicit owner answer",
+                confidence=0.99,
+                needs_clarification=False,
+                issues=[
+                    IssueDecision(
+                        key="api",
+                        blocker_id=blocker.id,
+                        operation="set_owners",
+                        description=blocker.description,
+                        dependency_owner_ids=[owner.id],
+                        evidence=message.content,
+                    )
+                ],
+                messages=[
+                    OutgoingDecision(
+                        recipient_id=source.id,
+                        issue_key="api",
+                        kind="acknowledgement",
+                        text="Thanks, I've noted that {} owns this.".format(owner_first_name),
+                    ),
+                    OutgoingDecision(
+                        recipient_id=owner.id,
+                        issue_key="api",
+                        kind="dependency_followup",
+                        text="The status API changes are needed. Any idea when this might be ready?",
+                        awaiting_field="eta",
+                    ),
+                ],
+            )
 
         active_run = SimpleNamespace(target_employee_ids=[str(source.id), str(owner.id)])
         monkeypatch.setattr(MicrosoftService, "send_management_message", fake_send)
@@ -159,7 +187,7 @@ def test_named_owner_handoff_acknowledges_source_and_contacts_owner(monkeypatch)
 
         assert result is not None
         assert blocker.dependency_owner_id == owner.id
-        assert [name for name, _ in sent] == ["Ajay Test", owner_first_name + " Test"]
+        assert [name for name, _ in sent] == ["Bailey Test", owner_first_name + " Test"]
         assert "noted that {} owns this".format(owner_first_name) in sent[0][1]
         assert "Any idea when this might be ready?" in sent[1][1]
 

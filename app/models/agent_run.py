@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Integer, String, Text
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin
@@ -13,6 +13,7 @@ from app.models.enums import AgentAnalysisType, AgentRunStatus
 
 if TYPE_CHECKING:
     from app.models.blocker import Blocker
+    from app.models.commitment import Commitment
     from app.models.employee import Employee
     from app.models.message import Message
 
@@ -24,10 +25,16 @@ class AgentRun(TimestampMixin, Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     inbound_message_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("messages.id", ondelete="RESTRICT"), nullable=False, unique=True
+        UUID(as_uuid=True),
+        ForeignKey("messages.id", ondelete="RESTRICT"),
+        nullable=False,
+        unique=True,
     )
     source_employee_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("employees.id", ondelete="RESTRICT"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("employees.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
     )
     status: Mapped[AgentRunStatus] = mapped_column(
         Enum(AgentRunStatus, name="agent_run_status"),
@@ -60,19 +67,23 @@ class AgentRun(TimestampMixin, Base):
     commitment_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True), ForeignKey("commitments.id", ondelete="SET NULL"), index=True
     )
-    needs_yash_review: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    needs_manager_review: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     failure_reason: Mapped[Optional[str]] = mapped_column(Text)
     processed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), index=True)
     decision_json: Mapped[Optional[dict]] = mapped_column(JSONB)
     context_json: Mapped[Optional[dict]] = mapped_column(JSONB)
     state_applied: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
-    attempt_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
+    attempt_count: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0", nullable=False
+    )
     last_attempt_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), index=True)
     next_retry_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), index=True)
     policy_version: Mapped[Optional[str]] = mapped_column(String(64), index=True)
 
     inbound_message: Mapped["Message"] = relationship("Message", foreign_keys=[inbound_message_id])
-    source_employee: Mapped["Employee"] = relationship("Employee", foreign_keys=[source_employee_id])
+    source_employee: Mapped["Employee"] = relationship(
+        "Employee", foreign_keys=[source_employee_id]
+    )
     dependency_owner: Mapped[Optional["Employee"]] = relationship(
         "Employee", foreign_keys=[dependency_owner_id]
     )

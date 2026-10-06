@@ -21,7 +21,10 @@ class Message(TimestampMixin, Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     conversation_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("conversations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     employee_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True), ForeignKey("employees.id", ondelete="SET NULL"), index=True
@@ -40,7 +43,9 @@ class Message(TimestampMixin, Base):
         index=True,
     )
     external_message_id: Mapped[Optional[str]] = mapped_column(String(255), unique=True)
-    external_created_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), index=True)
+    external_created_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), index=True
+    )
     content: Mapped[str] = mapped_column(Text, nullable=False)
     reply_to_external_id: Mapped[Optional[str]] = mapped_column(String(255), index=True)
     quoted_content: Mapped[Optional[str]] = mapped_column(Text)

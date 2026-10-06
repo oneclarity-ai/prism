@@ -43,7 +43,9 @@ class MicrosoftTeamsSubscription(TimestampMixin, Base):
     external_subscription_id: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     resource: Mapped[str] = mapped_column(String(500), nullable=False)
     encrypted_client_state: Mapped[str] = mapped_column(Text, nullable=False)
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
     status: Mapped[MicrosoftSubscriptionStatus] = mapped_column(
         Enum(MicrosoftSubscriptionStatus, name="microsoft_subscription_status"),
         default=MicrosoftSubscriptionStatus.ACTIVE,

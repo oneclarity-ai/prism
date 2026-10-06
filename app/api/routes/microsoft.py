@@ -6,35 +6,33 @@ from typing import Optional
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request, Response
-from sqlalchemy import or_, select
 from fastapi.responses import PlainTextResponse, RedirectResponse
-from starlette.concurrency import run_in_threadpool
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
+from starlette.concurrency import run_in_threadpool
 
 from app.agents.management_agent import ManagementAgent
-from app.db.session import SessionLocal
-from app.models.message import Message
+from app.db.session import SessionLocal, get_db
 from app.models.agent_run import AgentRun
 from app.models.enums import AgentRunStatus, MessageDirection
 from app.models.llm_usage import LLMUsage
-from app.db.session import get_db
+from app.models.message import Message
 from app.schemas.microsoft import (
-    AutomationRunRead,
     AgentDecisionRunRead,
+    AutomationRunRead,
     AutomationStart,
-    DirectorySyncResult,
     DailyDigestRead,
+    DirectorySyncResult,
     MicrosoftStatusRead,
     SubscriptionRenewalResult,
 )
+from app.services.automation_service import DailyAutomationService
 from app.services.errors import DomainError
 from app.services.microsoft_service import (
     MicrosoftDirectoryService,
     MicrosoftGraphClient,
     MicrosoftService,
 )
-from app.services.automation_service import DailyAutomationService
-
 
 router = APIRouter(prefix="/api/v1/microsoft", tags=["Microsoft Teams automation"])
 logger = logging.getLogger(__name__)
@@ -49,7 +47,7 @@ def microsoft_status(db: Session = Depends(get_db)) -> MicrosoftStatusRead:
 
 @router.get("/auth/start", include_in_schema=False)
 def start_microsoft_authentication(db: Session = Depends(get_db)) -> RedirectResponse:
-    """Redirect Yash to the single-tenant Microsoft authorization page using PKCE."""
+    """Redirect the manager to the single-tenant Microsoft authorization page using PKCE."""
 
     return RedirectResponse(MicrosoftGraphClient.authorization_url(db), status_code=302)
 
@@ -78,8 +76,8 @@ def complete_microsoft_authentication(
 
 
 @router.post("/directory/sync", response_model=DirectorySyncResult)
-def sync_active_softtrine_users(db: Session = Depends(get_db)) -> DirectorySyncResult:
-    """Import/update active Softtrine directory users. It never starts messaging them."""
+def sync_active_organization_users(db: Session = Depends(get_db)) -> DirectorySyncResult:
+    """Import/update active the organization directory users. It never starts messaging them."""
 
     return MicrosoftDirectoryService.sync_active_users(db)
 
@@ -88,7 +86,7 @@ def sync_active_softtrine_users(db: Session = Depends(get_db)) -> DirectorySyncR
 def start_teams_automation(
     payload: Optional[AutomationStart] = None, db: Session = Depends(get_db)
 ) -> AutomationRunRead:
-    """Send the initial check-in from Yash's Teams account to selected managed employees."""
+    """Send the initial check-in from the manager's Teams account to selected managed employees."""
 
     return MicrosoftService.start_automation(db, payload or AutomationStart())
 
@@ -168,12 +166,18 @@ def process_pending_teams_replies(
     retryable = [AgentRunStatus.PENDING, AgentRunStatus.FAILED]
     if force:
         retryable.append(AgentRunStatus.SKIPPED)
-    message_ids = list(db.scalars(
-        select(Message.id).outerjoin(AgentRun, AgentRun.inbound_message_id == Message.id).where(
-            Message.direction == MessageDirection.INBOUND,
-            or_(AgentRun.id.is_(None), AgentRun.status.in_(retryable)),
-        ).order_by(Message.created_at).limit(100)
-    ))
+    message_ids = list(
+        db.scalars(
+            select(Message.id)
+            .outerjoin(AgentRun, AgentRun.inbound_message_id == Message.id)
+            .where(
+                Message.direction == MessageDirection.INBOUND,
+                or_(AgentRun.id.is_(None), AgentRun.status.in_(retryable)),
+            )
+            .order_by(Message.created_at)
+            .limit(100)
+        )
+    )
     processed = 0
     for message_id in message_ids:
         result = ManagementAgent.process_message(db, str(message_id), retry_skipped=force)
@@ -200,43 +204,53 @@ def list_agent_decision_runs(
     runs = list(db.scalars(query))
     if not runs:
         return []
-    usage_rows = list(db.scalars(select(LLMUsage).where(
-        LLMUsage.message_id.in_([run.inbound_message_id for run in runs])
-    )))
+    usage_rows = list(
+        db.scalars(
+            select(LLMUsage).where(
+                LLMUsage.message_id.in_([run.inbound_message_id for run in runs])
+            )
+        )
+    )
     by_message = {}
     for usage in usage_rows:
         by_message.setdefault(usage.message_id, []).append(usage)
     output = []
     for run in runs:
         usage = by_message.get(run.inbound_message_id, [])
-        priced = [item.estimated_total_cost_usd for item in usage if item.estimated_total_cost_usd is not None]
+        priced = [
+            item.estimated_total_cost_usd
+            for item in usage
+            if item.estimated_total_cost_usd is not None
+        ]
         context = run.context_json or {}
-        output.append(AgentDecisionRunRead(
-            id=run.id,
-            inbound_message_id=run.inbound_message_id,
-            source_employee_id=run.source_employee_id,
-            status=run.status,
-            model_deployment=run.model_deployment,
-            state_applied=run.state_applied,
-            needs_yash_review=run.needs_yash_review,
-            failure_reason=run.failure_reason,
-            processed_at=run.processed_at,
-            created_at=run.created_at,
-            decision=run.decision_json,
-            context_source_ids=context.get("context_source_ids", []),
-            context=context if include_context else None,
-            llm_calls=len(usage),
-            input_tokens=sum(item.input_tokens or 0 for item in usage),
-            cached_input_tokens=sum(item.cached_input_tokens or 0 for item in usage),
-            output_tokens=sum(item.output_tokens or 0 for item in usage),
-            estimated_cost_usd=sum(priced),
-            unpriced_calls=len(usage) - len(priced),
-            latency_ms=sum(item.latency_ms for item in usage),
-            attempt_count=run.attempt_count,
-            last_attempt_at=run.last_attempt_at,
-            next_retry_at=run.next_retry_at,
-            policy_version=run.policy_version,
-        ))
+        output.append(
+            AgentDecisionRunRead(
+                id=run.id,
+                inbound_message_id=run.inbound_message_id,
+                source_employee_id=run.source_employee_id,
+                status=run.status,
+                model_deployment=run.model_deployment,
+                state_applied=run.state_applied,
+                needs_manager_review=run.needs_manager_review,
+                failure_reason=run.failure_reason,
+                processed_at=run.processed_at,
+                created_at=run.created_at,
+                decision=run.decision_json,
+                context_source_ids=context.get("context_source_ids", []),
+                context=context if include_context else None,
+                llm_calls=len(usage),
+                input_tokens=sum(item.input_tokens or 0 for item in usage),
+                cached_input_tokens=sum(item.cached_input_tokens or 0 for item in usage),
+                output_tokens=sum(item.output_tokens or 0 for item in usage),
+                estimated_cost_usd=sum(priced),
+                unpriced_calls=len(usage) - len(priced),
+                latency_ms=sum(item.latency_ms for item in usage),
+                attempt_count=run.attempt_count,
+                last_attempt_at=run.last_attempt_at,
+                next_retry_at=run.next_retry_at,
+                policy_version=run.policy_version,
+            )
+        )
     return output
 
 
@@ -256,7 +270,9 @@ async def receive_teams_webhook(
     if isinstance(notifications, list):
         for notification in notifications:
             if isinstance(notification, dict):
-                message_id = await run_in_threadpool(MicrosoftService.process_webhook_notification, db, notification)
+                message_id = await run_in_threadpool(
+                    MicrosoftService.process_webhook_notification, db, notification
+                )
                 if message_id is not None:
                     background_tasks.add_task(process_reply_in_background, message_id)
     return Response(status_code=202)

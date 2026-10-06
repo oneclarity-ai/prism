@@ -24,13 +24,19 @@ class EscalationDecision(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     escalation_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("escalations.id", ondelete="CASCADE"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("escalations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     decision: Mapped[EscalationDecisionType] = mapped_column(
         Enum(EscalationDecisionType, name="escalation_decision_type"), nullable=False, index=True
     )
     decided_by: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("employees.id", ondelete="RESTRICT"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("employees.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
     )
     decided_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True

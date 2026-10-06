@@ -2,52 +2,52 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import datetime, time, timedelta, timezone
 from html import escape as html_escape
-from typing import Callable, Optional
+from typing import Optional
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.models.automation_action import AutomationAction
 from app.models.agent_run import AgentRun
+from app.models.automation_action import AutomationAction
 from app.models.blocker import Blocker
 from app.models.commitment import Commitment
 from app.models.daily_update import DailyUpdate
 from app.models.employee import Employee
 from app.models.enums import (
+    AgentRunStatus,
     AutomationActionStatus,
     AutomationActionType,
-    AgentRunStatus,
     BlockerSeverity,
     BlockerStatus,
     CommitmentStatus,
     EscalationStatus,
     EscalationType,
-    MicrosoftSubscriptionStatus,
     MessageDirection,
+    MicrosoftSubscriptionStatus,
 )
 from app.models.escalation import Escalation
+from app.models.intelligence import ManagementDecision, ManagementRisk
+from app.models.message import Message
 from app.models.microsoft_subscription import MicrosoftTeamsSubscription
 from app.models.project import Project
 from app.models.task import Task
-from app.models.message import Message
-from app.models.intelligence import ManagementDecision, ManagementRisk
 from app.schemas.escalation import EscalationCreate
 from app.services.commitment_service import CommitmentService
+from app.services.daily_brief_service import DailyBriefService
 from app.services.errors import DomainError
 from app.services.escalation_service import EscalationService
+from app.services.followup_intelligence_service import FollowUpIntelligenceService
+from app.services.management_intelligence_service import ManagementIntelligenceService
+from app.services.memory_consolidation_service import MemoryConsolidationService
 from app.services.microsoft_service import (
     SUBSCRIPTION_RENEWAL_LEAD_MINUTES,
     MicrosoftGraphClient,
     MicrosoftService,
 )
-from app.services.memory_consolidation_service import MemoryConsolidationService
-from app.services.followup_intelligence_service import FollowUpIntelligenceService
-from app.services.management_intelligence_service import ManagementIntelligenceService
-from app.services.daily_brief_service import DailyBriefService
 from app.services.proactive_action_service import ProactiveActionService
 from app.services.response_recovery_service import ResponseRecoveryService
 
@@ -64,7 +64,16 @@ class DailyAutomationService:
         include_later_day_actions: bool = False,
     ) -> dict[str, int]:
         local_now = DailyAutomationService._local_now(now)
-        result = {"checkins": 0, "followups": 0, "missed": 0, "digests": 0, "escalations": 0, "listeners": 0, "intelligence": 0, "recovered_replies": 0}
+        result = {
+            "checkins": 0,
+            "followups": 0,
+            "missed": 0,
+            "digests": 0,
+            "escalations": 0,
+            "listeners": 0,
+            "intelligence": 0,
+            "recovered_replies": 0,
+        }
         result["recovered_replies"] = ResponseRecoveryService.process_due(
             db, now=local_now.astimezone(timezone.utc)
         )
@@ -73,19 +82,25 @@ class DailyAutomationService:
             local_now, get_settings().daily_checkin_time
         ):
             result["checkins"] = DailyAutomationService.send_daily_checkins(db, local_now)
-        if (force and include_later_day_actions) or DailyAutomationService._is_within_schedule_window(
+        if (
+            force and include_later_day_actions
+        ) or DailyAutomationService._is_within_schedule_window(
             local_now, get_settings().daily_followup_time
         ):
             result["followups"] = DailyAutomationService.send_no_response_followups(db, local_now)
         result["missed"] = DailyAutomationService.monitor_commitments(db, local_now)
-        intelligence = ManagementIntelligenceService.run(db, as_of=local_now.astimezone(timezone.utc))
+        intelligence = ManagementIntelligenceService.run(
+            db, as_of=local_now.astimezone(timezone.utc)
+        )
         result["intelligence"] = intelligence.decisions_created
         result["followups"] += ProactiveActionService.execute_validated(db)
         result["escalations"] = DailyAutomationService.escalate_management_risks(db, local_now)
         # Memory is consolidated off the Teams/webhook path during its own
         # scheduled window. Its database jobs make a retry harmless.
         MemoryConsolidationService.run_if_due(db, local_now)
-        if (force and include_later_day_actions) or DailyAutomationService._is_due(local_now, get_settings().daily_digest_time):
+        if (force and include_later_day_actions) or DailyAutomationService._is_due(
+            local_now, get_settings().daily_digest_time
+        ):
             result["digests"] = DailyAutomationService.send_daily_digest(db, local_now)
         return result
 
@@ -101,13 +116,16 @@ class DailyAutomationService:
                 MicrosoftTeamsSubscription.status == MicrosoftSubscriptionStatus.ACTIVE,
             )
         )
-        active_listener_count = db.scalar(
-            select(func.count(func.distinct(MicrosoftTeamsSubscription.conversation_id))).where(
-                MicrosoftTeamsSubscription.automation_run_id == run.id,
-                MicrosoftTeamsSubscription.status == MicrosoftSubscriptionStatus.ACTIVE,
-                MicrosoftTeamsSubscription.expires_at > now_utc + timedelta(minutes=2),
+        active_listener_count = (
+            db.scalar(
+                select(func.count(func.distinct(MicrosoftTeamsSubscription.conversation_id))).where(
+                    MicrosoftTeamsSubscription.automation_run_id == run.id,
+                    MicrosoftTeamsSubscription.status == MicrosoftSubscriptionStatus.ACTIVE,
+                    MicrosoftTeamsSubscription.expires_at > now_utc + timedelta(minutes=2),
+                )
             )
-        ) or 0
+            or 0
+        )
         # Renew near expiry, and repair immediately whenever any run target has
         # lost its listener. Previously one failed renewal could remain failed
         # while the other healthy subscriptions delayed the next repair.
@@ -125,7 +143,9 @@ class DailyAutomationService:
     def send_daily_checkins(db: Session, local_now: datetime) -> int:
         sent = 0
         for employee in DailyAutomationService._managed_employees(db):
-            key = DailyAutomationService._daily_checkin_key(db, local_now.date().isoformat(), employee.id)
+            key = DailyAutomationService._daily_checkin_key(
+                db, local_now.date().isoformat(), employee.id
+            )
             message = MicrosoftService.follow_up_message_for(
                 employee.name,
                 "What are you working on, what’s the expected outcome, and is anything blocking you? "
@@ -141,7 +161,9 @@ class DailyAutomationService:
     def send_no_response_followups(db: Session, local_now: datetime) -> int:
         sent = 0
         responded_ids = set(
-            db.scalars(select(DailyUpdate.employee_id).where(DailyUpdate.update_date == local_now.date()))
+            db.scalars(
+                select(DailyUpdate.employee_id).where(DailyUpdate.update_date == local_now.date())
+            )
         )
         for employee in DailyAutomationService._managed_employees(db):
             if employee.id in responded_ids:
@@ -156,16 +178,23 @@ class DailyAutomationService:
                 continue
             # A received reply counts even while analysis is pending/failed or
             # the update is incomplete. Never tell that person they did not reply.
-            received = db.scalar(select(Message.id).where(
-                Message.employee_id == employee.id,
-                Message.direction == MessageDirection.INBOUND,
-                func.coalesce(Message.external_created_at, Message.created_at) >= checkin.executed_at,
-            ).limit(1))
+            received = db.scalar(
+                select(Message.id)
+                .where(
+                    Message.employee_id == employee.id,
+                    Message.direction == MessageDirection.INBOUND,
+                    func.coalesce(Message.external_created_at, Message.created_at)
+                    >= checkin.executed_at,
+                )
+                .limit(1)
+            )
             if received is not None:
                 continue
             try:
                 followup_time = time.fromisoformat(get_settings().daily_followup_time)
-                followup_at = datetime.combine(local_now.date(), followup_time, tzinfo=local_now.tzinfo)
+                followup_at = datetime.combine(
+                    local_now.date(), followup_time, tzinfo=local_now.tzinfo
+                )
             except ValueError:
                 continue
             if checkin.executed_at.astimezone(local_now.tzinfo) >= followup_at:
@@ -185,9 +214,11 @@ class DailyAutomationService:
     def monitor_commitments(db: Session, local_now: datetime) -> int:
         missed = CommitmentService.mark_overdue(db, local_now.astimezone(timezone.utc))
         useful_followups = {
-            item["id"] for item in FollowUpIntelligenceService.candidates(
+            item["id"]
+            for item in FollowUpIntelligenceService.candidates(
                 db, as_of=local_now.astimezone(timezone.utc)
-            ) if item["kind"] == "overdue_commitment"
+            )
+            if item["kind"] == "overdue_commitment"
         }
         followups = 0
         for commitment in db.scalars(
@@ -221,17 +252,26 @@ class DailyAutomationService:
     def escalate_management_risks(db: Session, local_now: datetime) -> int:
         """Create approval-required escalation candidates only for urgent, evidenced risks."""
         created = 0
-        urgent_risks = list(db.scalars(select(ManagementRisk).where(
-            ManagementRisk.status == "active",
-            ManagementRisk.severity == "urgent",
-            ManagementRisk.source_entity_type == "blocker",
-        )))
+        urgent_risks = list(
+            db.scalars(
+                select(ManagementRisk).where(
+                    ManagementRisk.status == "active",
+                    ManagementRisk.severity == "urgent",
+                    ManagementRisk.source_entity_type == "blocker",
+                )
+            )
+        )
         for risk in urgent_risks:
-            decision = db.scalar(select(ManagementDecision).where(
-                ManagementDecision.trigger_id == risk.id,
-                ManagementDecision.action == "REQUEST_MANAGER_APPROVAL",
-                ManagementDecision.status == "validated",
-            ).order_by(ManagementDecision.decided_at.desc()).limit(1))
+            decision = db.scalar(
+                select(ManagementDecision)
+                .where(
+                    ManagementDecision.trigger_id == risk.id,
+                    ManagementDecision.action == "REQUEST_MANAGER_APPROVAL",
+                    ManagementDecision.status == "validated",
+                )
+                .order_by(ManagementDecision.decided_at.desc())
+                .limit(1)
+            )
             blocker = db.get(Blocker, risk.source_entity_id)
             if decision is None or blocker is None:
                 continue
@@ -253,7 +293,7 @@ class DailyAutomationService:
                         severity=blocker.severity,
                         reason=reason,
                         context="{} Evidence: {}".format(risk.reason, ", ".join(risk.evidence)),
-                        requires_yash_approval=True,
+                        requires_manager_approval=True,
                     ),
                 )
                 created += 1
@@ -262,19 +302,21 @@ class DailyAutomationService:
             select(Escalation).where(
                 Escalation.status.in_([EscalationStatus.OPEN, EscalationStatus.PENDING_APPROVAL]),
                 or_(
-                    Escalation.requires_yash_approval.is_(True),
+                    Escalation.requires_manager_approval.is_(True),
                     Escalation.severity == BlockerSeverity.CRITICAL,
                     Escalation.escalation_type == EscalationType.MISSED_COMMITMENT,
                 ),
             )
         ):
-            target = DailyAutomationService._yash_notification_target(db)
+            target = DailyAutomationService._manager_notification_target(db)
             if target is None:
                 continue
             key = "escalation:{}".format(escalation.id)
             message = MicrosoftService.follow_up_message_for(
                 target.name,
-                "Escalation: {}. {}".format(escalation.escalation_type.value.replace("_", " "), escalation.reason),
+                "Escalation: {}. {}".format(
+                    escalation.escalation_type.value.replace("_", " "), escalation.reason
+                ),
             )
             if DailyAutomationService._send_once(
                 db,
@@ -290,19 +332,21 @@ class DailyAutomationService:
 
     @staticmethod
     def send_daily_digest(db: Session, local_now: datetime) -> int:
-        target = DailyAutomationService._yash_notification_target(db)
+        target = DailyAutomationService._manager_notification_target(db)
         if target is None:
             return 0
         content = DailyAutomationService._daily_digest_content(db, local_now)
         key = "daily-digest:{}".format(local_now.date().isoformat())
-        return int(DailyAutomationService._send_once(
-            db,
-            AutomationActionType.DAILY_DIGEST,
-            key,
-            target,
-            MicrosoftService.follow_up_message_for(target.name, content),
-            local_now,
-        ))
+        return int(
+            DailyAutomationService._send_once(
+                db,
+                AutomationActionType.DAILY_DIGEST,
+                key,
+                target,
+                MicrosoftService.follow_up_message_for(target.name, content),
+                local_now,
+            )
+        )
 
     @staticmethod
     def send_daily_digest_email(db: Session) -> str:
@@ -344,24 +388,33 @@ class DailyAutomationService:
 
         groups = [
             ("Overview", [("Today", [response_line])]),
-            ("Work updates", [
-                ("Completed", parsed.get("Completed", [])),
-                ("In progress", parsed.get("Working on", [])),
-                ("Expected outcomes", parsed.get("Expected outcomes", [])),
-            ]),
-            ("Blockers & commitments", [
-                ("Blockers", parsed.get("Blocked", [])),
-                ("Due today", parsed.get("Commitments due today", [])),
-                ("Due soon", parsed.get("Commitments due soon", [])),
-                ("Missed", parsed.get("Missed commitments", [])),
-            ]),
+            (
+                "Work updates",
+                [
+                    ("Completed", parsed.get("Completed", [])),
+                    ("In progress", parsed.get("Working on", [])),
+                    ("Expected outcomes", parsed.get("Expected outcomes", [])),
+                ],
+            ),
+            (
+                "Blockers & commitments",
+                [
+                    ("Blockers", parsed.get("Blocked", [])),
+                    ("Due today", parsed.get("Commitments due today", [])),
+                    ("Due soon", parsed.get("Commitments due soon", [])),
+                    ("Missed", parsed.get("Missed commitments", [])),
+                ],
+            ),
             ("Agent handling", [("Actions", parsed.get("Agent handling today", []))]),
-            ("Manager attention", [
-                ("Needs approval", parsed.get("Needs approval", [])),
-                ("Open escalations", parsed.get("Open escalations", [])),
-                ("Important changes", parsed.get("Important changes since yesterday", [])),
-                ("Needs attention", parsed.get("Needs your attention", [])),
-            ]),
+            (
+                "Manager attention",
+                [
+                    ("Needs approval", parsed.get("Needs approval", [])),
+                    ("Open escalations", parsed.get("Open escalations", [])),
+                    ("Important changes", parsed.get("Important changes since yesterday", [])),
+                    ("Needs attention", parsed.get("Needs your attention", [])),
+                ],
+            ),
         ]
 
         def render_group(title: str, subsections: list[tuple[str, list[str]]]) -> str:
@@ -386,8 +439,12 @@ class DailyAutomationService:
         sections = "".join(render_group(title, subsections) for title, subsections in groups)
         report_date = local_now.strftime("%A, %d %B %Y")
         return (
-            """<!doctype html><html><body style="margin:0;background:#f5f7fb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#172033"><main style="max-width:680px;margin:0 auto;padding:28px 16px"><article style="background:#fff;border:1px solid #e7e9ee;border-radius:14px;padding:28px"><p style="margin:0 0 8px;color:#4169a8;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase">Personal Agent</p><h1 style="margin:0;font-size:24px">Daily manager brief</h1><p style="margin:8px 0 24px;color:#6b7280">{}</p>{}<footer style="padding-top:18px;color:#6b7280;font-size:12px">Sent by Yash's Agent.</footer></article></main></body></html>"""
-        ).format(html_escape(report_date), sections)
+            """<!doctype html><html><body style="margin:0;background:#f5f7fb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#172033"><main style="max-width:680px;margin:0 auto;padding:28px 16px"><article style="background:#fff;border:1px solid #e7e9ee;border-radius:14px;padding:28px"><p style="margin:0 0 8px;color:#4169a8;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase">Prism</p><h1 style="margin:0;font-size:24px">Daily manager brief</h1><p style="margin:8px 0 24px;color:#6b7280">{}</p>{}<footer style="padding-top:18px;color:#6b7280;font-size:12px">{}.</footer></article></main></body></html>"""
+        ).format(
+            html_escape(report_date),
+            sections,
+            html_escape(get_settings().agent_signature.strip().rstrip(".")),
+        )
 
     @staticmethod
     def _daily_digest_content(db: Session, local_now: datetime) -> str:
@@ -395,31 +452,43 @@ class DailyAutomationService:
 
         managed = DailyAutomationService._managed_team_employees(db)
         managed_ids = {employee.id for employee in managed}
-        updates = list(
-            db.scalars(
-                select(DailyUpdate).where(
-                    DailyUpdate.update_date == local_now.date(),
-                    DailyUpdate.employee_id.in_(managed_ids),
+        updates = (
+            list(
+                db.scalars(
+                    select(DailyUpdate).where(
+                        DailyUpdate.update_date == local_now.date(),
+                        DailyUpdate.employee_id.in_(managed_ids),
+                    )
                 )
             )
-        ) if managed_ids else []
+            if managed_ids
+            else []
+        )
         responded = {update.employee_id for update in updates}
-        blockers = list(
-            db.scalars(
-                select(Blocker).where(
-                    Blocker.status == BlockerStatus.OPEN,
-                    Blocker.blocked_employee_id.in_(managed_ids),
+        blockers = (
+            list(
+                db.scalars(
+                    select(Blocker).where(
+                        Blocker.status == BlockerStatus.OPEN,
+                        Blocker.blocked_employee_id.in_(managed_ids),
+                    )
                 )
             )
-        ) if managed_ids else []
-        open_commitments = list(
-            db.scalars(
-                select(Commitment).where(
-                    Commitment.status == CommitmentStatus.OPEN,
-                    Commitment.employee_id.in_(managed_ids),
+            if managed_ids
+            else []
+        )
+        open_commitments = (
+            list(
+                db.scalars(
+                    select(Commitment).where(
+                        Commitment.status == CommitmentStatus.OPEN,
+                        Commitment.employee_id.in_(managed_ids),
+                    )
                 )
             )
-        ) if managed_ids else []
+            if managed_ids
+            else []
+        )
         today = local_now.date()
         due_today = [
             commitment
@@ -436,14 +505,18 @@ class DailyAutomationService:
             and commitment.deadline.astimezone(timezone.utc) <= due_soon_cutoff
             and commitment not in due_today
         ]
-        missed = list(
-            db.scalars(
-                select(Commitment).where(
-                    Commitment.status == CommitmentStatus.MISSED,
-                    Commitment.employee_id.in_(managed_ids),
+        missed = (
+            list(
+                db.scalars(
+                    select(Commitment).where(
+                        Commitment.status == CommitmentStatus.MISSED,
+                        Commitment.employee_id.in_(managed_ids),
+                    )
                 )
             )
-        ) if managed_ids else []
+            if managed_ids
+            else []
+        )
         managed_project_ids = select(Project.id).where(Project.owner_id.in_(managed_ids))
         managed_task_ids = select(Task.id).where(Task.owner_id.in_(managed_ids))
         escalation_scope = or_(
@@ -451,34 +524,61 @@ class DailyAutomationService:
             Escalation.project_id.in_(managed_project_ids),
             Escalation.task_id.in_(managed_task_ids),
         )
-        pending_approvals = list(
-            db.scalars(
-                select(Escalation).where(
-                    escalation_scope,
-                    Escalation.status == EscalationStatus.PENDING_APPROVAL,
+        pending_approvals = (
+            list(
+                db.scalars(
+                    select(Escalation).where(
+                        escalation_scope,
+                        Escalation.status == EscalationStatus.PENDING_APPROVAL,
+                    )
                 )
             )
-        ) if managed_ids else []
-        open_escalations = list(
-            db.scalars(
-                select(Escalation).where(
-                    escalation_scope,
-                    Escalation.status.in_([EscalationStatus.OPEN, EscalationStatus.ACKNOWLEDGED]),
+            if managed_ids
+            else []
+        )
+        open_escalations = (
+            list(
+                db.scalars(
+                    select(Escalation).where(
+                        escalation_scope,
+                        Escalation.status.in_(
+                            [EscalationStatus.OPEN, EscalationStatus.ACKNOWLEDGED]
+                        ),
+                    )
                 )
             )
-        ) if managed_ids else []
+            if managed_ids
+            else []
+        )
         # A relevant blocker can depend on someone outside the managed team.
-        blocker_commitments = list(db.scalars(select(Commitment).where(
-            Commitment.blocker_id.in_([blocker.id for blocker in blockers]),
-            Commitment.status == CommitmentStatus.OPEN))) if blockers else []
+        blocker_commitments = (
+            list(
+                db.scalars(
+                    select(Commitment).where(
+                        Commitment.blocker_id.in_([blocker.id for blocker in blockers]),
+                        Commitment.status == CommitmentStatus.OPEN,
+                    )
+                )
+            )
+            if blockers
+            else []
+        )
         day_start = datetime.combine(local_now.date(), time.min, tzinfo=local_now.tzinfo)
-        agent_runs = list(db.scalars(
-            select(AgentRun).where(
-                AgentRun.source_employee_id.in_(managed_ids),
-                AgentRun.processed_at >= day_start,
-                AgentRun.processed_at <= local_now,
-            ).order_by(AgentRun.processed_at, AgentRun.id)
-        )) if managed_ids else []
+        agent_runs = (
+            list(
+                db.scalars(
+                    select(AgentRun)
+                    .where(
+                        AgentRun.source_employee_id.in_(managed_ids),
+                        AgentRun.processed_at >= day_start,
+                        AgentRun.processed_at <= local_now,
+                    )
+                    .order_by(AgentRun.processed_at, AgentRun.id)
+                )
+            )
+            if managed_ids
+            else []
+        )
 
         def employee_name(employee_id: object) -> str:
             employee = db.get(Employee, employee_id)
@@ -512,35 +612,56 @@ class DailyAutomationService:
             if "dependency_followup" in message_kinds or run.dependency_message_id:
                 owners = (
                     ", ".join(employee_name(owner_id) for owner_id in blocker.dependency_owner_ids)
-                    if blocker is not None else "the dependency owner"
+                    if blocker is not None
+                    else "the dependency owner"
                 )
                 actions.append("asked {} for an ETA".format(owners))
             elif "status_update" in message_kinds:
                 actions.append("sent the affected person a status update")
             if run.source_reply_message_id:
                 actions.append("acknowledged the update")
-            if run.needs_yash_review:
+            if run.needs_manager_review:
                 actions.append("flagged it for your review")
             if not actions:
                 actions.append("recorded the update; no follow-up was needed")
             return "{}: {}.".format(source, "; ".join(actions))
 
-        lines = ["Daily manager digest", "", "Responded: {}/{}".format(len(responded), len(managed))]
+        lines = [
+            "Daily manager digest",
+            "",
+            "Responded: {}/{}".format(len(responded), len(managed)),
+        ]
         lines += section(
             "Completed",
-            ["{}: {}".format(employee_name(update.employee_id), update.completed_summary) for update in updates if update.completed_summary],
+            [
+                "{}: {}".format(employee_name(update.employee_id), update.completed_summary)
+                for update in updates
+                if update.completed_summary
+            ],
         )
         lines += section(
             "Working on",
-            ["{}: {}".format(employee_name(update.employee_id), update.today_summary or "Not stated") for update in updates],
+            [
+                "{}: {}".format(
+                    employee_name(update.employee_id), update.today_summary or "Not stated"
+                )
+                for update in updates
+            ],
         )
         lines += section(
             "Expected outcomes",
-            ["{}: {}".format(employee_name(update.employee_id), update.expected_outcome) for update in updates if update.expected_outcome],
+            [
+                "{}: {}".format(employee_name(update.employee_id), update.expected_outcome)
+                for update in updates
+                if update.expected_outcome
+            ],
         )
         blocker_values = []
         for blocker in blockers:
-            owner = ", ".join(employee_name(owner_id) for owner_id in blocker.dependency_owner_ids) or "Unassigned"
+            owner = (
+                ", ".join(employee_name(owner_id) for owner_id in blocker.dependency_owner_ids)
+                or "Unassigned"
+            )
             detail = "{} — {} (dependency: {}; severity: {})".format(
                 employee_name(blocker.blocked_employee_id),
                 blocker.description,
@@ -549,16 +670,33 @@ class DailyAutomationService:
             )
             for linked in blocker_commitments:
                 if linked.blocker_id == blocker.id:
-                    detail += "; {} ETA: {}".format(employee_name(linked.employee_id), DailyAutomationService._format_deadline(linked.deadline))
+                    detail += "; {} ETA: {}".format(
+                        employee_name(linked.employee_id),
+                        DailyAutomationService._format_deadline(linked.deadline),
+                    )
             blocker_values.append(detail)
         lines += section("Blocked", blocker_values)
         lines += section(
             "Commitments due today",
-            ["{}: {} — {}".format(employee_name(item.employee_id), item.description, DailyAutomationService._format_deadline(item.deadline)) for item in due_today],
+            [
+                "{}: {} — {}".format(
+                    employee_name(item.employee_id),
+                    item.description,
+                    DailyAutomationService._format_deadline(item.deadline),
+                )
+                for item in due_today
+            ],
         )
         lines += section(
             "Commitments due soon",
-            ["{}: {} — {}".format(employee_name(item.employee_id), item.description, DailyAutomationService._format_deadline(item.deadline)) for item in due_soon],
+            [
+                "{}: {} — {}".format(
+                    employee_name(item.employee_id),
+                    item.description,
+                    DailyAutomationService._format_deadline(item.deadline),
+                )
+                for item in due_soon
+            ],
         )
         lines += section(
             "Missed commitments",
@@ -566,11 +704,17 @@ class DailyAutomationService:
         )
         lines += section(
             "Needs approval",
-            ["{}: {}".format(item.escalation_type.value.replace("_", " "), item.reason) for item in pending_approvals],
+            [
+                "{}: {}".format(item.escalation_type.value.replace("_", " "), item.reason)
+                for item in pending_approvals
+            ],
         )
         lines += section(
             "Open escalations",
-            ["{}: {}".format(item.escalation_type.value.replace("_", " "), item.reason) for item in open_escalations],
+            [
+                "{}: {}".format(item.escalation_type.value.replace("_", " "), item.reason)
+                for item in open_escalations
+            ],
         )
         handling_lines = [agent_handling(run) for run in agent_runs]
         if len(handling_lines) > 20:
@@ -616,7 +760,10 @@ class DailyAutomationService:
         escalation: Optional[Escalation] = None,
     ) -> bool:
         action = db.scalar(select(AutomationAction).where(AutomationAction.idempotency_key == key))
-        if action is not None and action.status in (AutomationActionStatus.DELIVERED, AutomationActionStatus.SKIPPED):
+        if action is not None and action.status in (
+            AutomationActionStatus.DELIVERED,
+            AutomationActionStatus.SKIPPED,
+        ):
             return False
         if action is None:
             action = AutomationAction(
@@ -648,7 +795,8 @@ class DailyAutomationService:
     @staticmethod
     def _managed_employees(db: Session) -> list[Employee]:
         employees = [
-            employee for employee in DailyAutomationService._managed_team_employees(db)
+            employee
+            for employee in DailyAutomationService._managed_team_employees(db)
             if employee.teams_user_id is not None
         ]
         run = MicrosoftService.active_run(db)
@@ -659,9 +807,13 @@ class DailyAutomationService:
 
     @staticmethod
     def _managed_team_employees(db: Session) -> list[Employee]:
-        return list(db.scalars(select(Employee).where(
-            Employee.is_active.is_(True), Employee.is_managed.is_(True)
-        ).order_by(Employee.name)))
+        return list(
+            db.scalars(
+                select(Employee)
+                .where(Employee.is_active.is_(True), Employee.is_managed.is_(True))
+                .order_by(Employee.name)
+            )
+        )
 
     @staticmethod
     def _daily_checkin_key(db: Session, checkin_day: str, employee_id: object) -> str:
@@ -673,11 +825,13 @@ class DailyAutomationService:
         )
 
     @staticmethod
-    def _yash_notification_target(db: Session) -> Optional[Employee]:
-        email = (get_settings().yash_notification_email or "").strip().lower()
+    def _manager_notification_target(db: Session) -> Optional[Employee]:
+        email = (get_settings().manager_notification_email or "").strip().lower()
         if not email:
             return None
-        return db.scalar(select(Employee).where(Employee.email == email, Employee.is_active.is_(True)))
+        return db.scalar(
+            select(Employee).where(Employee.email == email, Employee.is_active.is_(True))
+        )
 
     @staticmethod
     def _local_now(now: Optional[datetime]) -> datetime:
@@ -707,4 +861,6 @@ class DailyAutomationService:
 
     @staticmethod
     def _format_deadline(value: datetime) -> str:
-        return value.astimezone(ZoneInfo(get_settings().manager_timezone)).strftime("%d %b, %-I:%M %p %Z")
+        return value.astimezone(ZoneInfo(get_settings().manager_timezone)).strftime(
+            "%d %b, %-I:%M %p %Z"
+        )

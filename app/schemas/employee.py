@@ -9,7 +9,6 @@ from pydantic import Field, field_validator
 
 from app.schemas.common import ORMResponse, Schema
 
-
 EMAIL_PATTERN = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 
 

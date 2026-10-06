@@ -14,7 +14,7 @@ def test_reply_analysis_rejects_unexpected_model_fields() -> None:
                 "completed_summary": None,
                 "today_summary": None,
                 "blocker_description": "Schema is missing",
-                "dependency_owner_name": "Shubham",
+                "dependency_owner_name": "Morgan",
                 "eta_deadline": None,
                 "missed_reason": None,
                 "delivery_confirmed": False,
@@ -42,7 +42,7 @@ def test_natural_named_help_request_is_a_blocker_signal() -> None:
     from app.services.message_intent_service import MessageIntentService
 
     signals = MessageIntentService.analyze(
-        "I need some help of Shubham for this, as we also need the backend deployment."
+        "I need some help of Morgan for this, as we also need the backend deployment."
     )
 
     assert signals.blocker is True
@@ -50,13 +50,17 @@ def test_natural_named_help_request_is_a_blocker_signal() -> None:
 
 
 def test_natural_named_help_request_contacts_an_owner_selected_in_the_run() -> None:
-    source = Employee(id=uuid.uuid4(), name="Shivam Bhalerao", email="shivam@example.com", role="Engineer")
-    owner = Employee(id=uuid.uuid4(), name="Shubham Kumar", email="shubham@example.com", role="Engineer")
-    message = SimpleNamespace(content="I need some help of Shubham for the backend deployment.")
+    source = Employee(
+        id=uuid.uuid4(), name="Alex Rivera", email="alex@example.com", role="Engineer"
+    )
+    owner = Employee(
+        id=uuid.uuid4(), name="Morgan Lee", email="morgan@example.com", role="Engineer"
+    )
+    message = SimpleNamespace(content="I need some help of Morgan for the backend deployment.")
     context = {
         "message_focus": "standalone",
         "quoted_message_id": None,
-        "mentioned_people": [{"id": str(owner.id), "name": owner.name, "matched_text": "Shubham"}],
+        "mentioned_people": [{"id": str(owner.id), "name": owner.name, "matched_text": "Morgan"}],
         "active_automation_target_ids": [str(source.id), str(owner.id)],
     }
 
@@ -69,46 +73,51 @@ def test_natural_named_help_request_contacts_an_owner_selected_in_the_run() -> N
 
 
 def test_dependency_eta_request_is_short_and_natural() -> None:
-    employee = Employee(name="Vaibhav Sharma", email="vaibhav@example.com", role="Engineer")
+    employee = Employee(name="Jordan Kim", email="jordan@example.com", role="Engineer")
 
     message = ManagementAgent._natural_dependency_eta_request(
         employee,
-        "Awaiting changes/inputs to the status API from Shubham sir to continue connector page updation.",
+        "Awaiting changes/inputs to the status API from Morgan sir to continue connector page updation.",
     )
 
     assert message == (
-        "Vaibhav is waiting on the status API changes before continuing with the connector "
+        "Jordan is waiting on the status API changes before continuing with the connector "
         "page updates. Any idea when this might be ready?"
     )
 
 
 def test_owner_reference_ignores_common_honorifics() -> None:
-    assert ManagementAgent._name_parts_without_honorifics("Shubham sir") == ["shubham"]
-    assert ManagementAgent._name_parts_without_honorifics("Ms. Vaibhav ji") == ["vaibhav"]
+    assert ManagementAgent._name_parts_without_honorifics("Morgan sir") == ["morgan"]
+    assert ManagementAgent._name_parts_without_honorifics("Ms. Jordan ji") == ["jordan"]
 
 
 def test_owner_handoff_requires_an_actual_handoff_not_a_new_work_update() -> None:
-    owner = Employee(name="Raunak Patil", email="raunak@example.com", role="Engineer")
+    owner = Employee(name="Casey Chen", email="casey@example.com", role="Engineer")
 
-    assert ManagementAgent._is_explicit_owner_handoff("Raunak owns the dependency", owner) is True
-    assert ManagementAgent._is_explicit_owner_handoff("You can follow this with Raunak", owner) is True
-    assert ManagementAgent._is_explicit_owner_handoff("Raunak", owner) is True
-    assert ManagementAgent._is_explicit_owner_handoff(
-        "Raunak is working on a separate graph response format", owner
-    ) is False
-    assert ManagementAgent._is_explicit_owner_handoff("I will talk to Raunak", owner) is False
+    assert ManagementAgent._is_explicit_owner_handoff("Casey owns the dependency", owner) is True
+    assert (
+        ManagementAgent._is_explicit_owner_handoff("You can follow this with Casey", owner) is True
+    )
+    assert ManagementAgent._is_explicit_owner_handoff("Casey", owner) is True
+    assert (
+        ManagementAgent._is_explicit_owner_handoff(
+            "Casey is working on a separate graph response format", owner
+        )
+        is False
+    )
+    assert ManagementAgent._is_explicit_owner_handoff("I will talk to Casey", owner) is False
 
 
 def test_dependency_request_does_not_repeat_honorifics_or_bad_grammar() -> None:
-    employee = Employee(name="Shivam Kumar", email="shivam@example.com", role="Engineer")
+    employee = Employee(name="Alex Rivera", email="alex@example.com", role="Engineer")
 
     message = ManagementAgent._natural_dependency_eta_request(
         employee,
-        "Shivam needs awaiting API to unblock progress on the shared space feature; dependency owned by Ajay sir to continue.",
+        "Alex needs awaiting API to unblock progress on the shared space feature; dependency owned by Bailey sir to continue.",
     )
 
     assert message == (
-        "Shivam is waiting for API before continuing with the shared space feature. "
+        "Alex is waiting for API before continuing with the shared space feature. "
         "Any idea when this might be ready?"
     )
     assert "sir" not in message.casefold()

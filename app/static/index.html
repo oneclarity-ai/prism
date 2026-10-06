@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Personal Agent</title>
+    <title>Prism</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap" rel="stylesheet">
@@ -12,8 +12,8 @@
   <body>
     <header class="topbar">
       <div>
-        <p class="eyebrow">SOFTTRINE · INTERNAL</p>
-        <h1>Personal Agent</h1>
+        <p class="eyebrow">PRISM · SELF-HOSTED</p>
+        <h1>Prism</h1>
         <p class="subtle">A quiet view of team work, risks, and follow-through.</p>
       </div>
       <div class="header-actions">
@@ -38,7 +38,7 @@
             <p id="account-menu-email" class="account-menu-email">No Microsoft account connected</p>
             <div class="account-popover-actions">
               <button id="connect-microsoft-button" class="button secondary" type="button">Connect Microsoft account</button>
-              <button id="sync-directory-button" class="button secondary" type="button">Import active Softtrine users</button>
+              <button id="sync-directory-button" class="button secondary" type="button">Import active directory users</button>
             </div>
           </div>
         </details>
@@ -87,7 +87,7 @@
               <span class="automation-label">Utilities</span>
               <div class="automation-actions">
                 <button id="run-cycle-button" class="button secondary" type="button" data-tooltip="Run today's agent checks now instead of waiting for the schedule.">Run daily cycle</button>
-                <button id="send-digest-email-button" class="button secondary" type="button" data-tooltip="Email today's manager digest to the connected Yash account now.">Send digest</button>
+                <button id="send-digest-email-button" class="button secondary" type="button" data-tooltip="Email today's manager digest to the connected manager account now.">Send digest</button>
                 <button id="renew-listener-button" class="button secondary" type="button" data-tooltip="Keep the Teams reply connection open for incoming messages.">Renew listener</button>
               </div>
             </div>
@@ -98,8 +98,8 @@
             <div id="managed-team-list" class="list empty-state">No people selected yet.</div>
           </section>
           <details class="team-directory-section available-people">
-            <summary>Add people from Softtrine <span id="available-people-count" class="directory-count">0</span></summary>
-            <div id="available-team-list" class="list empty-state">Import active Softtrine users to see people here.</div>
+            <summary>Add people from the organization <span id="available-people-count" class="directory-count">0</span></summary>
+            <div id="available-team-list" class="list empty-state">Import active directory users to see people here.</div>
           </details>
         </div>
       </section>

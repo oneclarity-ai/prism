@@ -1,4 +1,5 @@
 """Validity-aware memory retrieval for compact management context."""
+
 from __future__ import annotations
 
 import math
@@ -43,11 +44,15 @@ class TemporalMemoryService:
                 or_(MemoryRelation.valid_until.is_(None), MemoryRelation.valid_until > now),
             )
         if entity_ids:
-            fact_query = fact_query.where(or_(MemoryFact.subject_id.in_(entity_ids), MemoryFact.object_id.in_(entity_ids)))
-            relation_query = relation_query.where(or_(
-                MemoryRelation.source_entity_id.in_(entity_ids),
-                MemoryRelation.target_entity_id.in_(entity_ids),
-            ))
+            fact_query = fact_query.where(
+                or_(MemoryFact.subject_id.in_(entity_ids), MemoryFact.object_id.in_(entity_ids))
+            )
+            relation_query = relation_query.where(
+                or_(
+                    MemoryRelation.source_entity_id.in_(entity_ids),
+                    MemoryRelation.target_entity_id.in_(entity_ids),
+                )
+            )
         facts = list(db.scalars(fact_query.limit(100)))
         relations = list(db.scalars(relation_query.limit(100)))
 
@@ -57,21 +62,36 @@ class TemporalMemoryService:
             age_days = max(0.0, (now - fact.observed_at).total_seconds() / 86400)
             recency = 200 / (1 + math.log1p(age_days))
             entity = 300 if fact.subject_id in entity_ids or fact.object_id in entity_ids else 0
-            return current + valid + recency + entity + fact.importance + (fact.confidence or 50) / 2
+            return (
+                current + valid + recency + entity + fact.importance + (fact.confidence or 50) / 2
+            )
 
         ranked = sorted(facts, key=fact_score, reverse=True)[:limit]
         return {
-            "facts": [{
-                "id": str(item.id), "subject": item.subject_text or item.subject_type,
-                "predicate": item.predicate.value, "object": item.object_text or item.object_type,
-                "status": item.status.value, "valid_from": item.valid_from.isoformat() if item.valid_from else None,
-                "valid_until": item.valid_until.isoformat() if item.valid_until else None,
-                "confidence": item.confidence, "score": round(fact_score(item), 2),
-            } for item in ranked],
-            "relations": [{
-                "id": str(item.id), "source_type": item.source_entity_type,
-                "source_id": str(item.source_entity_id), "relation": item.relation_type.value,
-                "target_type": item.target_entity_type, "target_id": str(item.target_entity_id),
-                "status": item.status.value,
-            } for item in relations[:limit]],
+            "facts": [
+                {
+                    "id": str(item.id),
+                    "subject": item.subject_text or item.subject_type,
+                    "predicate": item.predicate.value,
+                    "object": item.object_text or item.object_type,
+                    "status": item.status.value,
+                    "valid_from": item.valid_from.isoformat() if item.valid_from else None,
+                    "valid_until": item.valid_until.isoformat() if item.valid_until else None,
+                    "confidence": item.confidence,
+                    "score": round(fact_score(item), 2),
+                }
+                for item in ranked
+            ],
+            "relations": [
+                {
+                    "id": str(item.id),
+                    "source_type": item.source_entity_type,
+                    "source_id": str(item.source_entity_id),
+                    "relation": item.relation_type.value,
+                    "target_type": item.target_entity_type,
+                    "target_id": str(item.target_entity_id),
+                    "status": item.status.value,
+                }
+                for item in relations[:limit]
+            ],
         }

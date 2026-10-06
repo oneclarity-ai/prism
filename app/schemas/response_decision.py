@@ -30,7 +30,9 @@ class OutgoingDecision(DecisionModel):
         "acknowledgement", "clarification", "dependency_followup", "status_update", "conversation"
     ]
     text: str = Field(min_length=1, max_length=1500)
-    awaiting_field: Optional[Literal["owner", "eta", "completion", "outcome", "issue", "work"]] = None
+    awaiting_field: Optional[Literal["owner", "eta", "completion", "outcome", "issue", "work"]] = (
+        None
+    )
 
 
 class CommitmentDecision(DecisionModel):
@@ -44,13 +46,25 @@ class CommitmentDecision(DecisionModel):
 
 class ResponseDecision(DecisionModel):
     intent: Literal[
-        "acknowledgement", "work_update", "blocker", "commitment", "task_completion",
-        "correction", "question", "conversation", "unclear",
+        "acknowledgement",
+        "work_update",
+        "blocker",
+        "commitment",
+        "task_completion",
+        "correction",
+        "question",
+        "conversation",
+        "unclear",
     ] = "unclear"
     should_respond: bool
     response_type: Literal[
-        "acknowledgement", "clarification", "dependency_followup", "status_update",
-        "escalation", "conversation", "no_response",
+        "acknowledgement",
+        "clarification",
+        "dependency_followup",
+        "status_update",
+        "escalation",
+        "conversation",
+        "no_response",
     ]
     reason: str = Field(max_length=1000)
     confidence: float = Field(ge=0, le=1)

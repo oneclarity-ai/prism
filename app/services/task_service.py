@@ -8,7 +8,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.blocker import Blocker
-from app.models.enums import ActivityEventType, BlockerSeverity, EscalationType, BlockerStatus, TaskStatus
+from app.models.enums import (
+    ActivityEventType,
+    BlockerSeverity,
+    BlockerStatus,
+    EscalationType,
+    TaskStatus,
+)
 from app.models.escalation import Escalation
 from app.models.task import Task
 from app.schemas.escalation import EscalationCreate
@@ -54,7 +60,9 @@ class TaskService:
         limit: int,
         offset: int,
     ) -> tuple[list[Task], int]:
-        statement = select(Task).order_by(Task.deadline.is_(None), Task.deadline, Task.created_at.desc())
+        statement = select(Task).order_by(
+            Task.deadline.is_(None), Task.deadline, Task.created_at.desc()
+        )
         count_statement = select(func.count()).select_from(Task)
         if status is not None:
             statement = statement.where(Task.status == status)
@@ -65,12 +73,12 @@ class TaskService:
         if project_id is not None:
             statement = statement.where(Task.project_id == project_id)
             count_statement = count_statement.where(Task.project_id == project_id)
-        return list(db.scalars(statement.limit(limit).offset(offset))), db.scalar(count_statement) or 0
+        return list(db.scalars(statement.limit(limit).offset(offset))), db.scalar(
+            count_statement
+        ) or 0
 
     @staticmethod
-    def update(
-        db: Session, task_id: uuid.UUID, data: TaskUpdate, *, commit: bool = True
-    ) -> Task:
+    def update(db: Session, task_id: uuid.UUID, data: TaskUpdate, *, commit: bool = True) -> Task:
         task = TaskService.get(db, task_id)
         changes = data.model_dump(exclude_unset=True)
 
@@ -80,14 +88,18 @@ class TaskService:
         if "expected_outcome" in changes and changes["expected_outcome"] is None:
             raise RuleViolationError("A meaningful task cannot have an empty expected outcome")
         if "deadline" in changes and changes["deadline"] != task.deadline:
-            raise RuleViolationError("Task deadline changes require an explicit deadline-change workflow")
+            raise RuleViolationError(
+                "Task deadline changes require an explicit deadline-change workflow"
+            )
         if changes.get("status") == TaskStatus.BLOCKED:
             raise RuleViolationError("Use the blocker workflow to mark a task as blocked")
         if TaskService._has_open_blockers(db, task.id):
             if changes.get("owner_id") not in (None, task.owner_id):
                 raise RuleViolationError("Resolve open blockers before reassigning this task")
             if "status" in changes and changes["status"] != TaskStatus.BLOCKED:
-                raise RuleViolationError("Resolve open blockers before changing this task out of blocked status")
+                raise RuleViolationError(
+                    "Resolve open blockers before changing this task out of blocked status"
+                )
 
         previous_owner = task.owner_id
         for field, value in changes.items():
@@ -153,11 +165,14 @@ class TaskService:
 
     @staticmethod
     def _has_open_blockers(db: Session, task_id: uuid.UUID) -> bool:
-        return db.scalar(
-            select(Blocker.id)
-            .where(Blocker.task_id == task_id, Blocker.status == BlockerStatus.OPEN)
-            .limit(1)
-        ) is not None
+        return (
+            db.scalar(
+                select(Blocker.id)
+                .where(Blocker.task_id == task_id, Blocker.status == BlockerStatus.OPEN)
+                .limit(1)
+            )
+            is not None
+        )
 
     @staticmethod
     def _commit(db: Session) -> None:

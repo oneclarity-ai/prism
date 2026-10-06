@@ -1,0 +1,72 @@
+name: Bug report
+description: Report reproducible incorrect behavior in Prism
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include credentials, tenant identifiers, employee messages, or other personal data.
+        Report security vulnerabilities through the private advisory link in SECURITY.md.
+  - type: input
+    id: version
+    attributes:
+      label: Prism version
+      description: Tag or full commit SHA.
+      placeholder: v0.1.0 or abc1234
+    validations:
+      required: true
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: Deployment method
+      options:
+        - Local Python environment
+        - Docker Compose
+        - Other container deployment
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Python, PostgreSQL, browser, and relevant sanitized configuration.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: Provide the smallest reproducible sequence using synthetic data.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized logs or screenshots
+      description: Remove tokens, emails, message content, tenant IDs, and database URLs.
+      render: shell
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched existing issues and pull requests.
+          required: true
+        - label: This report contains no secrets or personal data.
+          required: true
+        - label: This is not a security vulnerability.
+          required: true

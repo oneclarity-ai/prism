@@ -42,8 +42,16 @@ def test_blocker_event_becomes_provenance_linked_memory_once() -> None:
     episode_ids: list[uuid.UUID] = []
     try:
         with SessionLocal() as db:
-            worker = Employee(name="Worker Memory", email="worker-{}@example.invalid".format(suffix), role="Engineer")
-            owner = Employee(name="Owner Memory", email="owner-{}@example.invalid".format(suffix), role="Engineer")
+            worker = Employee(
+                name="Worker Memory",
+                email="worker-{}@example.invalid".format(suffix),
+                role="Engineer",
+            )
+            owner = Employee(
+                name="Owner Memory",
+                email="owner-{}@example.invalid".format(suffix),
+                role="Engineer",
+            )
             db.add_all([worker, owner])
             db.flush()
             employee_ids = [worker.id, owner.id]
@@ -73,12 +81,32 @@ def test_blocker_event_becomes_provenance_linked_memory_once() -> None:
             first = MemoryConsolidationService._process_one(db, event.id)
             second = MemoryConsolidationService._process_one(db, event.id)
             assert first == {"processed": 1, "failed": 0, "facts": 1, "episodes": 1, "relations": 1}
-            assert second == {"processed": 0, "failed": 0, "facts": 0, "episodes": 0, "relations": 0}
+            assert second == {
+                "processed": 0,
+                "failed": 0,
+                "facts": 0,
+                "episodes": 0,
+                "relations": 0,
+            }
 
-            source_ids = list(db.scalars(select(MemorySource.id).where(MemorySource.source_type == "blocker", MemorySource.source_id == blocker.id)))
-            memory_links = list(db.scalars(select(MemoryEvidenceLink).where(MemoryEvidenceLink.memory_source_id.in_(source_ids))))
+            source_ids = list(
+                db.scalars(
+                    select(MemorySource.id).where(
+                        MemorySource.source_type == "blocker", MemorySource.source_id == blocker.id
+                    )
+                )
+            )
+            memory_links = list(
+                db.scalars(
+                    select(MemoryEvidenceLink).where(
+                        MemoryEvidenceLink.memory_source_id.in_(source_ids)
+                    )
+                )
+            )
             fact_ids = [link.memory_id for link in memory_links if link.memory_kind == "fact"]
-            relation_ids = [link.memory_id for link in memory_links if link.memory_kind == "relation"]
+            relation_ids = [
+                link.memory_id for link in memory_links if link.memory_kind == "relation"
+            ]
             episode_ids = [link.memory_id for link in memory_links if link.memory_kind == "episode"]
             assert db.get(ActivityEvent, event.id).processing_status.value == "completed"
             assert db.get(MemoryFact, fact_ids[0]).status == MemoryFactStatus.CURRENT
@@ -96,7 +124,11 @@ def test_blocker_event_becomes_provenance_linked_memory_once() -> None:
     finally:
         with SessionLocal() as db:
             if source_ids:
-                db.execute(delete(MemoryEvidenceLink).where(MemoryEvidenceLink.memory_source_id.in_(source_ids)))
+                db.execute(
+                    delete(MemoryEvidenceLink).where(
+                        MemoryEvidenceLink.memory_source_id.in_(source_ids)
+                    )
+                )
             if relation_ids:
                 db.execute(delete(MemoryRelation).where(MemoryRelation.id.in_(relation_ids)))
             if episode_ids:

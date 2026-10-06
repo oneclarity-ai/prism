@@ -31,7 +31,10 @@ class ManagerFeedbackService:
 
     @staticmethod
     def applicable(
-        db: Session, *, employee_id: uuid.UUID | None = None, project_id: uuid.UUID | None = None,
+        db: Session,
+        *,
+        employee_id: uuid.UUID | None = None,
+        project_id: uuid.UUID | None = None,
         as_of: datetime | None = None,
     ) -> list[ManagerFeedback]:
         now = as_of or datetime.now(timezone.utc)
@@ -41,10 +44,16 @@ class ManagerFeedbackService:
         )
         scopes = [ManagerFeedback.scope == "general", ManagerFeedback.scope == "one_time"]
         if employee_id:
-            scopes.append((ManagerFeedback.scope == "person") & (ManagerFeedback.employee_id == employee_id))
+            scopes.append(
+                (ManagerFeedback.scope == "person") & (ManagerFeedback.employee_id == employee_id)
+            )
         if project_id:
-            scopes.append((ManagerFeedback.scope == "project") & (ManagerFeedback.project_id == project_id))
-        return list(db.scalars(query.where(or_(*scopes)).order_by(ManagerFeedback.created_at.desc())))
+            scopes.append(
+                (ManagerFeedback.scope == "project") & (ManagerFeedback.project_id == project_id)
+            )
+        return list(
+            db.scalars(query.where(or_(*scopes)).order_by(ManagerFeedback.created_at.desc()))
+        )
 
     @staticmethod
     def deactivate(db: Session, feedback_id: uuid.UUID) -> ManagerFeedback:
@@ -55,4 +64,3 @@ class ManagerFeedbackService:
         db.commit()
         db.refresh(item)
         return item
-

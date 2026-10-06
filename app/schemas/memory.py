@@ -115,4 +115,8 @@ class CompiledMemoryContext(Schema):
             ("EVIDENCE", self.raw_evidence),
             ("UNCERTAINTIES", self.uncertainties),
         ]
-        return "\n\n".join("{}\n{}".format(title, "\n".join("- " + value for value in values)) for title, values in sections if values)
+        return "\n\n".join(
+            "{}\n{}".format(title, "\n".join("- " + value for value in values))
+            for title, values in sections
+            if values
+        )

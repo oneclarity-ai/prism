@@ -7,18 +7,50 @@ from typing import Optional
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from app.models.management_context import ManagementContext
 from app.core.config import get_settings
+from app.models.management_context import ManagementContext
 from app.schemas.management_context import ManagementContextCreate, ManagementContextUpdate
 from app.services.errors import NotFoundError
 
 
 class ManagementContextService:
     _STOP_WORDS = {
-        "a", "an", "and", "are", "at", "be", "by", "for", "from", "has", "have",
-        "i", "in", "is", "it", "me", "my", "of", "on", "or", "our", "that", "the",
-        "their", "them", "this", "to", "we", "will", "with", "work", "working", "update",
-        "today", "current", "currently",
+        "a",
+        "an",
+        "and",
+        "are",
+        "at",
+        "be",
+        "by",
+        "for",
+        "from",
+        "has",
+        "have",
+        "i",
+        "in",
+        "is",
+        "it",
+        "me",
+        "my",
+        "of",
+        "on",
+        "or",
+        "our",
+        "that",
+        "the",
+        "their",
+        "them",
+        "this",
+        "to",
+        "we",
+        "will",
+        "with",
+        "work",
+        "working",
+        "update",
+        "today",
+        "current",
+        "currently",
     }
 
     @staticmethod
@@ -43,7 +75,9 @@ class ManagementContextService:
         return entry
 
     @staticmethod
-    def update(db: Session, entry_id: uuid.UUID, data: ManagementContextUpdate) -> ManagementContext:
+    def update(
+        db: Session, entry_id: uuid.UUID, data: ManagementContextUpdate
+    ) -> ManagementContext:
         entry = ManagementContextService.get(db, entry_id)
         for field, value in data.model_dump().items():
             setattr(entry, field, value)
@@ -116,9 +150,12 @@ class ManagementContextService:
                 score += 4 if employee_match else 0
                 ranked.append((score, entry))
             ranked.sort(key=lambda item: (item[0], item[1].updated_at), reverse=True)
-            entries = [entry for _score, entry in ranked[
-                :get_settings().management_response_context_max_entries
-            ]]
+            entries = [
+                entry
+                for _score, entry in ranked[
+                    : get_settings().management_response_context_max_entries
+                ]
+            ]
         if not entries:
             return None
         return "Manager-provided context (active and bounded):\n" + "\n".join(

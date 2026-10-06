@@ -30,7 +30,11 @@ def test_teams_message_intent_is_recorded_without_delivery() -> None:
     try:
         employee = client.post(
             "/api/v1/employees",
-            json={"name": "Intent Recipient", "email": "intent-{}@example.invalid".format(suffix), "role": "Engineer"},
+            json={
+                "name": "Intent Recipient",
+                "email": "intent-{}@example.invalid".format(suffix),
+                "role": "Engineer",
+            },
         )
         assert employee.status_code == 201
         employee_id = employee.json()["id"]

@@ -9,7 +9,7 @@ def test_root_returns_application_status() -> None:
     response = client.get("/")
 
     assert response.status_code == 200
-    assert response.json() == {"name": "Yash Manager Agent", "status": "ok"}
+    assert response.json() == {"name": "Prism", "status": "ok"}
 
 
 def test_health_returns_healthy() -> None:

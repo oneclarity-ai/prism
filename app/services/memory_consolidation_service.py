@@ -4,6 +4,7 @@ This deliberately does not call an LLM.  It turns only explicit, validated
 domain changes into provenance-linked facts, relations, and episodes.  A later
 candidate extraction stage can propose richer memories for manager review.
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
@@ -17,7 +18,6 @@ from app.models.daily_update import DailyUpdate
 from app.models.enums import (
     ActivityEventType,
     BlockerSeverity,
-    ManagementProcedureStatus,
     MemoryEpisodeType,
     MemoryFactStatus,
     MemoryJobStatus,
@@ -27,14 +27,12 @@ from app.models.enums import (
 from app.models.escalation import Escalation
 from app.models.memory import (
     ActivityEvent,
-    ManagementProcedure,
     MemoryEpisode,
     MemoryEvidenceLink,
     MemoryFact,
     MemoryJob,
     MemoryRelation,
     MemorySource,
-    MemorySummary,
 )
 from app.schemas.memory import MemoryFactCreate
 from app.services.memory_service import MemoryService
@@ -74,7 +72,9 @@ class MemoryConsolidationService:
         if not settings.memory_consolidation_enabled:
             return {"processed": 0, "failed": 0, "facts": 0, "episodes": 0, "relations": 0}
         try:
-            hour, minute = (int(value) for value in settings.memory_consolidation_time.split(":", 1))
+            hour, minute = (
+                int(value) for value in settings.memory_consolidation_time.split(":", 1)
+            )
         except ValueError:
             return {"processed": 0, "failed": 0, "facts": 0, "episodes": 0, "relations": 0}
         scheduled = local_now.replace(hour=hour, minute=minute, second=0, microsecond=0)
@@ -182,7 +182,9 @@ class MemoryConsolidationService:
                 object_text=employee.name if employee else None,
                 observed_at=event.occurred_at,
                 valid_from=event.occurred_at,
-                importance=90 if blocker.severity in {BlockerSeverity.HIGH, BlockerSeverity.CRITICAL} else 65,
+                importance=90
+                if blocker.severity in {BlockerSeverity.HIGH, BlockerSeverity.CRITICAL}
+                else 65,
                 visibility_scope=VisibilityScope.MANAGER_ONLY,
                 source_type="blocker",
                 source_id=blocker.id,
@@ -198,7 +200,9 @@ class MemoryConsolidationService:
                 else "",
             ),
             started_at=event.occurred_at,
-            importance=90 if blocker.severity in {BlockerSeverity.HIGH, BlockerSeverity.CRITICAL} else 65,
+            importance=90
+            if blocker.severity in {BlockerSeverity.HIGH, BlockerSeverity.CRITICAL}
+            else 65,
             primary_employee_id=blocker.blocked_employee_id,
             visibility_scope=VisibilityScope.MANAGER_ONLY,
             extractor_version="deterministic-v1",
@@ -206,8 +210,12 @@ class MemoryConsolidationService:
         db.add(episode)
         db.flush()
         MemoryService.link_memory_to_source(
-            db, memory_kind="episode", memory_id=episode.id,
-            source_type="blocker", source_id=blocker.id, event=event,
+            db,
+            memory_kind="episode",
+            memory_id=episode.id,
+            source_type="blocker",
+            source_id=blocker.id,
+            event=event,
         )
         if blocker.dependency_owner_id is not None:
             relation = MemoryRelation(
@@ -224,8 +232,12 @@ class MemoryConsolidationService:
             db.add(relation)
             db.flush()
             MemoryService.link_memory_to_source(
-                db, memory_kind="relation", memory_id=relation.id,
-                source_type="blocker", source_id=blocker.id, event=event,
+                db,
+                memory_kind="relation",
+                memory_id=relation.id,
+                source_type="blocker",
+                source_id=blocker.id,
+                event=event,
             )
             relations = 1
         else:
@@ -283,8 +295,12 @@ class MemoryConsolidationService:
         db.add(episode)
         db.flush()
         MemoryService.link_memory_to_source(
-            db, memory_kind="episode", memory_id=episode.id,
-            source_type="blocker", source_id=blocker.id, event=event,
+            db,
+            memory_kind="episode",
+            memory_id=episode.id,
+            source_type="blocker",
+            source_id=blocker.id,
+            event=event,
         )
         return {"facts": 0, "episodes": 1, "relations": 0}
 
@@ -340,8 +356,12 @@ class MemoryConsolidationService:
         db.add(episode)
         db.flush()
         MemoryService.link_memory_to_source(
-            db, memory_kind="episode", memory_id=episode.id,
-            source_type="commitment", source_id=commitment.id, event=event,
+            db,
+            memory_kind="episode",
+            memory_id=episode.id,
+            source_type="commitment",
+            source_id=commitment.id,
+            event=event,
         )
         return {"facts": 0, "episodes": 1, "relations": 0}
 
@@ -353,11 +373,13 @@ class MemoryConsolidationService:
         resolved = event.event_type == ActivityEventType.ESCALATION_RESOLVED
         episode = MemoryEpisode(
             episode_type=MemoryEpisodeType.DECISION,
-            title="{}: {}".format("Escalation resolved" if resolved else "Escalation raised", escalation.reason[:190]),
+            title="{}: {}".format(
+                "Escalation resolved" if resolved else "Escalation raised", escalation.reason[:190]
+            ),
             summary=escalation.context or escalation.reason,
             started_at=event.occurred_at,
             ended_at=event.occurred_at if resolved else None,
-            importance=90 if escalation.requires_yash_approval else 70,
+            importance=90 if escalation.requires_manager_approval else 70,
             project_id=escalation.project_id,
             primary_employee_id=escalation.employee_id,
             visibility_scope=VisibilityScope.MANAGER_ONLY,
@@ -366,7 +388,11 @@ class MemoryConsolidationService:
         db.add(episode)
         db.flush()
         MemoryService.link_memory_to_source(
-            db, memory_kind="episode", memory_id=episode.id,
-            source_type="escalation", source_id=escalation.id, event=event,
+            db,
+            memory_kind="episode",
+            memory_id=episode.id,
+            source_type="escalation",
+            source_id=escalation.id,
+            event=event,
         )
         return {"facts": 0, "episodes": 1, "relations": 0}

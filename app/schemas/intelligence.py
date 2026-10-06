@@ -170,8 +170,11 @@ class ManagementQueryAnswer(Schema):
 
 class ManagerFeedbackCreate(Schema):
     instruction_type: Literal[
-        "one_time", "project_preference", "person_preference",
-        "general_preference", "state_correction"
+        "one_time",
+        "project_preference",
+        "person_preference",
+        "general_preference",
+        "state_correction",
     ]
     scope: Literal["one_time", "project", "person", "general"]
     instruction: str = Field(min_length=3, max_length=4000)
@@ -214,8 +217,13 @@ class IntelligenceCycleResult(Schema):
 
 class ProactiveDecisionProposal(Schema):
     action: Literal[
-        "NO_ACTION", "ACKNOWLEDGE", "ASK_CLARIFICATION", "FOLLOW_UP",
-        "UPDATE_DEPENDENT", "CREATE_COMMITMENT", "UPDATE_COMMITMENT",
+        "NO_ACTION",
+        "ACKNOWLEDGE",
+        "ASK_CLARIFICATION",
+        "FOLLOW_UP",
+        "UPDATE_DEPENDENT",
+        "CREATE_COMMITMENT",
+        "UPDATE_COMMITMENT",
         "REQUEST_MANAGER_APPROVAL",
     ]
     target_employee_ids: list[uuid.UUID] = Field(default_factory=list, max_length=10)

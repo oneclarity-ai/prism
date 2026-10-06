@@ -9,8 +9,8 @@ from sqlalchemy.orm import Session
 
 from app.models.blocker import Blocker
 from app.models.employee import Employee
-from app.models.response_state import BlockerDependency
 from app.models.enums import ActivityEventType, BlockerStatus, TaskStatus
+from app.models.response_state import BlockerDependency
 from app.models.task import Task
 from app.schemas.blocker import BlockerCreate, BlockerUpdate
 from app.services.common import get_active_employee
@@ -36,7 +36,9 @@ class BlockerService:
                 raise RuleViolationError("A completed or cancelled task cannot receive a blocker")
 
         payload = data.model_dump(exclude={"dependency_owner_ids"})
-        owners = data.dependency_owner_ids or ([data.dependency_owner_id] if data.dependency_owner_id else [])
+        owners = data.dependency_owner_ids or (
+            [data.dependency_owner_id] if data.dependency_owner_id else []
+        )
         BlockerService._validate_owners(db, data.blocked_employee_id, owners)
         payload["dependency_owner_id"] = owners[0] if owners else None
         blocker = Blocker(**payload)
@@ -83,12 +85,18 @@ class BlockerService:
         limit: int,
         offset: int,
     ) -> tuple[list[Blocker], int]:
-        statement = (select(Blocker).join(Employee, Employee.id == Blocker.blocked_employee_id)
-                     .where(Employee.is_active.is_(True))
-                     .order_by(Blocker.created_at.desc(), Blocker.id))
-        count_statement = (select(func.count()).select_from(Blocker)
-                           .join(Employee, Employee.id == Blocker.blocked_employee_id)
-                           .where(Employee.is_active.is_(True)))
+        statement = (
+            select(Blocker)
+            .join(Employee, Employee.id == Blocker.blocked_employee_id)
+            .where(Employee.is_active.is_(True))
+            .order_by(Blocker.created_at.desc(), Blocker.id)
+        )
+        count_statement = (
+            select(func.count())
+            .select_from(Blocker)
+            .join(Employee, Employee.id == Blocker.blocked_employee_id)
+            .where(Employee.is_active.is_(True))
+        )
         filters = [
             (Blocker.status, status),
             (Blocker.task_id, task_id),
@@ -99,28 +107,47 @@ class BlockerService:
                 statement = statement.where(column == value)
                 count_statement = count_statement.where(column == value)
         if dependency_owner_id is not None:
-            owned = select(BlockerDependency.blocker_id).where(BlockerDependency.employee_id == dependency_owner_id,
-                                                            BlockerDependency.is_active.is_(True))
-            condition = or_(Blocker.id.in_(owned), Blocker.dependency_owner_id == dependency_owner_id)
-            statement, count_statement = statement.where(condition), count_statement.where(condition)
-        return list(db.scalars(statement.limit(limit).offset(offset))), db.scalar(count_statement) or 0
+            owned = select(BlockerDependency.blocker_id).where(
+                BlockerDependency.employee_id == dependency_owner_id,
+                BlockerDependency.is_active.is_(True),
+            )
+            condition = or_(
+                Blocker.id.in_(owned), Blocker.dependency_owner_id == dependency_owner_id
+            )
+            statement, count_statement = (
+                statement.where(condition),
+                count_statement.where(condition),
+            )
+        return list(db.scalars(statement.limit(limit).offset(offset))), db.scalar(
+            count_statement
+        ) or 0
 
     @staticmethod
-    def update(db: Session, blocker_id: uuid.UUID, data: BlockerUpdate, *, commit: bool = True) -> Blocker:
+    def update(
+        db: Session, blocker_id: uuid.UUID, data: BlockerUpdate, *, commit: bool = True
+    ) -> Blocker:
         blocker = BlockerService.get(db, blocker_id)
         if blocker.status == BlockerStatus.RESOLVED:
-            raise RuleViolationError("Resolved blockers are immutable; create a new blocker if work is blocked again")
+            raise RuleViolationError(
+                "Resolved blockers are immutable; create a new blocker if work is blocked again"
+            )
 
         changes = data.model_dump(exclude_unset=True)
         if "dependency_owner_id" in changes and changes["dependency_owner_id"] is not None:
             get_active_employee(db, changes["dependency_owner_id"])
         if changes.get("status") == BlockerStatus.OPEN:
-            raise RuleViolationError("An open blocker cannot be reopened through the update workflow")
+            raise RuleViolationError(
+                "An open blocker cannot be reopened through the update workflow"
+            )
 
         previous = BlockerService._snapshot(blocker)
         owners = changes.pop("dependency_owner_ids", None)
         if owners is not None or "dependency_owner_id" in changes:
-            owners = owners if owners is not None else ([changes["dependency_owner_id"]] if changes["dependency_owner_id"] else [])
+            owners = (
+                owners
+                if owners is not None
+                else ([changes["dependency_owner_id"]] if changes["dependency_owner_id"] else [])
+            )
             BlockerService._validate_owners(db, blocker.blocked_employee_id, owners)
             BlockerService._set_owners(db, blocker, owners)
             changes["dependency_owner_id"] = owners[0] if owners else None
@@ -133,13 +160,19 @@ class BlockerService:
             if blocker.task_id is not None:
                 task = db.get(Task, blocker.task_id)
                 other_open_blocker = db.scalar(
-                    select(Blocker.id).where(
+                    select(Blocker.id)
+                    .where(
                         Blocker.task_id == blocker.task_id,
                         Blocker.status == BlockerStatus.OPEN,
                         Blocker.id != blocker.id,
-                    ).limit(1)
+                    )
+                    .limit(1)
                 )
-                if task is not None and task.status == TaskStatus.BLOCKED and other_open_blocker is None:
+                if (
+                    task is not None
+                    and task.status == TaskStatus.BLOCKED
+                    and other_open_blocker is None
+                ):
                     task.status = TaskStatus.IN_PROGRESS
         try:
             db.flush()
@@ -150,8 +183,14 @@ class BlockerService:
                     event_type=ActivityEventType.BLOCKER_DEPENDENCY_OWNER_CHANGED,
                     entity_type="blocker",
                     entity_id=blocker.id,
-                    previous={"dependency_owner_id": previous["dependency_owner_id"], "dependency_owner_ids": previous["dependency_owner_ids"]},
-                    current={"dependency_owner_id": current["dependency_owner_id"], "dependency_owner_ids": current["dependency_owner_ids"]},
+                    previous={
+                        "dependency_owner_id": previous["dependency_owner_id"],
+                        "dependency_owner_ids": previous["dependency_owner_ids"],
+                    },
+                    current={
+                        "dependency_owner_id": current["dependency_owner_id"],
+                        "dependency_owner_ids": current["dependency_owner_ids"],
+                    },
                     subject_employee_id=blocker.blocked_employee_id,
                     task_id=blocker.task_id,
                 )
@@ -202,7 +241,9 @@ class BlockerService:
         for owner_id in owners:
             get_active_employee(db, owner_id)
             if owner_id == blocked_id:
-                raise RuleViolationError("An external dependency cannot belong to the blocked employee")
+                raise RuleViolationError(
+                    "An external dependency cannot belong to the blocked employee"
+                )
 
     @staticmethod
     def _set_owners(db: Session, blocker: Blocker, owners) -> None:

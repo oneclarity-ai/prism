@@ -24,44 +24,46 @@ class ResponseRecoveryService:
         current = now or datetime.now(timezone.utc)
         policy_version = get_settings().response_policy_version
         stale_before = current - ResponseRecoveryService.STALE_PENDING_AFTER
-        message_ids = list(db.scalars(
-            select(Message.id)
-            .outerjoin(AgentRun, AgentRun.inbound_message_id == Message.id)
-            .where(
-                Message.direction == MessageDirection.INBOUND,
-                or_(
-                    AgentRun.id.is_(None),
-                    and_(
-                        or_(
-                            AgentRun.attempt_count < ResponseRecoveryService.MAX_ATTEMPTS,
-                            AgentRun.policy_version.is_(None),
-                            AgentRun.policy_version != policy_version,
-                        ),
-                        or_(
-                            and_(
-                                AgentRun.status == AgentRunStatus.FAILED,
-                                AgentRun.next_retry_at.is_not(None),
-                                AgentRun.next_retry_at <= current,
+        message_ids = list(
+            db.scalars(
+                select(Message.id)
+                .outerjoin(AgentRun, AgentRun.inbound_message_id == Message.id)
+                .where(
+                    Message.direction == MessageDirection.INBOUND,
+                    or_(
+                        AgentRun.id.is_(None),
+                        and_(
+                            or_(
+                                AgentRun.attempt_count < ResponseRecoveryService.MAX_ATTEMPTS,
+                                AgentRun.policy_version.is_(None),
+                                AgentRun.policy_version != policy_version,
                             ),
-                            and_(
-                                AgentRun.status == AgentRunStatus.FAILED,
-                                or_(
-                                    AgentRun.policy_version.is_(None),
-                                    AgentRun.policy_version != policy_version,
+                            or_(
+                                and_(
+                                    AgentRun.status == AgentRunStatus.FAILED,
+                                    AgentRun.next_retry_at.is_not(None),
+                                    AgentRun.next_retry_at <= current,
                                 ),
-                            ),
-                            and_(
-                                AgentRun.status == AgentRunStatus.PENDING,
-                                AgentRun.last_attempt_at.is_not(None),
-                                AgentRun.last_attempt_at <= stale_before,
+                                and_(
+                                    AgentRun.status == AgentRunStatus.FAILED,
+                                    or_(
+                                        AgentRun.policy_version.is_(None),
+                                        AgentRun.policy_version != policy_version,
+                                    ),
+                                ),
+                                and_(
+                                    AgentRun.status == AgentRunStatus.PENDING,
+                                    AgentRun.last_attempt_at.is_not(None),
+                                    AgentRun.last_attempt_at <= stale_before,
+                                ),
                             ),
                         ),
                     ),
-                ),
+                )
+                .order_by(Message.created_at, Message.id)
+                .limit(limit)
             )
-            .order_by(Message.created_at, Message.id)
-            .limit(limit)
-        ))
+        )
         processed = 0
         for message_id in message_ids:
             result = ManagementAgent.process_message(db, str(message_id))

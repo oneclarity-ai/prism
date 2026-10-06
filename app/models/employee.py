@@ -14,9 +14,9 @@ if TYPE_CHECKING:
     from app.models.commitment import Commitment
     from app.models.conversation import Conversation
     from app.models.daily_update import DailyUpdate
+    from app.models.employee_alias import EmployeeAlias
     from app.models.project import Project
     from app.models.task import Task
-    from app.models.employee_alias import EmployeeAlias
 
 
 class Employee(TimestampMixin, Base):
@@ -31,7 +31,9 @@ class Employee(TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("employees.id", ondelete="SET NULL"), index=True
     )
     teams_user_id: Mapped[Optional[str]] = mapped_column(String(255), unique=True)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true", nullable=False)
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default="true", nullable=False
+    )
     is_managed: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default="false", nullable=False, index=True
     )
@@ -49,8 +51,12 @@ class Employee(TimestampMixin, Base):
     dependency_blockers: Mapped[list["Blocker"]] = relationship(
         "Blocker", foreign_keys="Blocker.dependency_owner_id", back_populates="dependency_owner"
     )
-    daily_updates: Mapped[list["DailyUpdate"]] = relationship("DailyUpdate", back_populates="employee")
-    conversations: Mapped[list["Conversation"]] = relationship("Conversation", back_populates="employee")
+    daily_updates: Mapped[list["DailyUpdate"]] = relationship(
+        "DailyUpdate", back_populates="employee"
+    )
+    conversations: Mapped[list["Conversation"]] = relationship(
+        "Conversation", back_populates="employee"
+    )
     alias_records: Mapped[list["EmployeeAlias"]] = relationship(
         "EmployeeAlias", back_populates="employee", cascade="all, delete-orphan"
     )

@@ -41,7 +41,9 @@ class AutomationAction(TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("messages.id", ondelete="SET NULL")
     )
     detail: Mapped[Optional[str]] = mapped_column(Text)
-    executed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    executed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
 
     employee = relationship("Employee")
     commitment = relationship("Commitment")

@@ -73,17 +73,17 @@ def test_agent_context_is_active_relevant_and_bounded() -> None:
                 ManagementContext(
                     category="work",
                     title="Deployment List " + suffix,
-                    content="Riya\nOld unrelated deployment task. [ IN PROGRESS ]",
+                    content="Avery\nOld unrelated deployment task. [ IN PROGRESS ]",
                 ),
                 ManagementContext(
                     category="person",
-                    title="Riya ownership " + suffix,
-                    content="Riya owns authentication decisions.",
+                    title="Avery ownership " + suffix,
+                    content="Avery owns authentication decisions.",
                 ),
                 ManagementContext(
                     category="person",
-                    title="Ajay ownership " + suffix,
-                    content="Ajay owns schema changes.",
+                    title="Bailey ownership " + suffix,
+                    content="Bailey owns schema changes.",
                 ),
                 ManagementContext(
                     category="team",
@@ -96,19 +96,19 @@ def test_agent_context_is_active_relevant_and_bounded() -> None:
             db.commit()
             entry_ids = [entry.id for entry in entries]
 
-            context = ManagementContextService.agent_prompt_context(db, "Riya Sharma")
+            context = ManagementContextService.agent_prompt_context(db, "Avery Morgan")
 
             assert context is not None
             assert "Ask for a clear outcome" in context
-            assert "Riya owns authentication decisions" in context
-            assert "Ajay owns schema changes" not in context
+            assert "Avery owns authentication decisions" in context
+            assert "Bailey owns schema changes" not in context
             assert "This must not reach the agent" not in context
 
             focused = ManagementContextService.agent_prompt_context(
-                db, "Riya Sharma", query="The authentication dependency is blocked"
+                db, "Avery Morgan", query="The authentication dependency is blocked"
             )
             assert focused is not None
-            assert "Riya owns authentication decisions" in focused
+            assert "Avery owns authentication decisions" in focused
             assert "Old unrelated deployment task" not in focused
     finally:
         if entry_ids:

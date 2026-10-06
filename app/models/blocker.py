@@ -14,6 +14,7 @@ from app.models.enums import BlockerSeverity, BlockerStatus
 if TYPE_CHECKING:
     from app.models.commitment import Commitment
     from app.models.employee import Employee
+    from app.models.response_state import BlockerDependency
     from app.models.task import Task
 
 
@@ -25,17 +26,26 @@ class Blocker(TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("tasks.id", ondelete="SET NULL"), index=True
     )
     blocked_employee_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("employees.id", ondelete="RESTRICT"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("employees.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
     )
     dependency_owner_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True), ForeignKey("employees.id", ondelete="SET NULL"), index=True
     )
     description: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[BlockerStatus] = mapped_column(
-        Enum(BlockerStatus, name="blocker_status"), default=BlockerStatus.OPEN, nullable=False, index=True
+        Enum(BlockerStatus, name="blocker_status"),
+        default=BlockerStatus.OPEN,
+        nullable=False,
+        index=True,
     )
     severity: Mapped[BlockerSeverity] = mapped_column(
-        Enum(BlockerSeverity, name="blocker_severity"), default=BlockerSeverity.MEDIUM, nullable=False, index=True
+        Enum(BlockerSeverity, name="blocker_severity"),
+        default=BlockerSeverity.MEDIUM,
+        nullable=False,
+        index=True,
     )
     resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 
@@ -47,7 +57,9 @@ class Blocker(TimestampMixin, Base):
         "Employee", foreign_keys=[dependency_owner_id], back_populates="dependency_blockers"
     )
     commitments: Mapped[list["Commitment"]] = relationship("Commitment", back_populates="blocker")
-    dependencies: Mapped[list["BlockerDependency"]] = relationship("BlockerDependency", passive_deletes=True)
+    dependencies: Mapped[list["BlockerDependency"]] = relationship(
+        "BlockerDependency", passive_deletes=True
+    )
 
     @property
     def dependency_owner_ids(self) -> list[uuid.UUID]:

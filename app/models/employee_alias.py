@@ -17,7 +17,10 @@ class EmployeeAlias(TimestampMixin, Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     employee_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("employees.id", ondelete="CASCADE"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("employees.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     alias: Mapped[str] = mapped_column(String(255), nullable=False)
     normalized_alias: Mapped[str] = mapped_column(String(255), nullable=False)

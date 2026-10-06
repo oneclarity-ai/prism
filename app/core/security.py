@@ -9,7 +9,6 @@ from fastapi.responses import JSONResponse
 
 from app.core.config import get_settings
 
-
 OPERATOR_TOKEN_HEADER = "X-Manager-Operator-Token"
 PUBLIC_API_PATHS = {
     "/health",
@@ -29,7 +28,11 @@ def operator_auth_required() -> bool:
     """
 
     settings = get_settings()
-    return bool(settings.operator_api_token or settings.microsoft_webhook_base_url)
+    return bool(
+        settings.operator_api_token
+        or settings.microsoft_webhook_base_url
+        or settings.app_env.casefold() != "development"
+    )
 
 
 async def protect_operator_api(request: Request, call_next):
@@ -52,6 +55,9 @@ async def protect_operator_api(request: Request, call_next):
     if not hmac.compare_digest(supplied_token, expected_token):
         return JSONResponse(
             status_code=401,
-            content={"detail": "A valid manager operator token is required", "code": "operator_auth_required"},
+            content={
+                "detail": "A valid manager operator token is required",
+                "code": "operator_auth_required",
+            },
         )
     return await call_next(request)

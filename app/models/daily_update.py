@@ -17,12 +17,17 @@ if TYPE_CHECKING:
 class DailyUpdate(TimestampMixin, Base):
     __tablename__ = "daily_updates"
     __table_args__ = (
-        UniqueConstraint("employee_id", "update_date", name="uq_daily_updates_employee_daily_update"),
+        UniqueConstraint(
+            "employee_id", "update_date", name="uq_daily_updates_employee_daily_update"
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     employee_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("employees.id", ondelete="CASCADE"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("employees.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     update_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     completed_summary: Mapped[Optional[str]] = mapped_column(Text)

@@ -22,7 +22,10 @@ class Commitment(TimestampMixin, Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     employee_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("employees.id", ondelete="RESTRICT"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("employees.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
     )
     task_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True), ForeignKey("tasks.id", ondelete="SET NULL"), index=True
@@ -36,7 +39,10 @@ class Commitment(TimestampMixin, Base):
     )
     deadline: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
     status: Mapped[CommitmentStatus] = mapped_column(
-        Enum(CommitmentStatus, name="commitment_status"), default=CommitmentStatus.OPEN, nullable=False, index=True
+        Enum(CommitmentStatus, name="commitment_status"),
+        default=CommitmentStatus.OPEN,
+        nullable=False,
+        index=True,
     )
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     missed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), index=True)
@@ -55,4 +61,6 @@ class Commitment(TimestampMixin, Base):
     revised_from: Mapped[Optional["Commitment"]] = relationship(
         "Commitment", remote_side="Commitment.id", back_populates="revisions"
     )
-    revisions: Mapped[list["Commitment"]] = relationship("Commitment", back_populates="revised_from")
+    revisions: Mapped[list["Commitment"]] = relationship(
+        "Commitment", back_populates="revised_from"
+    )

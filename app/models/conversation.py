@@ -36,5 +36,7 @@ class Conversation(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
-    employee: Mapped[Optional["Employee"]] = relationship("Employee", back_populates="conversations")
+    employee: Mapped[Optional["Employee"]] = relationship(
+        "Employee", back_populates="conversations"
+    )
     messages: Mapped[list["Message"]] = relationship("Message", back_populates="conversation")

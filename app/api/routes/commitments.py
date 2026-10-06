@@ -56,7 +56,9 @@ def mark_commitment_missed(
     return CommitmentService.mark_missed(db, commitment_id, payload.reason if payload else None)
 
 
-@router.post("/{commitment_id}/revisions", response_model=CommitmentRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{commitment_id}/revisions", response_model=CommitmentRead, status_code=status.HTTP_201_CREATED
+)
 def revise_commitment(
     commitment_id: uuid.UUID,
     payload: CommitmentRevisionCreate,
@@ -66,7 +68,9 @@ def revise_commitment(
 
 
 @router.get("/{commitment_id}/history", response_model=list[CommitmentRead])
-def get_commitment_history(commitment_id: uuid.UUID, db: Session = Depends(get_db)) -> list[CommitmentRead]:
+def get_commitment_history(
+    commitment_id: uuid.UUID, db: Session = Depends(get_db)
+) -> list[CommitmentRead]:
     return CommitmentService.history(db, commitment_id)
 
 

@@ -8,7 +8,9 @@ from pydantic import Field
 
 from app.schemas.common import ORMResponse, Schema
 
-ManagementContextCategory = Literal["team", "work", "people", "communication", "escalation", "other"]
+ManagementContextCategory = Literal[
+    "team", "work", "people", "communication", "escalation", "other"
+]
 
 
 class ManagementContextCreate(Schema):

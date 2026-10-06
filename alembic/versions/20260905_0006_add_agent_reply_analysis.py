@@ -45,7 +45,7 @@ def upgrade() -> None:
         sa.Column("blocker_id", postgresql.UUID(as_uuid=True), nullable=True),
         sa.Column("source_reply_message_id", postgresql.UUID(as_uuid=True), nullable=True),
         sa.Column("dependency_message_id", postgresql.UUID(as_uuid=True), nullable=True),
-        sa.Column("needs_yash_review", sa.Boolean(), server_default=sa.text("false"), nullable=False),
+        sa.Column("needs_manager_review", sa.Boolean(), server_default=sa.text("false"), nullable=False),
         sa.Column("failure_reason", sa.Text(), nullable=True),
         sa.Column("processed_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),

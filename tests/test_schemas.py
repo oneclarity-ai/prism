@@ -5,24 +5,24 @@ from pydantic import ValidationError
 
 from app.schemas.blocker import BlockerCreate
 from app.schemas.commitment import CommitmentCreate, CommitmentRevisionCreate
-from app.schemas.escalation import EscalationCreate
 from app.schemas.conversation import MessageIntentCreate
 from app.schemas.daily_update import DailyUpdateCreate
 from app.schemas.employee import EmployeeCreate
+from app.schemas.escalation import EscalationCreate
 from app.schemas.management_context import ManagementContextCreate
 from app.schemas.project import ProjectCreate
 from app.schemas.task import TaskCreate
 
 
 def test_employee_email_is_normalized() -> None:
-    employee = EmployeeCreate(name="Asha", email="  ASHA@SOFTTRINE.COM ", role="Engineer")
+    employee = EmployeeCreate(name="Avery", email="  AVERY@EXAMPLE.COM ", role="Engineer")
 
-    assert employee.email == "asha@softtrine.com"
+    assert employee.email == "avery@example.com"
 
 
 def test_employee_rejects_invalid_email() -> None:
     with pytest.raises(ValidationError):
-        EmployeeCreate(name="Asha", email="not-an-email", role="Engineer")
+        EmployeeCreate(name="Avery", email="not-an-email", role="Engineer")
 
 
 def test_project_rejects_target_before_start_date() -> None:
@@ -32,7 +32,9 @@ def test_project_rejects_target_before_start_date() -> None:
 
 def test_task_requires_outcome_and_timezone_aware_deadline() -> None:
     with pytest.raises(ValidationError):
-        TaskCreate(owner_id="845e7fa0-fba6-4bf4-a0e3-cd59073bd8e6", title="Task", expected_outcome="")
+        TaskCreate(
+            owner_id="845e7fa0-fba6-4bf4-a0e3-cd59073bd8e6", title="Task", expected_outcome=""
+        )
     with pytest.raises(ValidationError):
         TaskCreate(
             owner_id="845e7fa0-fba6-4bf4-a0e3-cd59073bd8e6",
@@ -44,7 +46,9 @@ def test_task_requires_outcome_and_timezone_aware_deadline() -> None:
 
 def test_daily_update_requires_todays_concrete_plan() -> None:
     with pytest.raises(ValidationError):
-        DailyUpdateCreate(employee_id="845e7fa0-fba6-4bf4-a0e3-cd59073bd8e6", update_date="2026-10-10")
+        DailyUpdateCreate(
+            employee_id="845e7fa0-fba6-4bf4-a0e3-cd59073bd8e6", update_date="2026-10-10"
+        )
 
 
 def test_blocker_requires_description() -> None:

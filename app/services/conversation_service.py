@@ -64,7 +64,9 @@ class ConversationService:
         if channel is not None:
             statement = statement.where(Conversation.channel == channel)
             count_statement = count_statement.where(Conversation.channel == channel)
-        return list(db.scalars(statement.limit(limit).offset(offset))), db.scalar(count_statement) or 0
+        return list(db.scalars(statement.limit(limit).offset(offset))), db.scalar(
+            count_statement
+        ) or 0
 
     @staticmethod
     def list_messages(
@@ -89,7 +91,9 @@ class ConversationService:
             if value is not None:
                 statement = statement.where(column == value)
                 count_statement = count_statement.where(column == value)
-        return list(db.scalars(statement.limit(limit).offset(offset))), db.scalar(count_statement) or 0
+        return list(db.scalars(statement.limit(limit).offset(offset))), db.scalar(
+            count_statement
+        ) or 0
 
     @staticmethod
     def _get_or_create_conversation(db: Session, data: MessageIntentCreate) -> Conversation:
@@ -98,7 +102,9 @@ class ConversationService:
             if conversation.employee_id != data.employee_id:
                 raise RuleViolationError("Conversation does not belong to the intended employee")
             if conversation.channel != data.channel:
-                raise RuleViolationError("Conversation channel does not match the message intent channel")
+                raise RuleViolationError(
+                    "Conversation channel does not match the message intent channel"
+                )
             return conversation
 
         conversation = db.scalar(
@@ -108,7 +114,9 @@ class ConversationService:
                 Conversation.channel == data.channel,
                 Conversation.conversation_type == ConversationType.DIRECT,
             )
-            .order_by(Conversation.last_message_at.desc().nullslast(), Conversation.created_at.desc())
+            .order_by(
+                Conversation.last_message_at.desc().nullslast(), Conversation.created_at.desc()
+            )
             .limit(1)
         )
         if conversation is not None:

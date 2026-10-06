@@ -1,4 +1,5 @@
 """PostgreSQL-backed dependency graph projection and traversal."""
+
 from __future__ import annotations
 
 import uuid
@@ -30,17 +31,23 @@ class DependencyGraphService:
             raise NotFoundError("Blocker was not found")
         if data.source_message_id and db.get(Message, data.source_message_id) is None:
             raise NotFoundError("Source message was not found")
-        existing = db.scalar(select(DependencyEdge).where(
-            DependencyEdge.source_entity_type == data.source_entity_type,
-            DependencyEdge.source_entity_id == data.source_entity_id,
-            DependencyEdge.target_entity_type == data.target_entity_type,
-            DependencyEdge.target_entity_id == data.target_entity_id,
-            DependencyEdge.status == "active",
-        ))
+        existing = db.scalar(
+            select(DependencyEdge).where(
+                DependencyEdge.source_entity_type == data.source_entity_type,
+                DependencyEdge.source_entity_id == data.source_entity_id,
+                DependencyEdge.target_entity_type == data.target_entity_type,
+                DependencyEdge.target_entity_id == data.target_entity_id,
+                DependencyEdge.status == "active",
+            )
+        )
         if existing:
             return existing
-        edge = DependencyEdge(**data.model_dump(), relation_type="depends_on", status="active",
-                              valid_from=datetime.now(timezone.utc))
+        edge = DependencyEdge(
+            **data.model_dump(),
+            relation_type="depends_on",
+            status="active",
+            valid_from=datetime.now(timezone.utc),
+        )
         db.add(edge)
         db.commit()
         db.refresh(edge)
@@ -67,12 +74,19 @@ class DependencyGraphService:
         if edge.status != "resolved":
             raise RuleViolationError("Only a resolved dependency can be reopened")
         reopened = DependencyEdge(
-            source_entity_type=edge.source_entity_type, source_entity_id=edge.source_entity_id,
-            target_entity_type=edge.target_entity_type, target_entity_id=edge.target_entity_id,
-            relation_type=edge.relation_type, status="active", blocker_id=edge.blocker_id,
-            task_id=edge.task_id, project_id=edge.project_id,
-            source_message_id=edge.source_message_id, reopened_from_id=edge.id,
-            valid_from=datetime.now(timezone.utc), confidence=edge.confidence,
+            source_entity_type=edge.source_entity_type,
+            source_entity_id=edge.source_entity_id,
+            target_entity_type=edge.target_entity_type,
+            target_entity_id=edge.target_entity_id,
+            relation_type=edge.relation_type,
+            status="active",
+            blocker_id=edge.blocker_id,
+            task_id=edge.task_id,
+            project_id=edge.project_id,
+            source_message_id=edge.source_message_id,
+            reopened_from_id=edge.id,
+            valid_from=datetime.now(timezone.utc),
+            confidence=edge.confidence,
         )
         db.add(reopened)
         db.commit()
@@ -93,33 +107,66 @@ class DependencyGraphService:
             persisted = persisted.where(DependencyEdge.status == "active")
             blockers = blockers.where(Blocker.status == BlockerStatus.OPEN)
         for edge in db.scalars(persisted.order_by(DependencyEdge.valid_from)):
-            result.append(DependencyEdgeRead(
-                id=edge.id, source_entity_type=edge.source_entity_type, source_entity_id=edge.source_entity_id,
-                target_entity_type=edge.target_entity_type, target_entity_id=edge.target_entity_id,
-                relation_type=edge.relation_type, status=edge.status, blocker_id=edge.blocker_id,
-                task_id=edge.task_id, project_id=edge.project_id, valid_from=edge.valid_from,
-                valid_until=edge.valid_until, confidence=edge.confidence,
-                reopened_from_id=edge.reopened_from_id,
-                evidence=([f"message:{edge.source_message_id}"] if edge.source_message_id else []),
-            ))
-        existing = {(edge.source_entity_type, edge.source_entity_id, edge.target_entity_type, edge.target_entity_id, edge.blocker_id) for edge in result}
+            result.append(
+                DependencyEdgeRead(
+                    id=edge.id,
+                    source_entity_type=edge.source_entity_type,
+                    source_entity_id=edge.source_entity_id,
+                    target_entity_type=edge.target_entity_type,
+                    target_entity_id=edge.target_entity_id,
+                    relation_type=edge.relation_type,
+                    status=edge.status,
+                    blocker_id=edge.blocker_id,
+                    task_id=edge.task_id,
+                    project_id=edge.project_id,
+                    valid_from=edge.valid_from,
+                    valid_until=edge.valid_until,
+                    confidence=edge.confidence,
+                    reopened_from_id=edge.reopened_from_id,
+                    evidence=(
+                        [f"message:{edge.source_message_id}"] if edge.source_message_id else []
+                    ),
+                )
+            )
+        existing = {
+            (
+                edge.source_entity_type,
+                edge.source_entity_id,
+                edge.target_entity_type,
+                edge.target_entity_id,
+                edge.blocker_id,
+            )
+            for edge in result
+        }
         for blocker in db.scalars(blockers.order_by(Blocker.created_at)):
-            owner_ids = list(db.scalars(select(BlockerDependency.employee_id).where(
-                BlockerDependency.blocker_id == blocker.id,
-                BlockerDependency.is_active.is_(True),
-            ))) or ([blocker.dependency_owner_id] if blocker.dependency_owner_id else [])
+            owner_ids = list(
+                db.scalars(
+                    select(BlockerDependency.employee_id).where(
+                        BlockerDependency.blocker_id == blocker.id,
+                        BlockerDependency.is_active.is_(True),
+                    )
+                )
+            ) or ([blocker.dependency_owner_id] if blocker.dependency_owner_id else [])
             for owner_id in owner_ids:
                 key = ("employee", blocker.blocked_employee_id, "employee", owner_id, blocker.id)
                 if owner_id is None or key in existing:
                     continue
-                result.append(DependencyEdgeRead(
-                    id=blocker.id, source_entity_type="employee", source_entity_id=blocker.blocked_employee_id,
-                    target_entity_type="employee", target_entity_id=owner_id,
-                    status="active" if blocker.status == BlockerStatus.OPEN else "resolved",
-                    blocker_id=blocker.id, task_id=blocker.task_id,
-                    valid_from=blocker.created_at or datetime.now(timezone.utc), valid_until=blocker.resolved_at,
-                    confidence=1.0, evidence=[f"blocker:{blocker.id}"],
-                ))
+                result.append(
+                    DependencyEdgeRead(
+                        id=blocker.id,
+                        source_entity_type="employee",
+                        source_entity_id=blocker.blocked_employee_id,
+                        target_entity_type="employee",
+                        target_entity_id=owner_id,
+                        status="active" if blocker.status == BlockerStatus.OPEN else "resolved",
+                        blocker_id=blocker.id,
+                        task_id=blocker.task_id,
+                        valid_from=blocker.created_at or datetime.now(timezone.utc),
+                        valid_until=blocker.resolved_at,
+                        confidence=1.0,
+                        evidence=[f"blocker:{blocker.id}"],
+                    )
+                )
         return result
 
     @staticmethod
@@ -129,7 +176,9 @@ class DependencyGraphService:
             raise NotFoundError(f"{entity_type.title()} was not found")
 
     @staticmethod
-    def affected_by(db: Session, entity_type: str, entity_id: uuid.UUID, *, max_depth: int = 8) -> list[dict]:
+    def affected_by(
+        db: Session, entity_type: str, entity_id: uuid.UUID, *, max_depth: int = 8
+    ) -> list[dict]:
         edges = DependencyGraphService.edges(db)
         reverse: dict[tuple[str, uuid.UUID], list[DependencyEdgeRead]] = {}
         for edge in edges:
@@ -146,8 +195,14 @@ class DependencyGraphService:
                 if source in seen:
                     continue
                 seen.add(source)
-                affected.append({"entity_type": source[0], "id": str(source[1]), "depth": depth + 1,
-                                 "via_blocker_id": str(edge.blocker_id) if edge.blocker_id else None})
+                affected.append(
+                    {
+                        "entity_type": source[0],
+                        "id": str(source[1]),
+                        "depth": depth + 1,
+                        "via_blocker_id": str(edge.blocker_id) if edge.blocker_id else None,
+                    }
+                )
                 queue.append((source, depth + 1))
         return affected
 
@@ -164,7 +219,9 @@ class DependencyGraphService:
             if node in active:
                 start = path.index(node)
                 cycle = path[start:] + [node]
-                rotations = [tuple(cycle[i:-1] + cycle[:i] + [cycle[i]]) for i in range(len(cycle) - 1)]
+                rotations = [
+                    tuple(cycle[i:-1] + cycle[:i] + [cycle[i]]) for i in range(len(cycle) - 1)
+                ]
                 cycles.add(min(rotations))
                 return
             if len(path) >= 10:

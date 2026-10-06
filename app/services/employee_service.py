@@ -40,7 +40,9 @@ class EmployeeService:
         if is_active is not None:
             statement = statement.where(Employee.is_active.is_(is_active))
             count_statement = count_statement.where(Employee.is_active.is_(is_active))
-        return list(db.scalars(statement.limit(limit).offset(offset))), db.scalar(count_statement) or 0
+        return list(db.scalars(statement.limit(limit).offset(offset))), db.scalar(
+            count_statement
+        ) or 0
 
     @staticmethod
     def update(db: Session, employee_id: uuid.UUID, data: EmployeeUpdate) -> Employee:

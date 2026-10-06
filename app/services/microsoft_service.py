@@ -23,9 +23,9 @@ from app.models.automation_run import AutomationRun
 from app.models.conversation import Conversation
 from app.models.employee import Employee
 from app.models.enums import (
-    AutomationStatus,
     AutomationActionStatus,
     AutomationActionType,
+    AutomationStatus,
     ConversationChannel,
     ConversationType,
     MessageDeliveryStatus,
@@ -38,7 +38,6 @@ from app.models.microsoft_connection import MicrosoftConnection
 from app.models.microsoft_oauth_state import MicrosoftOAuthState
 from app.models.microsoft_subscription import MicrosoftTeamsSubscription
 from app.schemas.microsoft import (
-    AutomationRunRead,
     AutomationStart,
     DirectorySyncResult,
     MicrosoftStatusRead,
@@ -46,7 +45,6 @@ from app.schemas.microsoft import (
 )
 from app.services.errors import ConflictError, ExternalServiceError, RuleViolationError
 from app.services.memory_service import MemoryService
-
 
 GRAPH_BASE_URL = "https://graph.microsoft.com/v1.0"
 OAUTH_STATE_TTL_MINUTES = 10
@@ -56,7 +54,7 @@ OAUTH_STATE_TTL_MINUTES = 10
 SUBSCRIPTION_LIFETIME_MINUTES = 4_200
 SUBSCRIPTION_RENEWAL_LEAD_MINUTES = 360
 TOKEN_REFRESH_SKEW_SECONDS = 300
-SIGNATURE = "Sent by Yash's Agent"
+SIGNATURE = "Sent by Prism"
 DELEGATED_SCOPES = (
     "openid",
     "profile",
@@ -82,7 +80,9 @@ class _HTMLTextExtractor(HTMLParser):
         attributes = dict(attrs)
         if tag == "blockquote":
             self.quote_depth += 1
-            self.reply_id = attributes.get("itemid") or attributes.get("data-message-id") or self.reply_id
+            self.reply_id = (
+                attributes.get("itemid") or attributes.get("data-message-id") or self.reply_id
+            )
 
     def handle_endtag(self, tag) -> None:
         if tag == "blockquote" and self.quote_depth:
@@ -113,7 +113,9 @@ class TokenCipher:
         try:
             self._fernet = Fernet(resolved_settings.microsoft_token_encryption_key.encode("utf-8"))
         except (TypeError, ValueError) as exc:
-            raise RuleViolationError("MICROSOFT_TOKEN_ENCRYPTION_KEY is not a valid Fernet key") from exc
+            raise RuleViolationError(
+                "MICROSOFT_TOKEN_ENCRYPTION_KEY is not a valid Fernet key"
+            ) from exc
 
     def encrypt(self, value: str) -> str:
         return self._fernet.encrypt(value.encode("utf-8")).decode("utf-8")
@@ -126,7 +128,7 @@ class TokenCipher:
 
 
 class MicrosoftGraphClient:
-    """Minimal synchronous Microsoft Graph client for the delegated Yash connection."""
+    """Minimal synchronous Microsoft Graph client for the delegated manager connection."""
 
     def __init__(self, db: Session, connection: MicrosoftConnection) -> None:
         self.db = db
@@ -154,9 +156,11 @@ class MicrosoftGraphClient:
         cipher = TokenCipher(settings)
         state = secrets.token_urlsafe(32)
         code_verifier = secrets.token_urlsafe(64)
-        challenge = base64.urlsafe_b64encode(
-            hashlib.sha256(code_verifier.encode("utf-8")).digest()
-        ).rstrip(b"=").decode("ascii")
+        challenge = (
+            base64.urlsafe_b64encode(hashlib.sha256(code_verifier.encode("utf-8")).digest())
+            .rstrip(b"=")
+            .decode("ascii")
+        )
         now = datetime.now(timezone.utc)
         db.add(
             MicrosoftOAuthState(
@@ -192,14 +196,18 @@ class MicrosoftGraphClient:
             if pending_state is not None:
                 db.delete(pending_state)
                 db.commit()
-            raise RuleViolationError("Microsoft sign-in has expired. Start the connection again from the dashboard")
+            raise RuleViolationError(
+                "Microsoft sign-in has expired. Start the connection again from the dashboard"
+            )
 
         code_verifier = TokenCipher(settings).decrypt(pending_state.encrypted_code_verifier)
         token_data = MicrosoftGraphClient._exchange_code(settings, code, code_verifier)
         refresh_token = token_data.get("refresh_token")
         access_token = token_data.get("access_token")
         if not isinstance(refresh_token, str) or not isinstance(access_token, str):
-            raise ExternalServiceError("Microsoft did not return the refresh token needed for local automation")
+            raise ExternalServiceError(
+                "Microsoft did not return the refresh token needed for local automation"
+            )
         profile = MicrosoftGraphClient._request_with_access_token(
             access_token,
             "GET",
@@ -213,7 +221,9 @@ class MicrosoftGraphClient:
         cipher = TokenCipher(settings)
         expires_at = MicrosoftGraphClient._expires_at(token_data)
         connection = db.scalar(
-            select(MicrosoftConnection).where(MicrosoftConnection.tenant_id == settings.microsoft_tenant_id)
+            select(MicrosoftConnection).where(
+                MicrosoftConnection.tenant_id == settings.microsoft_tenant_id
+            )
         )
         if connection is not None and MicrosoftService.active_run(db) is not None:
             raise RuleViolationError(
@@ -251,7 +261,9 @@ class MicrosoftGraphClient:
     @staticmethod
     def _exchange_code(settings: Settings, code: str, code_verifier: str) -> dict[str, Any]:
         response = httpx.post(
-            "https://login.microsoftonline.com/{}/oauth2/v2.0/token".format(settings.microsoft_tenant_id),
+            "https://login.microsoftonline.com/{}/oauth2/v2.0/token".format(
+                settings.microsoft_tenant_id
+            ),
             data={
                 "client_id": settings.microsoft_client_id,
                 "client_secret": settings.microsoft_client_secret,
@@ -298,11 +310,15 @@ class MicrosoftGraphClient:
 
     def _access_token(self) -> str:
         now = datetime.now(timezone.utc)
-        if self.connection.access_token_expires_at > now + timedelta(seconds=TOKEN_REFRESH_SKEW_SECONDS):
+        if self.connection.access_token_expires_at > now + timedelta(
+            seconds=TOKEN_REFRESH_SKEW_SECONDS
+        ):
             return self.cipher.decrypt(self.connection.encrypted_access_token)
         refresh_token = self.cipher.decrypt(self.connection.encrypted_refresh_token)
         response = httpx.post(
-            "https://login.microsoftonline.com/{}/oauth2/v2.0/token".format(self.settings.microsoft_tenant_id),
+            "https://login.microsoftonline.com/{}/oauth2/v2.0/token".format(
+                self.settings.microsoft_tenant_id
+            ),
             data={
                 "client_id": self.settings.microsoft_client_id,
                 "client_secret": self.settings.microsoft_client_secret,
@@ -312,20 +328,30 @@ class MicrosoftGraphClient:
             },
             timeout=20.0,
         )
-        token_data = self._json_or_error(response, "Microsoft connection has expired; reconnect it from the dashboard")
+        token_data = self._json_or_error(
+            response, "Microsoft connection has expired; reconnect it from the dashboard"
+        )
         new_access_token = token_data.get("access_token")
         if not isinstance(new_access_token, str):
-            raise ExternalServiceError("Microsoft did not return an access token while refreshing the connection")
+            raise ExternalServiceError(
+                "Microsoft did not return an access token while refreshing the connection"
+            )
         self.connection.encrypted_access_token = self.cipher.encrypt(new_access_token)
         if isinstance(token_data.get("refresh_token"), str):
-            self.connection.encrypted_refresh_token = self.cipher.encrypt(token_data["refresh_token"])
+            self.connection.encrypted_refresh_token = self.cipher.encrypt(
+                token_data["refresh_token"]
+            )
         self.connection.access_token_expires_at = self._expires_at(token_data)
-        self.connection.granted_scopes = str(token_data.get("scope") or self.connection.granted_scopes)
+        self.connection.granted_scopes = str(
+            token_data.get("scope") or self.connection.granted_scopes
+        )
         self.connection.last_error = None
         self.db.commit()
         return new_access_token
 
-    def request(self, method: str, path_or_url: str, *, json_body: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+    def request(
+        self, method: str, path_or_url: str, *, json_body: Optional[dict[str, Any]] = None
+    ) -> dict[str, Any]:
         url = path_or_url if path_or_url.startswith("https://") else GRAPH_BASE_URL + path_or_url
         response = httpx.request(
             method,
@@ -349,15 +375,18 @@ class MicrosoftGraphClient:
     def list_active_users(self) -> list[dict[str, Any]]:
         users: list[dict[str, Any]] = []
         url = (
-            "/users?$select=id,displayName,mail,userPrincipalName,jobTitle,accountEnabled"
-            "&$top=999"
+            "/users?$select=id,displayName,mail,userPrincipalName,jobTitle,accountEnabled&$top=999"
         )
         while url:
             payload = self.request("GET", url)
             values = payload.get("value", [])
             if not isinstance(values, list):
                 raise ExternalServiceError("Microsoft returned an invalid directory response")
-            users.extend(item for item in values if isinstance(item, dict) and item.get("accountEnabled") is not False)
+            users.extend(
+                item
+                for item in values
+                if isinstance(item, dict) and item.get("accountEnabled") is not False
+            )
             next_link = payload.get("@odata.nextLink")
             url = next_link if isinstance(next_link, str) else ""
         return users
@@ -387,7 +416,9 @@ class MicrosoftGraphClient:
             },
         )
 
-    def create_subscription(self, chat_id: str, webhook_url: str, client_state: str) -> dict[str, Any]:
+    def create_subscription(
+        self, chat_id: str, webhook_url: str, client_state: str
+    ) -> dict[str, Any]:
         expires_at = datetime.now(timezone.utc) + timedelta(minutes=SUBSCRIPTION_LIFETIME_MINUTES)
         return self.request(
             "POST",
@@ -460,7 +491,9 @@ class MicrosoftDirectoryService:
             microsoft_id = user.get("id")
             email = user.get("mail") or user.get("userPrincipalName")
             name = user.get("displayName") or email
-            if not all(isinstance(value, str) and value.strip() for value in (microsoft_id, email, name)):
+            if not all(
+                isinstance(value, str) and value.strip() for value in (microsoft_id, email, name)
+            ):
                 skipped += 1
                 continue
             normalized_email = email.strip().lower()
@@ -519,10 +552,14 @@ class MicrosoftService:
     @staticmethod
     def get_connection(db: Session) -> MicrosoftConnection:
         connection = db.scalar(
-            select(MicrosoftConnection).order_by(MicrosoftConnection.last_connected_at.desc()).limit(1)
+            select(MicrosoftConnection)
+            .order_by(MicrosoftConnection.last_connected_at.desc())
+            .limit(1)
         )
         if connection is None:
-            raise RuleViolationError("Connect your Microsoft account from the dashboard before using Teams automation")
+            raise RuleViolationError(
+                "Connect your Microsoft account from the dashboard before using Teams automation"
+            )
         return connection
 
     @staticmethod
@@ -537,7 +574,9 @@ class MicrosoftService:
     @staticmethod
     def status(db: Session) -> MicrosoftStatusRead:
         connection = db.scalar(
-            select(MicrosoftConnection).order_by(MicrosoftConnection.last_connected_at.desc()).limit(1)
+            select(MicrosoftConnection)
+            .order_by(MicrosoftConnection.last_connected_at.desc())
+            .limit(1)
         )
         active_run = MicrosoftService.active_run(db)
         listener_expires_at: Optional[datetime] = None
@@ -561,7 +600,9 @@ class MicrosoftService:
     @staticmethod
     def start_automation(db: Session, payload: AutomationStart) -> AutomationRun:
         if MicrosoftService.active_run(db) is not None:
-            raise ConflictError("Teams automation is already running. Stop it before starting a new run")
+            raise ConflictError(
+                "Teams automation is already running. Stop it before starting a new run"
+            )
         settings = MicrosoftGraphClient.require_auth_configuration()
         webhook_url = MicrosoftService._webhook_url(settings)
         connection = MicrosoftService.get_connection(db)
@@ -621,18 +662,20 @@ class MicrosoftService:
                 sent = graph.send_chat_message(str(conversation.external_conversation_id), content)
                 external_message_id = sent.get("id")
                 if not isinstance(external_message_id, str):
-                    raise ExternalServiceError("Microsoft did not return an ID for the sent Teams message")
+                    raise ExternalServiceError(
+                        "Microsoft did not return an ID for the sent Teams message"
+                    )
                 created_at = MicrosoftService._parse_graph_datetime(sent.get("createdDateTime"))
                 message = Message(
-                        conversation_id=conversation.id,
-                        employee_id=employee.id,
-                        direction=MessageDirection.OUTBOUND,
-                        sender_type=SenderType.YASH,
-                        delivery_status=MessageDeliveryStatus.DELIVERED,
-                        external_message_id=external_message_id,
-                        external_created_at=created_at,
-                        content=content,
-                    )
+                    conversation_id=conversation.id,
+                    employee_id=employee.id,
+                    direction=MessageDirection.OUTBOUND,
+                    sender_type=SenderType.MANAGER,
+                    delivery_status=MessageDeliveryStatus.DELIVERED,
+                    external_message_id=external_message_id,
+                    external_created_at=created_at,
+                    content=content,
+                )
                 db.add(message)
                 db.flush()
                 if existing_checkin is None:
@@ -664,7 +707,7 @@ class MicrosoftService:
                             conversation_id=conversation.id,
                             employee_id=employee.id,
                             direction=MessageDirection.OUTBOUND,
-                            sender_type=SenderType.YASH,
+                            sender_type=SenderType.MANAGER,
                             delivery_status=MessageDeliveryStatus.FAILED,
                             content=content,
                         )
@@ -759,10 +802,8 @@ class MicrosoftService:
                     covered_conversation_ids.add(subscription.conversation_id)
                     renewed += 1
                 except ExternalServiceError as recreate_exc:
-                    subscription.last_error = (
-                        "Renewal failed: {} Re-creation failed: {}".format(
-                            exc.detail, recreate_exc.detail
-                        )
+                    subscription.last_error = "Renewal failed: {} Re-creation failed: {}".format(
+                        exc.detail, recreate_exc.detail
                     )
                     failed += 1
 
@@ -796,9 +837,7 @@ class MicrosoftService:
                     covered_conversation_ids.add(conversation.id)
                     continue
                 try:
-                    MicrosoftService._ensure_subscription(
-                        db, graph, run, conversation, webhook_url
-                    )
+                    MicrosoftService._ensure_subscription(db, graph, run, conversation, webhook_url)
                     covered_conversation_ids.add(conversation.id)
                     renewed += 1
                 except ExternalServiceError as exc:
@@ -806,22 +845,27 @@ class MicrosoftService:
                     failed += 1
             # Report final uncovered targets, not transient renewal attempts
             # that were successfully recovered later in this same call.
-            final_active_count = db.scalar(
-                select(func.count(func.distinct(Conversation.employee_id)))
-                .join(
-                    MicrosoftTeamsSubscription,
-                    MicrosoftTeamsSubscription.conversation_id == Conversation.id,
+            final_active_count = (
+                db.scalar(
+                    select(func.count(func.distinct(Conversation.employee_id)))
+                    .join(
+                        MicrosoftTeamsSubscription,
+                        MicrosoftTeamsSubscription.conversation_id == Conversation.id,
+                    )
+                    .where(
+                        Conversation.employee_id.in_(target_ids),
+                        MicrosoftTeamsSubscription.automation_run_id == run.id,
+                        MicrosoftTeamsSubscription.status == MicrosoftSubscriptionStatus.ACTIVE,
+                        MicrosoftTeamsSubscription.expires_at > now + timedelta(minutes=2),
+                    )
                 )
-                .where(
-                    Conversation.employee_id.in_(target_ids),
-                    MicrosoftTeamsSubscription.automation_run_id == run.id,
-                    MicrosoftTeamsSubscription.status == MicrosoftSubscriptionStatus.ACTIVE,
-                    MicrosoftTeamsSubscription.expires_at > now + timedelta(minutes=2),
-                )
-            ) or 0
+                or 0
+            )
             failed = max(0, len(target_ids) - final_active_count)
-            if failed == 0 and run.last_error and run.last_error.startswith(
-                "Reply-listener recovery failed:"
+            if (
+                failed == 0
+                and run.last_error
+                and run.last_error.startswith("Reply-listener recovery failed:")
             ):
                 run.last_error = None
         db.commit()
@@ -878,19 +922,21 @@ class MicrosoftService:
         content = MicrosoftService._message_content(remote_message)
         if not content:
             return None
-        external_created_at = MicrosoftService._parse_graph_datetime(remote_message.get("createdDateTime"))
+        external_created_at = MicrosoftService._parse_graph_datetime(
+            remote_message.get("createdDateTime")
+        )
         message = Message(
-                conversation_id=conversation.id,
-                employee_id=employee.id,
-                direction=MessageDirection.INBOUND,
-                sender_type=SenderType.EMPLOYEE,
-                delivery_status=MessageDeliveryStatus.DELIVERED,
-                external_message_id=message_id,
-                external_created_at=external_created_at,
-                content=content,
-                reply_to_external_id=MicrosoftService._reply_reference(remote_message)[0],
-                quoted_content=MicrosoftService._reply_reference(remote_message)[1],
-            )
+            conversation_id=conversation.id,
+            employee_id=employee.id,
+            direction=MessageDirection.INBOUND,
+            sender_type=SenderType.EMPLOYEE,
+            delivery_status=MessageDeliveryStatus.DELIVERED,
+            external_message_id=message_id,
+            external_created_at=external_created_at,
+            content=content,
+            reply_to_external_id=MicrosoftService._reply_reference(remote_message)[0],
+            quoted_content=MicrosoftService._reply_reference(remote_message)[1],
+        )
         db.add(message)
         db.flush()
         MemoryService.record_message_evidence(db, message)
@@ -900,16 +946,18 @@ class MicrosoftService:
 
     @staticmethod
     def send_management_message(db: Session, employee: Employee, content: str) -> Message:
-        """Send an auditable Teams follow-up as the connected Yash account.
+        """Send an auditable Teams follow-up as the connected manager account.
 
         This is deliberately the only path the management agent may use for
         outbound Teams messages. It also adds a reply listener for a dependency
-        owner who is not one of Yash's selected direct reports.
+        owner who is not one of the manager's selected direct reports.
         """
 
         run = MicrosoftService.active_run(db)
         if run is None:
-            raise RuleViolationError("Teams automation must be running before the agent can send a follow-up")
+            raise RuleViolationError(
+                "Teams automation must be running before the agent can send a follow-up"
+            )
         if str(employee.id) not in set(run.target_employee_ids or []):
             raise RuleViolationError("This employee is not included in the active automation run")
         settings = MicrosoftGraphClient.require_auth_configuration()
@@ -928,7 +976,7 @@ class MicrosoftService:
             conversation_id=conversation.id,
             employee_id=employee.id,
             direction=MessageDirection.OUTBOUND,
-            sender_type=SenderType.YASH,
+            sender_type=SenderType.MANAGER,
             delivery_status=MessageDeliveryStatus.DELIVERED,
             external_message_id=external_message_id,
             external_created_at=created_at,
@@ -951,7 +999,9 @@ class MicrosoftService:
         """
 
         if not employee.is_active or employee.teams_user_id is None:
-            raise RuleViolationError("The report recipient must be an active imported Microsoft user")
+            raise RuleViolationError(
+                "The report recipient must be an active imported Microsoft user"
+            )
         connection = MicrosoftService.get_connection(db)
         graph = MicrosoftGraphClient(db, connection)
         conversation = MicrosoftService._get_or_create_direct_conversation(db, graph, employee)
@@ -964,7 +1014,7 @@ class MicrosoftService:
             conversation_id=conversation.id,
             employee_id=employee.id,
             direction=MessageDirection.OUTBOUND,
-            sender_type=SenderType.YASH,
+            sender_type=SenderType.MANAGER,
             delivery_status=MessageDeliveryStatus.DELIVERED,
             external_message_id=external_message_id,
             external_created_at=created_at,
@@ -986,10 +1036,11 @@ class MicrosoftService:
 
     @staticmethod
     def initial_message_for(name: str, prompt: str) -> str:
+        signature = get_settings().agent_signature.strip()
         message = "Hi {},\n\n{}".format(MicrosoftService.first_name(name), prompt.strip())
-        if message.rstrip().endswith(SIGNATURE):
+        if message.rstrip().endswith(signature):
             return message.rstrip()
-        return message.rstrip() + "\n\n" + SIGNATURE
+        return message.rstrip() + "\n\n" + signature
 
     @staticmethod
     def follow_up_message_for(name: str, body: str) -> str:
@@ -1006,8 +1057,11 @@ class MicrosoftService:
     def teams_html_message(content: str) -> str:
         """Render a safe Teams HTML body while retaining plain text in the audit log."""
 
-        paragraphs = [paragraph.strip() for paragraph in content.strip().split("\n\n") if paragraph.strip()]
-        if paragraphs and paragraphs[-1] == SIGNATURE:
+        signature = get_settings().agent_signature.strip()
+        paragraphs = [
+            paragraph.strip() for paragraph in content.strip().split("\n\n") if paragraph.strip()
+        ]
+        if paragraphs and paragraphs[-1] == signature:
             paragraphs.pop()
         normal_html = "".join(
             "<p>{}</p>".format(html_escape(paragraph).replace("\n", "<br>"))
@@ -1017,7 +1071,7 @@ class MicrosoftService:
         # font/color preference, but the signature remains visibly separate.
         signature_html = (
             '<p><em><span style="font-family: Georgia, serif; color: #6264A7;">'
-            "— " + SIGNATURE + "</span></em></p>"
+            "— " + html_escape(signature) + "</span></em></p>"
         )
         return normal_html + signature_html
 
@@ -1041,7 +1095,9 @@ class MicrosoftService:
         if not isinstance(external_conversation_id, str):
             raise ExternalServiceError("Microsoft did not return a direct Teams chat ID")
         conversation = db.scalar(
-            select(Conversation).where(Conversation.external_conversation_id == external_conversation_id)
+            select(Conversation).where(
+                Conversation.external_conversation_id == external_conversation_id
+            )
         )
         if conversation is None:
             conversation = Conversation(
@@ -1049,7 +1105,9 @@ class MicrosoftService:
                 channel=ConversationChannel.TEAMS,
                 external_conversation_id=external_conversation_id,
                 conversation_type=ConversationType.DIRECT,
-                started_at=MicrosoftService._parse_graph_datetime(remote_chat.get("createdDateTime"))
+                started_at=MicrosoftService._parse_graph_datetime(
+                    remote_chat.get("createdDateTime")
+                )
                 or datetime.now(timezone.utc),
                 last_message_at=datetime.now(timezone.utc),
             )
@@ -1093,7 +1151,10 @@ class MicrosoftService:
             automation_run_id=run.id,
             conversation_id=conversation.id,
             external_subscription_id=external_subscription_id,
-            resource=str(response.get("resource") or "/chats/{}/messages".format(conversation.external_conversation_id)),
+            resource=str(
+                response.get("resource")
+                or "/chats/{}/messages".format(conversation.external_conversation_id)
+            ),
             encrypted_client_state=graph.cipher.encrypt(client_state),
             expires_at=MicrosoftService._parse_graph_datetime(response.get("expirationDateTime"))
             or (now + timedelta(minutes=SUBSCRIPTION_LIFETIME_MINUTES)),

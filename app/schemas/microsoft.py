@@ -104,7 +104,7 @@ class AgentDecisionRunRead(Schema):
     status: AgentRunStatus
     model_deployment: Optional[str]
     state_applied: bool
-    needs_yash_review: bool
+    needs_manager_review: bool
     failure_reason: Optional[str]
     processed_at: Optional[datetime]
     created_at: datetime

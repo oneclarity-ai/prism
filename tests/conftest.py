@@ -1,13 +1,17 @@
 import os
+
 import pytest
 
 
 @pytest.fixture(autouse=True)
 def no_live_http_posts(monkeypatch):
     """Tests must supply explicit provider/Graph fakes, never use .env credentials."""
+
     def reject(*args, **kwargs):
         raise AssertionError("Live HTTP POST is disabled in tests; mock the provider")
+
     monkeypatch.setattr("httpx.post", reject)
+
 
 # Tests use the local control-plane mode by default. Individual security tests
 # explicitly enable a token and clear the settings cache.
@@ -20,5 +24,5 @@ os.environ["INTELLIGENCE_LLM_ENABLED"] = "false"
 if os.getenv("RUN_DB_TESTS") != "1":
     os.environ.setdefault(
         "DATABASE_URL",
-        "postgresql+psycopg://test:test@localhost:5432/yash_manager_test",
+        "postgresql+psycopg://test:test@localhost:5432/prism_test",
     )

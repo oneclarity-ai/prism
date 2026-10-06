@@ -16,7 +16,9 @@ router = APIRouter(prefix="/api/v1", tags=["conversations and messages"])
 
 
 @router.post("/message-intents", response_model=MessageRead, status_code=status.HTTP_201_CREATED)
-def create_message_intent(payload: MessageIntentCreate, db: Session = Depends(get_db)) -> MessageRead:
+def create_message_intent(
+    payload: MessageIntentCreate, db: Session = Depends(get_db)
+) -> MessageRead:
     return ConversationService.create_message_intent(db, payload)
 
 

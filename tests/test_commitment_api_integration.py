@@ -32,11 +32,19 @@ def test_missed_commitment_creates_immutable_revision_history() -> None:
     try:
         owner = client.post(
             "/api/v1/employees",
-            json={"name": "Task Owner", "email": "owner-{}@example.invalid".format(suffix), "role": "Engineer"},
+            json={
+                "name": "Task Owner",
+                "email": "owner-{}@example.invalid".format(suffix),
+                "role": "Engineer",
+            },
         )
         dependency_owner = client.post(
             "/api/v1/employees",
-            json={"name": "Dependency Owner", "email": "dependency-{}@example.invalid".format(suffix), "role": "Engineer"},
+            json={
+                "name": "Dependency Owner",
+                "email": "dependency-{}@example.invalid".format(suffix),
+                "role": "Engineer",
+            },
         )
         assert owner.status_code == dependency_owner.status_code == 201
         owner_id = owner.json()["id"]
@@ -80,9 +88,7 @@ def test_missed_commitment_creates_immutable_revision_history() -> None:
         original_id = commitment.json()["id"]
         commitment_ids.append(original_id)
 
-        missed = client.post(
-            "/api/v1/commitments/{}/mark-missed".format(original_id), json={}
-        )
+        missed = client.post("/api/v1/commitments/{}/mark-missed".format(original_id), json={})
         assert missed.status_code == 200
         assert missed.json()["status"] == "missed"
 

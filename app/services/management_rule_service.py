@@ -28,7 +28,10 @@ class ManagementRuleService:
         tasks = db.scalars(
             select(Task).where(
                 Task.status.not_in([TaskStatus.DONE, TaskStatus.CANCELLED]),
-                or_(Task.expected_outcome.is_(None), func.length(func.trim(Task.expected_outcome)) == 0),
+                or_(
+                    Task.expected_outcome.is_(None),
+                    func.length(func.trim(Task.expected_outcome)) == 0,
+                ),
             )
         )
         return [

@@ -32,7 +32,7 @@ def list_escalations(
     employee_id: Optional[uuid.UUID] = None,
     project_id: Optional[uuid.UUID] = None,
     task_id: Optional[uuid.UUID] = None,
-    requires_yash_approval: Optional[bool] = None,
+    requires_manager_approval: Optional[bool] = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> Page[EscalationRead]:
@@ -42,7 +42,7 @@ def list_escalations(
         employee_id=employee_id,
         project_id=project_id,
         task_id=task_id,
-        requires_yash_approval=requires_yash_approval,
+        requires_manager_approval=requires_manager_approval,
         limit=limit,
         offset=offset,
     )
@@ -50,7 +50,9 @@ def list_escalations(
 
 
 @router.post("/{escalation_id}/acknowledge", response_model=EscalationRead)
-def acknowledge_escalation(escalation_id: uuid.UUID, db: Session = Depends(get_db)) -> EscalationRead:
+def acknowledge_escalation(
+    escalation_id: uuid.UUID, db: Session = Depends(get_db)
+) -> EscalationRead:
     return EscalationService.acknowledge(db, escalation_id)
 
 
@@ -60,7 +62,7 @@ def approve_escalation(
     payload: EscalationDecisionCreate,
     db: Session = Depends(get_db),
 ) -> EscalationRead:
-    """Record Yash's decision and execute only the action it authorises."""
+    """Record the manager's decision and execute only the action it authorises."""
 
     return EscalationService.approve(db, escalation_id, payload)
 

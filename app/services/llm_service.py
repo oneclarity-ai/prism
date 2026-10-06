@@ -1,4 +1,5 @@
 """One metered Azure structured-output boundary. No credential or prompt logging."""
+
 from __future__ import annotations
 
 import json
@@ -8,6 +9,7 @@ from typing import Optional
 
 import httpx
 from pydantic import BaseModel
+
 from app.core.config import get_settings
 from app.db.session import SessionLocal
 from app.models.llm_usage import LLMUsage
@@ -24,7 +26,10 @@ def calculate_cost(usage: dict, pricing) -> tuple:
     if min(inputs, outputs, cached) < 0 or cached > inputs:
         return None, None, None
     million = Decimal(1_000_000)
-    input_cost = (Decimal(inputs - cached) * Decimal(str(pricing.input)) + Decimal(cached) * Decimal(str(pricing.cached_input))) / million
+    input_cost = (
+        Decimal(inputs - cached) * Decimal(str(pricing.input))
+        + Decimal(cached) * Decimal(str(pricing.cached_input))
+    ) / million
     output_cost = Decimal(outputs) * Decimal(str(pricing.output)) / million
     return input_cost, output_cost, input_cost + output_cost
 
@@ -39,10 +44,21 @@ def strict_schema(model: type[BaseModel]) -> dict:
 
     schema = model.model_json_schema()
     unsupported = {
-        "default", "title", "minLength", "maxLength", "pattern",
-        "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum",
-        "multipleOf", "minItems", "maxItems", "uniqueItems",
-        "minProperties", "maxProperties",
+        "default",
+        "title",
+        "minLength",
+        "maxLength",
+        "pattern",
+        "minimum",
+        "maximum",
+        "exclusiveMinimum",
+        "exclusiveMaximum",
+        "multipleOf",
+        "minItems",
+        "maxItems",
+        "uniqueItems",
+        "minProperties",
+        "maxProperties",
     }
 
     def normalize(node):
@@ -57,14 +73,24 @@ def strict_schema(model: type[BaseModel]) -> dict:
         elif isinstance(node, list):
             for value in node:
                 normalize(value)
+
     normalize(schema)
     return schema
 
 
 class LLMService:
     @staticmethod
-    def complete(*, prompt: str, context: dict, output_model: type[BaseModel], feature: str,
-                 deployment: Optional[str] = None, conversation_id=None, user_id=None, message_id=None):
+    def complete(
+        *,
+        prompt: str,
+        context: dict,
+        output_model: type[BaseModel],
+        feature: str,
+        deployment: Optional[str] = None,
+        conversation_id=None,
+        user_id=None,
+        message_id=None,
+    ):
         settings = get_settings()
         deployment = deployment or settings.azure_openai_deployment
         if not (deployment and settings.azure_openai_endpoint and settings.azure_openai_api_key):
@@ -82,22 +108,40 @@ class LLMService:
                     break
                 try:
                     response = httpx.post(
-                        str(settings.azure_openai_endpoint).rstrip("/") + "/openai/deployments/" + deployment + "/chat/completions",
+                        str(settings.azure_openai_endpoint).rstrip("/")
+                        + "/openai/deployments/"
+                        + deployment
+                        + "/chat/completions",
                         params={"api-version": settings.azure_openai_api_version},
                         headers={"api-key": settings.azure_openai_api_key},
-                        json={"messages": [{"role": "system", "content": prompt},
-                                           {"role": "user", "content": json.dumps(context, default=str)}],
-                              "response_format": {"type": "json_schema", "json_schema": {
-                                  "name": output_model.__name__, "strict": True, "schema": strict_schema(output_model)}}},
+                        json={
+                            "messages": [
+                                {"role": "system", "content": prompt},
+                                {"role": "user", "content": json.dumps(context, default=str)},
+                            ],
+                            "response_format": {
+                                "type": "json_schema",
+                                "json_schema": {
+                                    "name": output_model.__name__,
+                                    "strict": True,
+                                    "schema": strict_schema(output_model),
+                                },
+                            },
+                        },
                         timeout=httpx.Timeout(
                             min(settings.azure_openai_timeout_seconds, remaining),
                             connect=min(10.0, max(1.0, remaining)),
                         ),
                     )
-                    request_id = response.headers.get("apim-request-id") or response.headers.get("x-request-id")
+                    request_id = response.headers.get("apim-request-id") or response.headers.get(
+                        "x-request-id"
+                    )
                     payload = response.json()
                     if response.is_error:
-                        if response.status_code not in {408, 409, 429} and response.status_code < 500:
+                        if (
+                            response.status_code not in {408, 409, 429}
+                            and response.status_code < 500
+                        ):
                             raise ExternalServiceError(
                                 "Azure OpenAI request failed (HTTP {})".format(response.status_code)
                             )
@@ -111,13 +155,22 @@ class LLMService:
                     )
                     status = "completed"
                     return result
-                except (httpx.TimeoutException, httpx.TransportError, httpx.HTTPStatusError,
-                        ValueError, KeyError, IndexError, TypeError) as exc:
+                except (
+                    httpx.TimeoutException,
+                    httpx.TransportError,
+                    httpx.HTTPStatusError,
+                    ValueError,
+                    KeyError,
+                    IndexError,
+                    TypeError,
+                ) as exc:
                     last_error = exc
-                    pause = 0.5 * (2 ** attempt)
-                    if (attempt + 1 < settings.azure_openai_max_attempts
-                            and time.monotonic() - started + pause
-                            < settings.azure_openai_total_timeout_seconds):
+                    pause = 0.5 * (2**attempt)
+                    if (
+                        attempt + 1 < settings.azure_openai_max_attempts
+                        and time.monotonic() - started + pause
+                        < settings.azure_openai_total_timeout_seconds
+                    ):
                         time.sleep(pause)
             raise ExternalServiceError(
                 "Azure OpenAI did not return a valid response after {} attempts".format(
@@ -130,18 +183,34 @@ class LLMService:
             payload = payload if isinstance(payload, dict) else {}
             usage = payload.get("usage") or {}
             model = str(payload.get("model") or deployment)
-            pricing = settings.llm_model_pricing.get(model) or settings.llm_model_pricing.get(deployment)
+            pricing = settings.llm_model_pricing.get(model) or settings.llm_model_pricing.get(
+                deployment
+            )
             input_cost, output_cost, total_cost = calculate_cost(usage, pricing)
             with SessionLocal() as usage_db:
-                usage_db.add(LLMUsage(
-                    model=model, deployment=deployment, feature=feature,
-                    input_tokens=usage.get("prompt_tokens"), output_tokens=usage.get("completion_tokens"),
-                    cached_input_tokens=(usage.get("prompt_tokens_details") or {}).get("cached_tokens", 0) if usage else None,
-                    total_tokens=usage.get("total_tokens"), estimated_input_cost_usd=input_cost,
-                    estimated_output_cost_usd=output_cost, estimated_total_cost_usd=total_cost,
-                    pricing_snapshot=pricing.model_dump() if pricing else None,
-                    request_id=request_id or payload.get("id"), conversation_id=conversation_id,
-                    user_id=user_id, message_id=message_id,
-                    latency_ms=round((time.monotonic() - started) * 1000), status=status,
-                ))
+                usage_db.add(
+                    LLMUsage(
+                        model=model,
+                        deployment=deployment,
+                        feature=feature,
+                        input_tokens=usage.get("prompt_tokens"),
+                        output_tokens=usage.get("completion_tokens"),
+                        cached_input_tokens=(usage.get("prompt_tokens_details") or {}).get(
+                            "cached_tokens", 0
+                        )
+                        if usage
+                        else None,
+                        total_tokens=usage.get("total_tokens"),
+                        estimated_input_cost_usd=input_cost,
+                        estimated_output_cost_usd=output_cost,
+                        estimated_total_cost_usd=total_cost,
+                        pricing_snapshot=pricing.model_dump() if pricing else None,
+                        request_id=request_id or payload.get("id"),
+                        conversation_id=conversation_id,
+                        user_id=user_id,
+                        message_id=message_id,
+                        latency_ms=round((time.monotonic() - started) * 1000),
+                        status=status,
+                    )
+                )
                 usage_db.commit()

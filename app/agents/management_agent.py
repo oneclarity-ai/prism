@@ -20,15 +20,14 @@ from app.models.commitment import Commitment
 from app.models.daily_update import DailyUpdate
 from app.models.employee import Employee
 from app.models.enums import (
+    ActivityEventType,
     AgentAnalysisType,
     AgentRunStatus,
-    ActivityEventType,
     AutomationActionStatus,
     AutomationActionType,
     BlockerSeverity,
     BlockerStatus,
     CommitmentStatus,
-    MessageDirection,
 )
 from app.models.message import Message
 from app.schemas.blocker import BlockerCreate, BlockerUpdate
@@ -36,9 +35,9 @@ from app.schemas.commitment import CommitmentCreate, CommitmentRevisionCreate
 from app.services.blocker_service import BlockerService
 from app.services.commitment_service import CommitmentService
 from app.services.errors import ExternalServiceError, RuleViolationError
-from app.services.microsoft_service import MicrosoftService
-from app.services.memory_service import MemoryService
 from app.services.management_context_service import ManagementContextService
+from app.services.memory_service import MemoryService
+from app.services.microsoft_service import MicrosoftService
 
 
 class ReplyAnalysis(BaseModel):
@@ -57,27 +56,49 @@ class ReplyAnalysis(BaseModel):
     delivery_confirmed: bool
 
 
-
 class ManagementAgent:
     @staticmethod
-    def process_message(db: Session, message_id: str, *, retry_skipped: bool = False,
-                        retry_completed: bool = False) -> Optional[AgentRun]:
+    def process_message(
+        db: Session, message_id: str, *, retry_skipped: bool = False, retry_completed: bool = False
+    ) -> Optional[AgentRun]:
         from app.services.response_service import ResponseService
-        return ResponseService.process(db, message_id, retry_skipped=retry_skipped,
-                                       retry_completed=retry_completed)
+
+        return ResponseService.process(
+            db, message_id, retry_skipped=retry_skipped, retry_completed=retry_completed
+        )
 
     @staticmethod
     def _is_non_actionable_acknowledgement(content: str) -> bool:
         normalized = re.sub(r"[^a-z\s]", " ", content.casefold())
-        words = [word for word in normalized.split() if word not in {"hi", "hello", "hey", "sir", "maam", "mam", "ji"}]
+        words = [
+            word
+            for word in normalized.split()
+            if word not in {"hi", "hello", "hey", "sir", "maam", "mam", "ji"}
+        ]
         # These carry no delivery, ETA, owner, work, or blocker information.
         # Do not send them to the model or let them move a management workflow.
         if not words:
             return bool(normalized.split())
-        return all(word in {
-            "ok", "okay", "sure", "yes", "yeah", "yep", "thanks", "thank", "you",
-            "got", "it", "noted", "done", "fine",
-        } for word in words)
+        return all(
+            word
+            in {
+                "ok",
+                "okay",
+                "sure",
+                "yes",
+                "yeah",
+                "yep",
+                "thanks",
+                "thank",
+                "you",
+                "got",
+                "it",
+                "noted",
+                "done",
+                "fine",
+            }
+            for word in words
+        )
 
     @staticmethod
     def _is_noncommittal_dependency_response(content: str) -> bool:
@@ -95,7 +116,9 @@ class ManagementAgent:
             "check with team",
             "will check",
         )
-        has_specific_eta = bool(re.search(r"\b(?:by|at|before|tomorrow|today|am|pm)\b|\d", normalized))
+        has_specific_eta = bool(
+            re.search(r"\b(?:by|at|before|tomorrow|today|am|pm)\b|\d", normalized)
+        )
         return any(phrase in normalized for phrase in noncommittal_phrases) and not has_specific_eta
 
     @staticmethod
@@ -112,7 +135,7 @@ class ManagementAgent:
             return True
         # A named person alone is accepted only for the direct answer to an
         # owner question. Otherwise require clear ownership / delegation
-        # language. "I'll talk to Raunak" is not enough to make Raunak the
+        # language. "I'll talk to Casey" is not enough to make Casey the
         # dependency owner.
         handoff_pattern = r"\b(?:owner|owns|owned|follow(?:\s+this)?(?:\s+up)?|contact)\b"
         return bool(re.search(handoff_pattern, normalized))
@@ -205,7 +228,10 @@ class ManagementAgent:
         commitments = list(
             db.scalars(
                 select(Commitment)
-                .where(Commitment.employee_id == employee.id, Commitment.status == CommitmentStatus.MISSED)
+                .where(
+                    Commitment.employee_id == employee.id,
+                    Commitment.status == CommitmentStatus.MISSED,
+                )
                 .order_by(Commitment.missed_at.desc())
                 .limit(2)
             )
@@ -223,7 +249,7 @@ class ManagementAgent:
     ) -> AgentRun:
         if deadline.tzinfo is None or deadline.utcoffset() is None or deadline <= original.deadline:
             run.status = AgentRunStatus.SKIPPED
-            run.needs_yash_review = True
+            run.needs_manager_review = True
             run.failure_reason = "Revised ETA must be a later timezone-aware deadline"
             run.processed_at = datetime.now(timezone.utc)
             db.commit()
@@ -259,7 +285,8 @@ class ManagementAgent:
                     MicrosoftService.follow_up_message_for(
                         blocked_employee.name,
                         "{} provided a revised ETA: {}. I’ll keep track of it.".format(
-                            MicrosoftService.first_name(owner.name), ManagementAgent._format_deadline(deadline)
+                            MicrosoftService.first_name(owner.name),
+                            ManagementAgent._format_deadline(deadline),
                         ),
                     ),
                 )
@@ -281,8 +308,9 @@ class ManagementAgent:
                 blocked_employee,
                 MicrosoftService.follow_up_message_for(
                     blocked_employee.name,
-                    "{} confirmed the dependency is delivered. Your blocker is resolved; please resume when ready."
-                    .format(MicrosoftService.first_name(owner.name)),
+                    "{} confirmed the dependency is delivered. Your blocker is resolved; please resume when ready.".format(
+                        MicrosoftService.first_name(owner.name)
+                    ),
                 ),
             )
             run.source_reply_message_id = sent.id
@@ -295,7 +323,9 @@ class ManagementAgent:
     @staticmethod
     def _format_deadline(deadline: datetime) -> str:
         try:
-            return deadline.astimezone(ZoneInfo(get_settings().manager_timezone)).strftime("%d %b, %-I:%M %p %Z")
+            return deadline.astimezone(ZoneInfo(get_settings().manager_timezone)).strftime(
+                "%d %b, %-I:%M %p %Z"
+            )
         except Exception:
             return deadline.isoformat()
 
@@ -389,7 +419,7 @@ class ManagementAgent:
     ) -> Optional[tuple[Blocker, AgentRun]]:
         """Return the latest open blocker for which this person was asked to name an owner.
 
-        A Teams reply such as just ``Vaibhav`` is an answer to that pending question,
+        A Teams reply such as just ``Jordan`` is an answer to that pending question,
         not a new daily update.  Selecting the latest explicit owner request keeps the
         conversation thread intact even if an older, similar blocker remains in history.
         """
@@ -414,18 +444,22 @@ class ManagementAgent:
 
     @staticmethod
     def _owner_question_already_sent(db: Session, employee: Employee, blocker: Blocker) -> bool:
-        return db.scalar(
-            select(AutomationAction.id)
-            .where(
-                AutomationAction.action_type == AutomationActionType.BLOCKER_OWNER_CLARIFICATION,
-                AutomationAction.employee_id == employee.id,
-                AutomationAction.blocker_id == blocker.id,
-                AutomationAction.status.in_(
-                    [AutomationActionStatus.PENDING, AutomationActionStatus.DELIVERED]
-                ),
+        return (
+            db.scalar(
+                select(AutomationAction.id)
+                .where(
+                    AutomationAction.action_type
+                    == AutomationActionType.BLOCKER_OWNER_CLARIFICATION,
+                    AutomationAction.employee_id == employee.id,
+                    AutomationAction.blocker_id == blocker.id,
+                    AutomationAction.status.in_(
+                        [AutomationActionStatus.PENDING, AutomationActionStatus.DELIVERED]
+                    ),
+                )
+                .limit(1)
             )
-            .limit(1)
-        ) is not None
+            is not None
+        )
 
     @staticmethod
     def _send_blocker_message_once(
@@ -447,9 +481,7 @@ class ManagementAgent:
         """
 
         action = db.scalar(
-            select(AutomationAction).where(
-                AutomationAction.idempotency_key == idempotency_key
-            )
+            select(AutomationAction).where(AutomationAction.idempotency_key == idempotency_key)
         )
         if action is not None and action.status in {
             AutomationActionStatus.PENDING,
@@ -515,10 +547,10 @@ class ManagementAgent:
         if owner.id == employee.id:
             # A person cannot be made the dependency owner for their own
             # blocker through an automated inference.  Preserve the run for
-            # audit and ask Yash to resolve the ambiguity instead of creating
+            # audit and ask the manager to resolve the ambiguity instead of creating
             # a self-message loop.
             run.status = AgentRunStatus.SKIPPED
-            run.needs_yash_review = True
+            run.needs_manager_review = True
             run.failure_reason = "A blocker cannot depend on its own blocked employee"
             run.processed_at = datetime.now(timezone.utc)
             db.commit()
@@ -538,15 +570,14 @@ class ManagementAgent:
         sent_source_reply = ManagementAgent._send_blocker_message_once(
             db,
             action_type=AutomationActionType.BLOCKER_SOURCE_ACKNOWLEDGEMENT,
-            idempotency_key="blocker-source-acknowledgement:{}:{}".format(
-                blocker.id, employee.id
-            ),
+            idempotency_key="blocker-source-acknowledgement:{}:{}".format(blocker.id, employee.id),
             employee=employee,
             blocker=blocker,
             content=MicrosoftService.follow_up_message_for(
                 employee.name,
-                "Thanks — I’ve noted that {} owns this. I’ll check with them and get back to you."
-                .format(MicrosoftService.first_name(owner.name)),
+                "Thanks — I’ve noted that {} owns this. I’ll check with them and get back to you.".format(
+                    MicrosoftService.first_name(owner.name)
+                ),
             ),
         )
         if sent_source_reply is not None:
@@ -572,9 +603,7 @@ class ManagementAgent:
         return run
 
     @staticmethod
-    def _similar_open_owner_request_exists(
-        db: Session, owner: Employee, blocker: Blocker
-    ) -> bool:
+    def _similar_open_owner_request_exists(db: Session, owner: Employee, blocker: Blocker) -> bool:
         """Avoid spamming one owner about the same active dependency.
 
         Different blockers remain separate records for audit.  This guard only
@@ -606,9 +635,10 @@ class ManagementAgent:
         )
         for action in actions:
             related = db.get(Blocker, action.blocker_id)
-            if related is not None and ManagementAgent._dependency_signature(
-                db, related.description
-            ) == signature:
+            if (
+                related is not None
+                and ManagementAgent._dependency_signature(db, related.description) == signature
+            ):
                 return True
         return False
 
@@ -621,15 +651,44 @@ class ManagementAgent:
         for person in db.scalars(select(Employee).where(Employee.is_active.is_(True))):
             name_parts = ManagementAgent._name_parts_without_honorifics(person.name)
             if name_parts:
-                text = re.sub(
-                    r"\b{}\b".format(re.escape(" ".join(name_parts))), " ", text
-                )
+                text = re.sub(r"\b{}\b".format(re.escape(" ".join(name_parts))), " ", text)
                 text = re.sub(r"\b{}\b".format(re.escape(name_parts[0])), " ", text)
         ignored = {
-            "a", "an", "the", "and", "are", "awaiting", "before", "by", "can", "changes",
-            "continue", "continuing", "dependency", "for", "from", "has", "i", "in", "input",
-            "inputs", "is", "it", "need", "needs", "of", "on", "please", "proceed", "required",
-            "to", "update", "updates", "waiting", "with", "work",
+            "a",
+            "an",
+            "the",
+            "and",
+            "are",
+            "awaiting",
+            "before",
+            "by",
+            "can",
+            "changes",
+            "continue",
+            "continuing",
+            "dependency",
+            "for",
+            "from",
+            "has",
+            "i",
+            "in",
+            "input",
+            "inputs",
+            "is",
+            "it",
+            "need",
+            "needs",
+            "of",
+            "on",
+            "please",
+            "proceed",
+            "required",
+            "to",
+            "update",
+            "updates",
+            "waiting",
+            "with",
+            "work",
         }
         tokens = {token for token in re.findall(r"[a-z0-9]+", text) if token not in ignored}
         return tuple(sorted(tokens))
@@ -650,7 +709,7 @@ class ManagementAgent:
         now = datetime.now(timezone.utc)
         if deadline <= now:
             run.status = AgentRunStatus.SKIPPED
-            run.needs_yash_review = True
+            run.needs_manager_review = True
             run.failure_reason = "The stated ETA is already in the past"
             run.processed_at = now
             db.commit()
@@ -726,12 +785,13 @@ class ManagementAgent:
         matches = [
             employee
             for employee in active_employees
-            if employee.name.strip().casefold() == candidate or employee.email.strip().casefold() == candidate
+            if employee.name.strip().casefold() == candidate
+            or employee.email.strip().casefold() == candidate
         ]
         if len(matches) == 1 and matches[0].teams_user_id:
             return matches[0]
-        # Azure may return a unique first name such as "Shubham" when the
-        # directory display name is "Shubham Fating". Resolve only when it is
+        # Azure may return a unique first name such as "Morgan" when the
+        # directory display name is "Morgan Lee". Resolve only when it is
         # unambiguous among active Teams-reachable employees.
         name_parts = ManagementAgent._name_parts_without_honorifics(candidate)
         if len(name_parts) == 1:
@@ -776,7 +836,9 @@ class ManagementAgent:
     @staticmethod
     def _name_parts_without_honorifics(value: str) -> list[str]:
         honorifics = {"sir", "maam", "mam", "mr", "mrs", "ms", "dr", "ji"}
-        return [part for part in re.findall(r"[a-z0-9]+", value.casefold()) if part not in honorifics]
+        return [
+            part for part in re.findall(r"[a-z0-9]+", value.casefold()) if part not in honorifics
+        ]
 
     @staticmethod
     def _natural_dependency_eta_request(employee: Employee, description: str) -> str:

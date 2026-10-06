@@ -7,6 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+import app.models  # noqa: F401 - register all ORM relationship targets at startup
 from app.api.routes.blockers import router as blockers_router
 from app.api.routes.commitments import router as commitments_router
 from app.api.routes.conversations import router as conversations_router
@@ -14,21 +15,19 @@ from app.api.routes.daily_updates import router as daily_updates_router
 from app.api.routes.employees import router as employees_router
 from app.api.routes.escalations import router as escalations_router
 from app.api.routes.health import router as health_router
-from app.api.routes.projects import router as projects_router
+from app.api.routes.intelligence import router as intelligence_router
+from app.api.routes.llm_usage import router as llm_usage_router
 from app.api.routes.management import router as management_router
 from app.api.routes.management_context import router as management_context_router
 from app.api.routes.memory import router as memory_router
 from app.api.routes.microsoft import router as microsoft_router
+from app.api.routes.projects import router as projects_router
 from app.api.routes.tasks import router as tasks_router
-from app.api.routes.llm_usage import router as llm_usage_router
-from app.api.routes.intelligence import router as intelligence_router
 from app.core.config import get_settings
 from app.core.security import protect_operator_api
 from app.db.session import SessionLocal
-import app.models  # noqa: F401 - register all ORM relationship targets at startup
-from app.services.errors import DomainError
 from app.services.automation_service import DailyAutomationService
-
+from app.services.errors import DomainError
 
 logger = logging.getLogger(__name__)
 
@@ -49,11 +48,13 @@ async def lifespan(_: FastAPI):
                 logger.exception("daily_manager_scheduler_cycle_failed")
             finally:
                 db.close()
+
         while not stop_event.is_set():
             await asyncio.to_thread(run_cycle_in_worker)
             try:
                 await asyncio.wait_for(
-                    stop_event.wait(), timeout=max(15, settings.automation_scheduler_interval_seconds)
+                    stop_event.wait(),
+                    timeout=max(15, settings.automation_scheduler_interval_seconds),
                 )
             except asyncio.TimeoutError:
                 continue

@@ -16,7 +16,9 @@ router = APIRouter(prefix="/api/v1/daily-updates", tags=["daily updates"])
 
 
 @router.post("", response_model=DailyUpdateRead, status_code=status.HTTP_201_CREATED)
-def create_daily_update(payload: DailyUpdateCreate, db: Session = Depends(get_db)) -> DailyUpdateRead:
+def create_daily_update(
+    payload: DailyUpdateCreate, db: Session = Depends(get_db)
+) -> DailyUpdateRead:
     return DailyUpdateService.create(db, payload)
 
 

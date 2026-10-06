@@ -1,4 +1,5 @@
 """Safely queue existing local records as evidence for the memory engine."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -25,7 +26,13 @@ class MemoryBackfillService:
 
     @staticmethod
     def enqueue_existing_evidence(db: Session, *, limit: int = 500) -> dict[str, int]:
-        result = {"messages": 0, "daily_updates": 0, "blockers": 0, "commitments": 0, "escalations": 0}
+        result = {
+            "messages": 0,
+            "daily_updates": 0,
+            "blockers": 0,
+            "commitments": 0,
+            "escalations": 0,
+        }
         for message in db.scalars(select(Message).order_by(Message.created_at).limit(limit)):
             before = MemoryBackfillService._exists(db, "message", message.id)
             MemoryService.record_message_evidence(db, message)
@@ -36,40 +43,99 @@ class MemoryBackfillService:
             result["daily_updates"] += int(not before)
         for blocker in db.scalars(select(Blocker).order_by(Blocker.created_at).limit(limit)):
             created = MemoryBackfillService._record(
-                db, ActivityEventType.BLOCKER_CREATED, "blocker", blocker.id,
-                blocker.created_at, blocker.blocked_employee_id, "blocker-created:{}".format(blocker.id),
+                db,
+                ActivityEventType.BLOCKER_CREATED,
+                "blocker",
+                blocker.id,
+                blocker.created_at,
+                blocker.blocked_employee_id,
+                "blocker-created:{}".format(blocker.id),
             )
             result["blockers"] += int(created)
             if blocker.status == BlockerStatus.RESOLVED and blocker.resolved_at is not None:
-                result["blockers"] += int(MemoryBackfillService._record(
-                    db, ActivityEventType.BLOCKER_RESOLVED, "blocker", blocker.id,
-                    blocker.resolved_at, blocker.blocked_employee_id, "blocker-resolved:{}".format(blocker.id),
-                ))
-        for commitment in db.scalars(select(Commitment).order_by(Commitment.committed_at).limit(limit)):
-            result["commitments"] += int(MemoryBackfillService._record(
-                db, ActivityEventType.COMMITMENT_CREATED, "commitment", commitment.id,
-                commitment.committed_at, commitment.employee_id, "commitment-created:{}".format(commitment.id),
-            ))
+                result["blockers"] += int(
+                    MemoryBackfillService._record(
+                        db,
+                        ActivityEventType.BLOCKER_RESOLVED,
+                        "blocker",
+                        blocker.id,
+                        blocker.resolved_at,
+                        blocker.blocked_employee_id,
+                        "blocker-resolved:{}".format(blocker.id),
+                    )
+                )
+        for commitment in db.scalars(
+            select(Commitment).order_by(Commitment.committed_at).limit(limit)
+        ):
+            result["commitments"] += int(
+                MemoryBackfillService._record(
+                    db,
+                    ActivityEventType.COMMITMENT_CREATED,
+                    "commitment",
+                    commitment.id,
+                    commitment.committed_at,
+                    commitment.employee_id,
+                    "commitment-created:{}".format(commitment.id),
+                )
+            )
             final_event = {
-                CommitmentStatus.COMPLETED: (ActivityEventType.COMMITMENT_COMPLETED, commitment.completed_at, "commitment-completed"),
-                CommitmentStatus.MISSED: (ActivityEventType.COMMITMENT_MISSED, commitment.missed_at, "commitment-missed"),
-                CommitmentStatus.SUPERSEDED: (ActivityEventType.COMMITMENT_REVISED, commitment.committed_at, "commitment-revised"),
+                CommitmentStatus.COMPLETED: (
+                    ActivityEventType.COMMITMENT_COMPLETED,
+                    commitment.completed_at,
+                    "commitment-completed",
+                ),
+                CommitmentStatus.MISSED: (
+                    ActivityEventType.COMMITMENT_MISSED,
+                    commitment.missed_at,
+                    "commitment-missed",
+                ),
+                CommitmentStatus.SUPERSEDED: (
+                    ActivityEventType.COMMITMENT_REVISED,
+                    commitment.committed_at,
+                    "commitment-revised",
+                ),
             }.get(commitment.status)
             if final_event and final_event[1] is not None:
-                result["commitments"] += int(MemoryBackfillService._record(
-                    db, final_event[0], "commitment", commitment.id, final_event[1],
-                    commitment.employee_id, "{}:{}".format(final_event[2], commitment.id),
-                ))
-        for escalation in db.scalars(select(Escalation).order_by(Escalation.created_at).limit(limit)):
-            result["escalations"] += int(MemoryBackfillService._record(
-                db, ActivityEventType.ESCALATION_CREATED, "escalation", escalation.id,
-                escalation.created_at, escalation.employee_id, "escalation-created:{}".format(escalation.id),
-            ))
-            if escalation.status == EscalationStatus.RESOLVED and escalation.resolved_at is not None:
-                result["escalations"] += int(MemoryBackfillService._record(
-                    db, ActivityEventType.ESCALATION_RESOLVED, "escalation", escalation.id,
-                    escalation.resolved_at, escalation.employee_id, "escalation-resolved:{}".format(escalation.id),
-                ))
+                result["commitments"] += int(
+                    MemoryBackfillService._record(
+                        db,
+                        final_event[0],
+                        "commitment",
+                        commitment.id,
+                        final_event[1],
+                        commitment.employee_id,
+                        "{}:{}".format(final_event[2], commitment.id),
+                    )
+                )
+        for escalation in db.scalars(
+            select(Escalation).order_by(Escalation.created_at).limit(limit)
+        ):
+            result["escalations"] += int(
+                MemoryBackfillService._record(
+                    db,
+                    ActivityEventType.ESCALATION_CREATED,
+                    "escalation",
+                    escalation.id,
+                    escalation.created_at,
+                    escalation.employee_id,
+                    "escalation-created:{}".format(escalation.id),
+                )
+            )
+            if (
+                escalation.status == EscalationStatus.RESOLVED
+                and escalation.resolved_at is not None
+            ):
+                result["escalations"] += int(
+                    MemoryBackfillService._record(
+                        db,
+                        ActivityEventType.ESCALATION_RESOLVED,
+                        "escalation",
+                        escalation.id,
+                        escalation.resolved_at,
+                        escalation.employee_id,
+                        "escalation-resolved:{}".format(escalation.id),
+                    )
+                )
         db.commit()
         return result
 
@@ -77,7 +143,16 @@ class MemoryBackfillService:
     def _exists(db: Session, entity_type: str, entity_id: object) -> bool:
         from app.models.memory import ActivityEvent
 
-        return db.scalar(select(ActivityEvent.id).where(ActivityEvent.entity_type == entity_type, ActivityEvent.entity_id == entity_id).limit(1)) is not None
+        return (
+            db.scalar(
+                select(ActivityEvent.id)
+                .where(
+                    ActivityEvent.entity_type == entity_type, ActivityEvent.entity_id == entity_id
+                )
+                .limit(1)
+            )
+            is not None
+        )
 
     @staticmethod
     def _record(
@@ -91,7 +166,10 @@ class MemoryBackfillService:
     ) -> bool:
         from app.models.memory import ActivityEvent
 
-        existed = db.scalar(select(ActivityEvent.id).where(ActivityEvent.idempotency_key == key).limit(1)) is not None
+        existed = (
+            db.scalar(select(ActivityEvent.id).where(ActivityEvent.idempotency_key == key).limit(1))
+            is not None
+        )
         MemoryService.record_event(
             db,
             event_type=event_type,

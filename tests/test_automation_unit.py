@@ -32,13 +32,13 @@ def test_daily_digest_email_has_exactly_five_simple_sections() -> None:
 Responded: 1/1
 
 Completed:
-- Shivam: Frontend fix
+- Alex: Frontend fix
 
 Blocked:
-- Shivam — Backend deployment (dependency: Shubham; severity: high)
+- Alex — Backend deployment (dependency: Morgan; severity: high)
 
 Agent handling today:
-- Shivam: recorded blocker; asked Shubham for an ETA.
+- Alex: recorded blocker; asked Morgan for an ETA.
 
 Needs your attention:
 - Deployment needs review
@@ -48,9 +48,13 @@ Needs your attention:
     email = DailyAutomationService._daily_digest_email_html(digest, now)
 
     for title in [
-        "Overview", "Work updates", "Blockers &amp; commitments", "Agent handling", "Manager attention",
+        "Overview",
+        "Work updates",
+        "Blockers &amp; commitments",
+        "Agent handling",
+        "Manager attention",
     ]:
         assert title in email
     assert email.count("<h2") == 5
     assert "Team response: 1/1" in email
-    assert "asked Shubham for an ETA" in email
+    assert "asked Morgan for an ETA" in email

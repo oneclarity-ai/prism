@@ -6,15 +6,21 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.schemas.common import Page
-from app.schemas.management_context import ManagementContextCreate, ManagementContextRead, ManagementContextUpdate
-from app.services.management_context_service import ManagementContextService
+from app.schemas.management_context import (
+    ManagementContextCreate,
+    ManagementContextRead,
+    ManagementContextUpdate,
+)
 from app.services.deployment_list_service import DeploymentListService
+from app.services.management_context_service import ManagementContextService
 
 router = APIRouter(prefix="/api/v1/management-context", tags=["manager knowledge"])
 
 
 @router.post("", response_model=ManagementContextRead, status_code=status.HTTP_201_CREATED)
-def create_context(payload: ManagementContextCreate, db: Session = Depends(get_db)) -> ManagementContextRead:
+def create_context(
+    payload: ManagementContextCreate, db: Session = Depends(get_db)
+) -> ManagementContextRead:
     return ManagementContextService.create(db, payload)
 
 

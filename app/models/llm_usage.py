@@ -6,7 +6,7 @@ from decimal import Decimal
 from typing import Optional
 
 from sqlalchemy import DateTime, Integer, Numeric, String, func
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -15,7 +15,9 @@ from app.db.base import Base
 class LLMUsage(Base):
     __tablename__ = "llm_usage"
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    timestamp: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
     provider: Mapped[str] = mapped_column(String(40), default="azure_openai")
     model: Mapped[str] = mapped_column(String(255), index=True)
     deployment: Mapped[str] = mapped_column(String(255))

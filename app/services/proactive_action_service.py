@@ -1,4 +1,5 @@
 """Execute only validated, allow-listed V2 communication decisions."""
+
 from __future__ import annotations
 
 import uuid
@@ -25,15 +26,28 @@ class ProactiveActionService:
             return 0
         active_target_ids = set(run.target_employee_ids or [])
         delivered = 0
-        decisions = list(db.scalars(select(ManagementDecision).where(
-            ManagementDecision.status == "validated",
-            ManagementDecision.action == "FOLLOW_UP",
-            ManagementDecision.trigger_type.in_(["silent_blocker", "unanswered_question"]),
-            ManagementDecision.decided_at >= run.started_at,
-        ).order_by(ManagementDecision.decided_at).limit(limit)))
+        decisions = list(
+            db.scalars(
+                select(ManagementDecision)
+                .where(
+                    ManagementDecision.status == "validated",
+                    ManagementDecision.action == "FOLLOW_UP",
+                    ManagementDecision.trigger_type.in_(["silent_blocker", "unanswered_question"]),
+                    ManagementDecision.decided_at >= run.started_at,
+                )
+                .order_by(ManagementDecision.decided_at)
+                .limit(limit)
+            )
+        )
         for decision in decisions:
-            employee = db.get(Employee, uuid.UUID(decision.target_employee_ids[0])) if decision.target_employee_ids else None
-            blocker = db.get(Blocker, decision.related_issue_id) if decision.related_issue_id else None
+            employee = (
+                db.get(Employee, uuid.UUID(decision.target_employee_ids[0]))
+                if decision.target_employee_ids
+                else None
+            )
+            blocker = (
+                db.get(Blocker, decision.related_issue_id) if decision.related_issue_id else None
+            )
             if employee is None:
                 decision.status = "failed"
                 decision.outcome = {"error": "Target employee no longer exists"}
@@ -58,14 +72,19 @@ class ProactiveActionService:
                 action_type = AutomationActionType.BLOCKER_OWNER_CLARIFICATION
             try:
                 sent = ManagementAgent._send_blocker_message_once(
-                    db, action_type=action_type,
+                    db,
+                    action_type=action_type,
                     idempotency_key=f"v2-decision:{decision.id}",
-                    employee=employee, blocker=blocker,
+                    employee=employee,
+                    blocker=blocker,
                     content=MicrosoftService.follow_up_message_for(employee.name, text),
                 )
                 decision.status = "executed" if sent else "already_executed"
                 decision.executed_at = datetime.now(timezone.utc)
-                decision.outcome = {"message_id": str(sent.id) if sent else None, "delivered": bool(sent)}
+                decision.outcome = {
+                    "message_id": str(sent.id) if sent else None,
+                    "delivered": bool(sent),
+                }
                 delivered += int(sent is not None)
             except DomainError as exc:
                 decision.status = "failed"

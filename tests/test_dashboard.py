@@ -7,14 +7,14 @@ def test_dashboard_is_served() -> None:
     response = TestClient(app).get("/dashboard/")
 
     assert response.status_code == 200
-    assert "Personal Agent" in response.text
+    assert "Prism" in response.text
     assert "Today's AI cost" in response.text
     assert "family=Geist" in response.text
     assert "Teams automation" in response.text
     assert "Start automation" in response.text
     assert "Connect Microsoft account" in response.text
     assert "Managed people" in response.text
-    assert "Add people from Softtrine" in response.text
+    assert "Add people from the organization" in response.text
     assert "Teams activity" in response.text
     assert "Run daily cycle" in response.text
     assert "Send digest" in response.text
@@ -31,15 +31,15 @@ def test_dashboard_is_served() -> None:
     assert "Needs your attention" in response.text
     assert "Daily management brief" in response.text
     assert "Ask about the team" in response.text
-    assert "data-tab-target=\"intelligence\"" in response.text
-    assert "data-tab-target=\"management\"" in response.text
-    assert "data-tab-target=\"journey\"" in response.text
-    assert "data-tab-target=\"memory\"" in response.text
-    assert "data-tab-target=\"knowledge\"" in response.text
-    assert "data-tab=\"management\"" in response.text
-    assert "data-tab=\"knowledge\"" in response.text
-    assert "data-tab=\"memory\"" in response.text
-    assert "data-tab=\"intelligence\"" in response.text
+    assert 'data-tab-target="intelligence"' in response.text
+    assert 'data-tab-target="management"' in response.text
+    assert 'data-tab-target="journey"' in response.text
+    assert 'data-tab-target="memory"' in response.text
+    assert 'data-tab-target="knowledge"' in response.text
+    assert 'data-tab="management"' in response.text
+    assert 'data-tab="knowledge"' in response.text
+    assert 'data-tab="memory"' in response.text
+    assert 'data-tab="intelligence"' in response.text
     assert "/dashboard/app.js" in response.text
 
 

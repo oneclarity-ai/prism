@@ -4,7 +4,7 @@ import uuid
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import Boolean, Date, DateTime, Enum, ForeignKey, String, Text
+from sqlalchemy import Boolean, Date, DateTime, Enum, ForeignKey, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -13,6 +13,7 @@ from app.models.enums import BlockerSeverity, EscalationStatus, EscalationType
 
 if TYPE_CHECKING:
     from app.models.employee import Employee
+    from app.models.escalation_decision import EscalationDecision
     from app.models.project import Project
     from app.models.task import Task
 
@@ -34,16 +35,22 @@ class Escalation(TimestampMixin, Base):
         Enum(EscalationType, name="escalation_type"), nullable=False, index=True
     )
     severity: Mapped[BlockerSeverity] = mapped_column(
-        Enum(BlockerSeverity, name="blocker_severity"), default=BlockerSeverity.MEDIUM, nullable=False, index=True
+        Enum(BlockerSeverity, name="blocker_severity"),
+        default=BlockerSeverity.MEDIUM,
+        nullable=False,
+        index=True,
     )
     reason: Mapped[str] = mapped_column(Text, nullable=False)
     context: Mapped[Optional[str]] = mapped_column(Text)
     requested_target_date: Mapped[Optional[date]] = mapped_column(Date)
     requested_deadline: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     status: Mapped[EscalationStatus] = mapped_column(
-        Enum(EscalationStatus, name="escalation_status"), default=EscalationStatus.OPEN, nullable=False, index=True
+        Enum(EscalationStatus, name="escalation_status"),
+        default=EscalationStatus.OPEN,
+        nullable=False,
+        index=True,
     )
-    requires_yash_approval: Mapped[bool] = mapped_column(
+    requires_manager_approval: Mapped[bool] = mapped_column(
         Boolean, default=True, server_default="true", nullable=False, index=True
     )
     resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))

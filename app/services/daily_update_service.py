@@ -56,24 +56,30 @@ class DailyUpdateService:
         limit: int,
         offset: int,
     ) -> tuple[list[DailyUpdate], int]:
-        statement = (select(DailyUpdate).join(Employee, Employee.id == DailyUpdate.employee_id)
-                     .where(Employee.is_active.is_(True))
-                     .order_by(DailyUpdate.update_date.desc(), DailyUpdate.created_at.desc()))
-        count_statement = (select(func.count()).select_from(DailyUpdate)
-                           .join(Employee, Employee.id == DailyUpdate.employee_id)
-                           .where(Employee.is_active.is_(True)))
+        statement = (
+            select(DailyUpdate)
+            .join(Employee, Employee.id == DailyUpdate.employee_id)
+            .where(Employee.is_active.is_(True))
+            .order_by(DailyUpdate.update_date.desc(), DailyUpdate.created_at.desc())
+        )
+        count_statement = (
+            select(func.count())
+            .select_from(DailyUpdate)
+            .join(Employee, Employee.id == DailyUpdate.employee_id)
+            .where(Employee.is_active.is_(True))
+        )
         if employee_id is not None:
             statement = statement.where(DailyUpdate.employee_id == employee_id)
             count_statement = count_statement.where(DailyUpdate.employee_id == employee_id)
         if update_date is not None:
             statement = statement.where(DailyUpdate.update_date == update_date)
             count_statement = count_statement.where(DailyUpdate.update_date == update_date)
-        return list(db.scalars(statement.limit(limit).offset(offset))), db.scalar(count_statement) or 0
+        return list(db.scalars(statement.limit(limit).offset(offset))), db.scalar(
+            count_statement
+        ) or 0
 
     @staticmethod
-    def update(
-        db: Session, daily_update_id: uuid.UUID, data: DailyUpdateUpdate
-    ) -> DailyUpdate:
+    def update(db: Session, daily_update_id: uuid.UUID, data: DailyUpdateUpdate) -> DailyUpdate:
         daily_update = DailyUpdateService.get(db, daily_update_id)
         changes = data.model_dump(exclude_unset=True)
         if changes.get("update_date") is None and "update_date" in changes:

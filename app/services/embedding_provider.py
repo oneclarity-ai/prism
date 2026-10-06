@@ -1,4 +1,5 @@
 """Optional embedding boundary; memory remains useful with PostgreSQL full-text search alone."""
+
 from __future__ import annotations
 
 from typing import Optional

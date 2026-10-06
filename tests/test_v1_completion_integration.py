@@ -17,15 +17,17 @@ pytestmark = pytest.mark.skipif(
 from app.core.config import get_settings
 from app.db.session import SessionLocal
 from app.main import app
+from app.models.agent_run import AgentRun
+from app.models.automation_action import AutomationAction
 from app.models.blocker import Blocker
 from app.models.commitment import Commitment
 from app.models.conversation import Conversation
 from app.models.daily_update import DailyUpdate
 from app.models.employee import Employee
 from app.models.enums import (
+    ActivityEventType,
     AgentAnalysisType,
     AgentRunStatus,
-    ActivityEventType,
     AutomationActionStatus,
     AutomationActionType,
     BlockerSeverity,
@@ -39,7 +41,6 @@ from app.models.enums import (
     MessageDirection,
     SenderType,
 )
-from app.models.automation_action import AutomationAction
 from app.models.escalation import Escalation
 from app.models.memory import ActivityEvent
 from app.models.message import Message
@@ -119,9 +120,7 @@ def test_management_relevant_mutations_keep_before_after_events() -> None:
                     severity=BlockerSeverity.HIGH,
                 ),
             )
-            BlockerService.update(
-                db, blocker.id, BlockerUpdate(dependency_owner_id=manager.id)
-            )
+            BlockerService.update(db, blocker.id, BlockerUpdate(dependency_owner_id=manager.id))
             BlockerService.update(db, blocker.id, BlockerUpdate(status=BlockerStatus.RESOLVED))
             entity_ids = [project.id, task.id, update.id, blocker.id, second_owner.id]
 
@@ -141,17 +140,25 @@ def test_management_relevant_mutations_keep_before_after_events() -> None:
                 ActivityEventType.BLOCKER_RESOLVED,
             }.issubset(types)
             owner_event = next(
-                event for event in events
+                event
+                for event in events
                 if event.event_type == ActivityEventType.BLOCKER_DEPENDENCY_OWNER_CHANGED
             )
             assert owner_event.metadata_json["previous"]["dependency_owner_id"] is None
             assert owner_event.metadata_json["new"]["dependency_owner_id"] == str(manager.id)
             update_event = next(
-                event for event in events
+                event
+                for event in events
                 if event.event_type == ActivityEventType.DAILY_UPDATE_CHANGED
             )
-            assert update_event.metadata_json["previous"]["expected_outcome"] == "Every change has before and after values"
-            assert update_event.metadata_json["new"]["expected_outcome"] == "The event trail is queryable"
+            assert (
+                update_event.metadata_json["previous"]["expected_outcome"]
+                == "Every change has before and after values"
+            )
+            assert (
+                update_event.metadata_json["new"]["expected_outcome"]
+                == "The event trail is queryable"
+            )
     finally:
         with SessionLocal() as db:
             if entity_ids:
@@ -172,18 +179,18 @@ def test_digest_uses_only_managed_team_and_structured_operational_state(monkeypa
     try:
         local_now = datetime(2026, 9, 9, 18, 0, tzinfo=ZoneInfo("Asia/Kolkata"))
         with SessionLocal() as db:
-            riya = Employee(
-                name="Riya " + suffix,
-                email="riya-digest-{}@example.invalid".format(suffix),
+            avery = Employee(
+                name="Avery " + suffix,
+                email="avery-digest-{}@example.invalid".format(suffix),
                 role="Engineer",
-                teams_user_id="riya-digest-" + suffix,
+                teams_user_id="avery-digest-" + suffix,
                 is_managed=True,
             )
-            ajay = Employee(
-                name="Ajay " + suffix,
-                email="ajay-digest-{}@example.invalid".format(suffix),
+            bailey = Employee(
+                name="Bailey " + suffix,
+                email="bailey-digest-{}@example.invalid".format(suffix),
                 role="Engineer",
-                teams_user_id="ajay-digest-" + suffix,
+                teams_user_id="bailey-digest-" + suffix,
                 is_managed=True,
             )
             outside = Employee(
@@ -193,72 +200,78 @@ def test_digest_uses_only_managed_team_and_structured_operational_state(monkeypa
                 teams_user_id="outside-digest-" + suffix,
                 is_managed=False,
             )
-            db.add_all([riya, ajay, outside])
+            db.add_all([avery, bailey, outside])
             db.flush()
-            employee_ids = [riya.id, ajay.id, outside.id]
-            db.add_all([
-                DailyUpdate(
-                    employee_id=riya.id,
-                    update_date=local_now.date(),
-                    today_summary="Auth API",
-                    expected_outcome="Staging endpoint ready",
-                    blocker_summary="Waiting for schema",
-                ),
-                DailyUpdate(
-                    employee_id=outside.id,
-                    update_date=local_now.date(),
-                    today_summary="Do not include this",
-                    expected_outcome="Do not include this",
-                ),
-                Blocker(
-                    blocked_employee_id=riya.id,
-                    dependency_owner_id=ajay.id,
-                    description="Waiting for schema",
-                    severity=BlockerSeverity.HIGH,
-                ),
-                Commitment(
-                    employee_id=riya.id,
-                    description="Send the schema",
-                    deadline=(local_now + timedelta(hours=1)).astimezone(timezone.utc),
-                    status=CommitmentStatus.OPEN,
-                ),
-                Commitment(
-                    employee_id=ajay.id,
-                    description="Review the API",
-                    deadline=(local_now + timedelta(days=1)).astimezone(timezone.utc),
-                    status=CommitmentStatus.OPEN,
-                ),
-                Commitment(
-                    employee_id=ajay.id,
-                    description="Yesterday's promise",
-                    deadline=(local_now - timedelta(days=1)).astimezone(timezone.utc),
-                    status=CommitmentStatus.MISSED,
-                    missed_at=(local_now - timedelta(hours=2)).astimezone(timezone.utc),
-                ),
-                Commitment(
-                    employee_id=outside.id,
-                    description="Outside team promise",
-                    deadline=(local_now - timedelta(days=1)).astimezone(timezone.utc),
-                    status=CommitmentStatus.MISSED,
-                    missed_at=(local_now - timedelta(hours=2)).astimezone(timezone.utc),
-                ),
-                Escalation(
-                    employee_id=riya.id,
-                    escalation_type=EscalationType.PROJECT_DEADLINE_CHANGE,
-                    severity=BlockerSeverity.HIGH,
-                    reason="Approval is needed for target date",
-                    status=EscalationStatus.PENDING_APPROVAL,
-                    requires_yash_approval=True,
-                ),
-            ])
+            employee_ids = [avery.id, bailey.id, outside.id]
+            db.add_all(
+                [
+                    DailyUpdate(
+                        employee_id=avery.id,
+                        update_date=local_now.date(),
+                        today_summary="Auth API",
+                        expected_outcome="Staging endpoint ready",
+                        blocker_summary="Waiting for schema",
+                    ),
+                    DailyUpdate(
+                        employee_id=outside.id,
+                        update_date=local_now.date(),
+                        today_summary="Do not include this",
+                        expected_outcome="Do not include this",
+                    ),
+                    Blocker(
+                        blocked_employee_id=avery.id,
+                        dependency_owner_id=bailey.id,
+                        description="Waiting for schema",
+                        severity=BlockerSeverity.HIGH,
+                    ),
+                    Commitment(
+                        employee_id=avery.id,
+                        description="Send the schema",
+                        deadline=(local_now + timedelta(hours=1)).astimezone(timezone.utc),
+                        status=CommitmentStatus.OPEN,
+                    ),
+                    Commitment(
+                        employee_id=bailey.id,
+                        description="Review the API",
+                        deadline=(local_now + timedelta(days=1)).astimezone(timezone.utc),
+                        status=CommitmentStatus.OPEN,
+                    ),
+                    Commitment(
+                        employee_id=bailey.id,
+                        description="Yesterday's promise",
+                        deadline=(local_now - timedelta(days=1)).astimezone(timezone.utc),
+                        status=CommitmentStatus.MISSED,
+                        missed_at=(local_now - timedelta(hours=2)).astimezone(timezone.utc),
+                    ),
+                    Commitment(
+                        employee_id=outside.id,
+                        description="Outside team promise",
+                        deadline=(local_now - timedelta(days=1)).astimezone(timezone.utc),
+                        status=CommitmentStatus.MISSED,
+                        missed_at=(local_now - timedelta(hours=2)).astimezone(timezone.utc),
+                    ),
+                    Escalation(
+                        employee_id=avery.id,
+                        escalation_type=EscalationType.PROJECT_DEADLINE_CHANGE,
+                        severity=BlockerSeverity.HIGH,
+                        reason="Approval is needed for target date",
+                        status=EscalationStatus.PENDING_APPROVAL,
+                        requires_manager_approval=True,
+                    ),
+                ]
+            )
             db.commit()
-            monkeypatch.setattr(DailyAutomationService, "_managed_team_employees", staticmethod(lambda _db: [riya, ajay]))
+            monkeypatch.setattr(
+                DailyAutomationService,
+                "_managed_team_employees",
+                staticmethod(lambda _db: [avery, bailey]),
+            )
             content = DailyAutomationService._daily_digest_content(db, local_now)
             managed_count = 2
             assert "Responded: 1/{}".format(managed_count) in content
-            assert "Riya: Auth API" in content
+            assert "Avery: Auth API" in content
             assert "Staging endpoint ready" in content
-            assert "Waiting for schema (dependency: Ajay; severity: high)" in content
+            assert "Waiting for schema (dependency: Bailey; severity: high)" in content
             assert "Commitments due today:" in content and "Send the schema" in content
             assert "Commitments due soon:" in content and "Review the API" in content
             assert "Missed commitments:" in content and "Yesterday's promise" in content
@@ -351,21 +364,25 @@ def test_digest_explains_how_the_agent_handled_today_replies() -> None:
             )
             db.add_all([inbound, acknowledgement, followup])
             db.flush()
-            db.add(AgentRun(
-                inbound_message_id=inbound.id,
-                source_employee_id=source.id,
-                status=AgentRunStatus.COMPLETED,
-                analysis_type=AgentAnalysisType.BLOCKER,
-                blocker_id=blocker.id,
-                source_reply_message_id=acknowledgement.id,
-                dependency_message_id=followup.id,
-                processed_at=local_now,
-                state_applied=True,
-                decision_json={"messages": [
-                    {"kind": "acknowledgement"},
-                    {"kind": "dependency_followup"},
-                ]},
-            ))
+            db.add(
+                AgentRun(
+                    inbound_message_id=inbound.id,
+                    source_employee_id=source.id,
+                    status=AgentRunStatus.COMPLETED,
+                    analysis_type=AgentAnalysisType.BLOCKER,
+                    blocker_id=blocker.id,
+                    source_reply_message_id=acknowledgement.id,
+                    dependency_message_id=followup.id,
+                    processed_at=local_now,
+                    state_applied=True,
+                    decision_json={
+                        "messages": [
+                            {"kind": "acknowledgement"},
+                            {"kind": "dependency_followup"},
+                        ]
+                    },
+                )
+            )
             db.commit()
 
             content = DailyAutomationService._daily_digest_content(db, local_now)
@@ -395,7 +412,11 @@ def test_operator_api_guard_leaves_graph_webhook_public(monkeypatch) -> None:
         client = TestClient(app)
         denied = client.post(
             "/api/v1/employees",
-            json={"name": "Unauthorized", "email": "unauthorized@example.invalid", "role": "Engineer"},
+            json={
+                "name": "Unauthorized",
+                "email": "unauthorized@example.invalid",
+                "role": "Engineer",
+            },
         )
         assert denied.status_code == 401
         allowed = client.get(
@@ -460,7 +481,8 @@ def test_sent_digest_is_persisted_and_retrievable() -> None:
             action_id = action.id
             digests = DailyAutomationService.list_daily_digests(db)
             assert any(
-                item.id == action.id and item.message is not None
+                item.id == action.id
+                and item.message is not None
                 and item.message.content == "Daily manager digest\nResponded: 1/1"
                 for item in digests
             )

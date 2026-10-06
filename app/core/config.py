@@ -14,7 +14,7 @@ class ModelPricing(BaseModel):
 class Settings(BaseSettings):
     """Runtime configuration loaded from environment variables and `.env`."""
 
-    app_name: str = Field(default="Yash Manager Agent", validation_alias="APP_NAME")
+    app_name: str = Field(default="Prism", validation_alias="APP_NAME")
     app_env: str = Field(default="development", validation_alias="APP_ENV")
     database_url: str = Field(validation_alias="DATABASE_URL")
     microsoft_tenant_id: Optional[str] = Field(default=None, validation_alias="MICROSOFT_TENANT_ID")
@@ -53,15 +53,31 @@ class Settings(BaseSettings):
     azure_openai_max_attempts: int = Field(
         default=2, ge=1, le=3, validation_alias="AZURE_OPENAI_MAX_ATTEMPTS"
     )
-    azure_openai_reasoning_deployment: Optional[str] = Field(default=None, validation_alias="AZURE_OPENAI_REASONING_DEPLOYMENT")
+    azure_openai_reasoning_deployment: Optional[str] = Field(
+        default=None, validation_alias="AZURE_OPENAI_REASONING_DEPLOYMENT"
+    )
     response_policy_version: str = Field(
         default="2026-09-18.1", validation_alias="RESPONSE_POLICY_VERSION"
     )
-    intelligence_llm_enabled: bool = Field(default=True, validation_alias="INTELLIGENCE_LLM_ENABLED")
-    llm_model_pricing: dict[str, ModelPricing] = Field(default_factory=dict, validation_alias="LLM_MODEL_PRICING")
-    agent_context_turns: int = Field(default=12, ge=2, le=30, validation_alias="AGENT_CONTEXT_TURNS")
-    agent_context_issues: int = Field(default=8, ge=1, le=20, validation_alias="AGENT_CONTEXT_ISSUES")
-    manager_timezone: str = Field(default="Asia/Kolkata", validation_alias="MANAGER_TIMEZONE")
+    intelligence_llm_enabled: bool = Field(
+        default=True, validation_alias="INTELLIGENCE_LLM_ENABLED"
+    )
+    llm_model_pricing: dict[str, ModelPricing] = Field(
+        default_factory=dict, validation_alias="LLM_MODEL_PRICING"
+    )
+    agent_context_turns: int = Field(
+        default=12, ge=2, le=30, validation_alias="AGENT_CONTEXT_TURNS"
+    )
+    agent_context_issues: int = Field(
+        default=8, ge=1, le=20, validation_alias="AGENT_CONTEXT_ISSUES"
+    )
+    manager_timezone: str = Field(default="UTC", validation_alias="MANAGER_TIMEZONE")
+    agent_signature: str = Field(
+        default="Sent by Prism",
+        min_length=1,
+        max_length=120,
+        validation_alias="AGENT_SIGNATURE",
+    )
     automation_scheduler_enabled: bool = Field(
         default=False, validation_alias="AUTOMATION_SCHEDULER_ENABLED"
     )
@@ -72,26 +88,36 @@ class Settings(BaseSettings):
     daily_followup_time: str = Field(default="13:00", validation_alias="DAILY_FOLLOWUP_TIME")
     daily_digest_time: str = Field(default="19:30", validation_alias="DAILY_DIGEST_TIME")
     digest_due_soon_hours: int = Field(default=48, validation_alias="DIGEST_DUE_SOON_HOURS")
-    yash_notification_email: Optional[str] = Field(
-        default=None, validation_alias="YASH_NOTIFICATION_EMAIL"
+    manager_notification_email: Optional[str] = Field(
+        default=None, validation_alias="MANAGER_NOTIFICATION_EMAIL"
     )
     operator_api_token: Optional[str] = Field(default=None, validation_alias="OPERATOR_API_TOKEN")
     management_context_max_entries: int = Field(
         default=60, validation_alias="MANAGEMENT_CONTEXT_MAX_ENTRIES"
     )
     management_response_context_max_entries: int = Field(
-        default=8, ge=1, le=20,
+        default=8,
+        ge=1,
+        le=20,
         validation_alias="MANAGEMENT_RESPONSE_CONTEXT_MAX_ENTRIES",
     )
     memory_engine_enabled: bool = Field(default=True, validation_alias="MEMORY_ENGINE_ENABLED")
-    memory_embeddings_enabled: bool = Field(default=False, validation_alias="MEMORY_EMBEDDINGS_ENABLED")
+    memory_embeddings_enabled: bool = Field(
+        default=False, validation_alias="MEMORY_EMBEDDINGS_ENABLED"
+    )
     azure_openai_embedding_deployment: Optional[str] = Field(
         default=None, validation_alias="AZURE_OPENAI_EMBEDDING_DEPLOYMENT"
     )
     memory_context_max_facts: int = Field(default=8, validation_alias="MEMORY_CONTEXT_MAX_FACTS")
-    memory_context_max_episodes: int = Field(default=4, validation_alias="MEMORY_CONTEXT_MAX_EPISODES")
-    memory_context_max_relations: int = Field(default=6, validation_alias="MEMORY_CONTEXT_MAX_RELATIONS")
-    memory_context_max_evidence: int = Field(default=5, validation_alias="MEMORY_CONTEXT_MAX_EVIDENCE")
+    memory_context_max_episodes: int = Field(
+        default=4, validation_alias="MEMORY_CONTEXT_MAX_EPISODES"
+    )
+    memory_context_max_relations: int = Field(
+        default=6, validation_alias="MEMORY_CONTEXT_MAX_RELATIONS"
+    )
+    memory_context_max_evidence: int = Field(
+        default=5, validation_alias="MEMORY_CONTEXT_MAX_EVIDENCE"
+    )
     memory_consolidation_enabled: bool = Field(
         default=True, validation_alias="MEMORY_CONSOLIDATION_ENABLED"
     )
@@ -108,4 +134,6 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    # Pydantic supplies required fields from the environment at runtime; mypy
+    # cannot infer BaseSettings aliases as constructor arguments.
+    return Settings()  # type: ignore[call-arg]
