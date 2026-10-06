@@ -1,0 +1,42 @@
+from app.db.base import Base
+import app.models  # noqa: F401 - ensure models are registered with metadata
+
+
+def test_model_metadata_loads_all_domain_tables() -> None:
+    assert set(Base.metadata.tables) == {
+            "employees",
+            "employee_aliases",
+        "blocker_dependencies",
+        "conversation_questions",
+        "conversation_states",
+        "llm_usage",
+        "projects",
+        "tasks",
+        "commitments",
+        "blockers",
+            "daily_updates",
+            "escalations",
+            "escalation_decisions",
+        "conversations",
+        "messages",
+        "microsoft_connections",
+        "microsoft_oauth_states",
+            "automation_runs",
+            "microsoft_teams_subscriptions",
+            "agent_runs",
+            "automation_actions",
+            "management_context_entries",
+            "activity_events",
+            "memory_sources",
+            "memory_facts",
+            "memory_episodes",
+            "memory_relations",
+            "memory_evidence_links",
+            "memory_summaries",
+            "management_procedures",
+            "memory_jobs",
+            "dependency_edges",
+            "management_risks",
+            "management_decisions",
+            "manager_feedback",
+        }

@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Personal Agent</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/dashboard/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">SOFTTRINE · INTERNAL</p>
+        <h1>Personal Agent</h1>
+        <p class="subtle">A quiet view of team work, risks, and follow-through.</p>
+      </div>
+      <div class="header-actions">
+        <span id="ai-cost-today" class="subtle" aria-live="polite">Today's AI cost: —</span>
+        <button id="refresh-button" class="icon-button" type="button" aria-label="Refresh dashboard" data-tooltip="Last refreshed just now.">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0 1.4 4.5M20 4v7h-7"/></svg>
+        </button>
+        <button id="theme-toggle" class="icon-button" type="button" aria-label="Switch to dark mode" data-tooltip="Switch to dark mode.">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v2m0 14v2M3 12h2m14 0h2m-2.6-6.4-1.4 1.4M6 18l-1.4 1.4m0-14.8L6 6m12 12 1.4 1.4M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z"/></svg>
+        </button>
+        <button id="operator-token-button" class="icon-button" type="button" aria-label="Set operator access key" data-tooltip="Set the private access key required when this dashboard is exposed through ngrok.">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="15" r="3"/><path d="m10.5 12.5 7-7 2 2-2 2 1.5 1.5-2 2L15.5 11l-3 3"/></svg>
+        </button>
+        <details class="account-menu">
+          <summary id="account-menu-trigger" class="account-trigger" aria-label="Microsoft account options">
+            <span id="account-avatar" class="account-avatar">M</span>
+            <span id="account-menu-name" class="account-menu-name">Microsoft account</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
+          </summary>
+          <div class="account-popover">
+            <p class="account-popover-label">Teams messages are sent from</p>
+            <p id="account-menu-email" class="account-menu-email">No Microsoft account connected</p>
+            <div class="account-popover-actions">
+              <button id="connect-microsoft-button" class="button secondary" type="button">Connect Microsoft account</button>
+              <button id="sync-directory-button" class="button secondary" type="button">Import active Softtrine users</button>
+            </div>
+          </div>
+        </details>
+      </div>
+    </header>
+
+    <main>
+      <p id="status-message" class="status-message" aria-live="polite">Loading dashboard…</p>
+
+      <nav class="tabs" aria-label="Dashboard sections">
+        <button class="tab-button active" type="button" data-tab-target="overview" data-tooltip="See the team summary and today's review.">Overview</button>
+        <button class="tab-button" type="button" data-tab-target="intelligence" data-tooltip="See what needs intervention, what changed, and ask about team state.">Intelligence</button>
+        <button class="tab-button" type="button" data-tab-target="teams" data-tooltip="Connect Teams, choose people, and control automation.">Teams</button>
+        <button class="tab-button" type="button" data-tab-target="management" data-tooltip="See blockers, commitments, updates, and escalations.">Management</button>
+        <button class="tab-button" type="button" data-tab-target="journey" data-tooltip="See how the agent followed a blocker between people.">Journey</button>
+        <button class="tab-button" type="button" data-tab-target="memory" data-tooltip="See evidence-backed organisational memory and its history.">Memory</button>
+        <button class="tab-button" type="button" data-tab-target="knowledge" data-tooltip="Save context the agent should keep in mind.">My knowledge</button>
+      </nav>
+
+      <section class="stats tab-panel" data-tab="overview" aria-label="Team overview">
+        <article class="stat-card"><span>Team members</span><strong id="stat-employees">—</strong></article>
+        <article class="stat-card"><span>Updates today</span><strong id="stat-updates">—</strong></article>
+        <article class="stat-card warning"><span>Open blockers</span><strong id="stat-blockers">—</strong></article>
+        <article class="stat-card warning"><span>Open commitments</span><strong id="stat-commitments">—</strong></article>
+        <article class="stat-card danger"><span>Open escalations</span><strong id="stat-escalations">—</strong></article>
+      </section>
+
+      <section class="panel teams-automation tab-panel" data-tab="teams">
+        <div class="panel-heading">
+          <div>
+            <h2>Teams automation</h2>
+            <p id="teams-automation-summary" class="panel-note">Checking Microsoft connection…</p>
+            <p id="teams-sender-identity" class="sender-identity" hidden></p>
+          </div>
+          <span id="teams-automation-badge" class="badge">—</span>
+        </div>
+        <div class="automation-body">
+          <div class="automation-controls">
+            <div class="automation-group automation-group-primary">
+              <span class="automation-label">Agent</span>
+              <button id="toggle-automation-button" class="button automation-toggle" type="button" data-tooltip="Start the agent and send the first Teams check-in to selected people.">
+                <span class="automation-toggle-icon" aria-hidden="true"></span><span id="automation-toggle-label">Start automation</span>
+              </button>
+            </div>
+            <div class="automation-group automation-group-tools">
+              <span class="automation-label">Utilities</span>
+              <div class="automation-actions">
+                <button id="run-cycle-button" class="button secondary" type="button" data-tooltip="Run today's agent checks now instead of waiting for the schedule.">Run daily cycle</button>
+                <button id="send-digest-email-button" class="button secondary" type="button" data-tooltip="Email today's manager digest to the connected Yash account now.">Send digest</button>
+                <button id="renew-listener-button" class="button secondary" type="button" data-tooltip="Keep the Teams reply connection open for incoming messages.">Renew listener</button>
+              </div>
+            </div>
+          </div>
+          <p class="panel-note">Teams is where the agent works. Keep this list limited to the people the agent should manage.</p>
+          <section class="team-directory-section" aria-label="Managed people">
+            <div class="directory-heading"><span>Managed people</span><span id="managed-people-count" class="directory-count">0</span></div>
+            <div id="managed-team-list" class="list empty-state">No people selected yet.</div>
+          </section>
+          <details class="team-directory-section available-people">
+            <summary>Add people from Softtrine <span id="available-people-count" class="directory-count">0</span></summary>
+            <div id="available-team-list" class="list empty-state">Import active Softtrine users to see people here.</div>
+          </details>
+        </div>
+      </section>
+
+      <section class="panel agent-health tab-panel" data-tab="teams">
+        <div class="panel-heading">
+          <div><h2>Agent delivery health</h2><p class="panel-note">Failed replies and retries that need manager visibility.</p></div>
+          <div class="journey-header-actions"><button id="retry-agent-runs-button" class="mini-button" type="button" data-tooltip="Retry pending and failed inbound replies with the currently deployed response policy.">Retry failed replies</button><span id="agent-health-count" class="badge">0</span></div>
+        </div>
+        <div id="agent-health-list" class="list empty-state">No failed or pending replies.</div>
+      </section>
+
+      <details class="panel daily-review tab-panel" data-tab="overview">
+        <summary class="panel-heading">
+          <div><h2>Daily manager review</h2><p class="panel-note">People without an update today appear here. Send a reminder only when needed.</p></div>
+          <span id="missing-updates-count" class="badge">0</span>
+        </summary>
+        <div id="missing-updates-list" class="list empty-state">Everyone has submitted an update today.</div>
+      </details>
+
+      <section class="layout">
+        <div class="content-column">
+          <section class="panel tab-panel" data-tab="overview">
+            <div class="panel-heading"><h2>Needs attention</h2><span id="findings-count" class="badge">0</span></div>
+            <div id="findings-list" class="list empty-state">No active rule findings.</div>
+          </section>
+
+          <section class="intelligence-overview tab-panel" data-tab="intelligence">
+            <section class="panel intelligence-attention">
+              <div class="panel-heading">
+                <div><h2>Needs your attention</h2><p class="panel-note">Only issues where manager involvement may improve the outcome.</p></div>
+                <div class="intelligence-heading-actions"><button id="run-intelligence-button" class="mini-button" type="button" data-tooltip="Recalculate risks and management decisions. This does not send Teams messages.">Refresh intelligence</button><span id="intelligence-attention-count" class="badge">0</span></div>
+              </div>
+              <div id="intelligence-attention-list" class="attention-list empty-state">Nothing currently needs your intervention.</div>
+            </section>
+
+            <section class="panel intelligence-brief-panel">
+              <div class="panel-heading"><div><h2>Daily management brief</h2><p class="panel-note">Changes and consequences, without repeating every update.</p></div><time id="intelligence-brief-date" class="brief-date"></time></div>
+              <div id="intelligence-brief" class="brief-grid empty-state">No management brief is available yet.</div>
+            </section>
+
+            <section class="panel management-query-panel">
+              <div class="panel-heading"><div><h2>Ask about the team</h2><p class="panel-note">Answers come from structured organisational state and include evidence.</p></div></div>
+              <form id="management-query-form" class="management-query-form">
+                <label for="management-query-input">Question</label>
+                <div class="management-query-row"><input id="management-query-input" maxlength="1000" placeholder="For example: Who is blocked, and what needs my attention?" required><button class="button" type="submit">Ask</button></div>
+              </form>
+              <div id="management-query-results" class="management-query-results" hidden></div>
+            </section>
+          </section>
+
+          <section class="two-column tab-panel" data-tab="management">
+            <section class="panel">
+              <div class="panel-heading"><h2>What is blocked</h2></div>
+              <div id="blockers-list" class="list empty-state">No open blockers.</div>
+            </section>
+            <section class="panel">
+              <div class="panel-heading"><h2>Commitments &amp; deadlines</h2></div>
+              <div id="commitments-list" class="list empty-state">No open commitments.</div>
+            </section>
+          </section>
+
+          <section class="two-column tab-panel" data-tab="management">
+            <section class="panel">
+              <div class="panel-heading"><h2>Today's updates</h2></div>
+              <div id="updates-list" class="list empty-state">No updates received today.</div>
+            </section>
+            <section class="panel">
+              <div class="panel-heading"><h2>Open escalations</h2></div>
+              <div id="escalations-list" class="list empty-state">No open escalations.</div>
+            </section>
+          </section>
+
+          <section class="panel tab-panel" data-tab="teams">
+            <div class="panel-heading"><h2>Teams activity</h2><span id="teams-activity-count" class="badge">0</span></div>
+            <div id="teams-activity-list" class="list empty-state">No Teams messages recorded yet.</div>
+          </section>
+
+          <section class="panel journey-panel tab-panel" data-tab="journey">
+            <div class="panel-heading">
+              <div><h2>Journey</h2><p class="panel-note">A read-only trail of how the agent handled each blocker across Teams and the database.</p></div>
+              <div class="journey-header-actions"><button id="create-dummy-journey-button" class="mini-button" type="button" data-tooltip="Render an in-memory sample journey. It writes nothing to the database and does not contact Teams.">Preview dummy flow</button><span id="journeys-count" class="badge">0</span></div>
+            </div>
+            <div id="journeys-list" class="journeys empty-state">No blocker journeys recorded yet.</div>
+          </section>
+
+          <section class="panel memory-panel tab-panel" data-tab="memory">
+            <div class="panel-heading">
+              <div><h2>Organisational memory</h2><p class="panel-note">Operational records stay authoritative. This view shows evidence-backed facts and history derived from them.</p></div>
+              <button id="consolidate-memory-button" class="mini-button" type="button" data-tooltip="Process saved management events into memory now. It does not send a Teams message.">Update memory</button>
+            </div>
+            <form id="memory-search-form" class="memory-search-form">
+              <label for="memory-search-input">Search facts and past situations</label>
+              <div class="memory-search-row"><input id="memory-search-input" placeholder="For example: connector API"><button class="button secondary" type="submit">Search</button></div>
+            </form>
+            <div id="memory-search-results" class="memory-search-results" hidden></div>
+            <div class="memory-grid">
+              <section><h3>What the agent currently believes</h3><div id="memory-facts-list" class="list empty-state">No derived facts yet.</div></section>
+              <section><h3>Recent situations</h3><div id="memory-episodes-list" class="list empty-state">No memory episodes yet.</div></section>
+            </div>
+            <details class="memory-context-preview">
+              <summary>Preview the context given to the agent</summary>
+              <div class="memory-context-controls"><label for="memory-employee-select">Team member</label><select id="memory-employee-select"><option value="">Choose a team member</option></select><button id="load-memory-context-button" class="mini-button" type="button">Load preview</button></div>
+              <pre id="memory-context-output" class="memory-context-output">Choose a team member to see their limited working context.</pre>
+            </details>
+          </section>
+        </div>
+
+        <aside class="panel quick-add tab-panel" data-tab="knowledge">
+          <div class="panel-heading">
+            <div>
+              <h2>My knowledge</h2>
+              <p class="panel-note">Add the context, preferences, and working agreements the agent should keep in mind.</p>
+            </div>
+          </div>
+          <form id="knowledge-context-form" class="knowledge-context-form">
+            <label>What is this about?
+              <select name="category" required>
+                <option value="team">Team context</option>
+                <option value="work">Current work</option>
+                <option value="people">Person or role</option>
+                <option value="communication">Communication preference</option>
+                <option value="escalation">Escalation guidance</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+            <label>Short title
+              <input name="title" maxlength="200" placeholder="For example: How the connector work is divided" required>
+            </label>
+            <label>What should the agent know?
+              <textarea name="content" maxlength="10000" placeholder="Write the background, preference, rule, or important detail here." required></textarea>
+            </label>
+            <div class="knowledge-form-footer">
+              <span>Saved privately in your database.</span>
+              <div class="knowledge-form-actions">
+                <button id="cancel-knowledge-edit" class="button secondary" type="button" hidden>Cancel</button>
+                <button id="knowledge-submit-button" class="button" type="submit">Save context</button>
+              </div>
+            </div>
+          </form>
+          <div class="knowledge-saved">
+            <div class="knowledge-saved-heading"><span>Saved knowledge</span><span id="knowledge-count" class="knowledge-count">0</span></div>
+            <div id="knowledge-list" class="knowledge-list empty-state">No context saved yet.</div>
+          </div>
+          <details class="manual-records">
+            <summary>Other manual records</summary>
+            <label for="form-selector">What do you want to add?</label>
+            <select id="form-selector">
+              <option value="employee">Employee</option>
+              <option value="project">Project</option>
+              <option value="task">Task</option>
+              <option value="daily-update">Daily update</option>
+              <option value="blocker">Blocker</option>
+              <option value="commitment">Commitment</option>
+              <option value="escalation">Escalation</option>
+            </select>
+            <div id="form-container"></div>
+          </details>
+        </aside>
+      </section>
+    </main>
+
+    <dialog id="revision-dialog">
+      <form id="revision-form" method="dialog">
+        <h2>Record missed commitment and revised ETA</h2>
+        <p class="subtle">This keeps the original promise and creates a new linked commitment.</p>
+        <label>Why was the commitment missed?<textarea id="revision-reason" required></textarea></label>
+        <label>New commitment<textarea id="revision-description" required></textarea></label>
+        <label>Revised deadline<input id="revision-deadline" type="datetime-local" required></label>
+        <div class="dialog-actions"><button id="revision-cancel" class="button secondary" type="button" data-tooltip="Close this window without saving.">Cancel</button><button class="button" type="submit" data-tooltip="Keep the old commitment and save the new deadline.">Save revised ETA</button></div>
+      </form>
+    </dialog>
+
+    <template id="employee-form">
+      <form data-endpoint="/api/v1/employees" data-kind="employee">
+        <label>Name<input name="name" required></label>
+        <label>Email<input name="email" type="email" required></label>
+        <label>Role<input name="role" placeholder="Engineer, Designer, Manager…" required></label>
+        <label>Title <input name="title"></label>
+        <button class="button" type="submit" data-tooltip="Save this person in the team directory.">Add employee</button>
+      </form>
+    </template>
+
+    <template id="project-form">
+      <form data-endpoint="/api/v1/projects" data-kind="project">
+        <label>Project name<input name="name" required></label>
+        <label>Description<textarea name="description"></textarea></label>
+        <label>Owner<select name="owner_id" data-options="employees"><option value="">No owner yet</option></select></label>
+        <label>Priority<select name="priority"><option value="medium">Medium</option><option value="low">Low</option><option value="high">High</option><option value="critical">Critical</option></select></label>
+        <label>Target date<input name="target_date" type="date"></label>
+        <button class="button" type="submit" data-tooltip="Save this project.">Add project</button>
+      </form>
+    </template>
+
+    <template id="task-form">
+      <form data-endpoint="/api/v1/tasks" data-kind="task">
+        <label>Task title<input name="title" required></label>
+        <label>Expected outcome<textarea name="expected_outcome" required></textarea></label>
+        <label>Owner<select name="owner_id" data-options="employees" required><option value="">Choose an employee</option></select></label>
+        <label>Project<select name="project_id" data-options="projects"><option value="">No project</option></select></label>
+        <label>Priority<select name="priority"><option value="medium">Medium</option><option value="low">Low</option><option value="high">High</option><option value="critical">Critical</option></select></label>
+        <label>Deadline<input name="deadline" type="datetime-local"></label>
+        <button class="button" type="submit" data-tooltip="Save this task with its owner and expected result.">Add task</button>
+      </form>
+    </template>
+
+    <template id="daily-update-form">
+      <form data-endpoint="/api/v1/daily-updates" data-kind="daily-update">
+        <label>Employee<select name="employee_id" data-options="employees" required><option value="">Choose an employee</option></select></label>
+        <label>Date<input name="update_date" type="date" data-today required></label>
+        <label>Completed yesterday<textarea name="completed_summary"></textarea></label>
+        <label>Today's concrete plan<textarea name="today_summary" required></textarea></label>
+        <label>Blockers<textarea name="blocker_summary"></textarea></label>
+        <button class="button" type="submit" data-tooltip="Save this person's daily work update.">Save update</button>
+      </form>
+    </template>
+
+    <template id="blocker-form">
+      <form data-endpoint="/api/v1/blockers" data-kind="blocker">
+        <label>Blocked employee<select name="blocked_employee_id" data-options="employees" required><option value="">Choose an employee</option></select></label>
+        <label>Dependency owner<select name="dependency_owner_id" data-options="employees"><option value="">Unknown / not assigned</option></select></label>
+        <label>Task<select name="task_id" data-options="tasks"><option value="">Not linked to a task</option></select></label>
+        <label>What is blocking work?<textarea name="description" required></textarea></label>
+        <label>Severity<select name="severity"><option value="medium">Medium</option><option value="low">Low</option><option value="high">High</option><option value="critical">Critical</option></select></label>
+        <button class="button" type="submit" data-tooltip="Save what is stopping work and who can unblock it.">Record blocker</button>
+      </form>
+    </template>
+
+    <template id="commitment-form">
+      <form data-endpoint="/api/v1/commitments" data-kind="commitment">
+        <label>Person making commitment<select name="employee_id" data-options="employees" required><option value="">Choose an employee</option></select></label>
+        <label>Task<select name="task_id" data-options="tasks"><option value="">Not linked to a task</option></select></label>
+        <label>Blocker<select name="blocker_id" data-options="blockers"><option value="">Not linked to a blocker</option></select></label>
+        <label>Commitment<textarea name="description" required></textarea></label>
+        <label>Deadline<input name="deadline" type="datetime-local" required></label>
+        <button class="button" type="submit" data-tooltip="Save a promise and its deadline for tracking.">Create commitment</button>
+      </form>
+    </template>
+
+    <template id="escalation-form">
+      <form data-endpoint="/api/v1/escalations" data-kind="escalation">
+        <label>Type<select name="escalation_type"><option value="blocker">Blocker</option><option value="missed_commitment">Missed commitment</option><option value="project_risk">Project risk</option><option value="architecture_change">Architecture change</option><option value="production_deployment">Production deployment</option><option value="uncertainty">Uncertainty</option><option value="other">Other</option></select></label>
+        <label>Severity<select name="severity"><option value="medium">Medium</option><option value="low">Low</option><option value="high">High</option><option value="critical">Critical</option></select></label>
+        <label>Reason<textarea name="reason" required></textarea></label>
+        <label>Context<textarea name="context"></textarea></label>
+        <button class="button" type="submit" data-tooltip="Save an issue that needs management attention.">Create escalation</button>
+      </form>
+    </template>
+
+    <script src="/dashboard/app.js"></script>
+  </body>
+</html>
