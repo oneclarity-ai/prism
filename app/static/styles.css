@@ -417,3 +417,150 @@ dialog h2 { margin-bottom: 4px; }
   .memory-context-controls { grid-template-columns: 1fr; align-items: stretch; }
   .knowledge-form-footer { align-items: flex-start; flex-direction: column-reverse; }
 }
+
+/* Prism UI refresh: one calm visual system shared by every dashboard surface. */
+:root:not([data-theme="dark"]) {
+  --bg: #f6f8fb;
+  --surface: #ffffff;
+  --surface-muted: #f8fafc;
+  --text: #172033;
+  --muted: #6b7280;
+  --border: #e4e8ef;
+  --accent: #2563eb;
+  --accent-soft: #edf4ff;
+  --accent-border: #bfd4ff;
+  --accent-text: #ffffff;
+  --shadow: 0 12px 32px rgba(23, 32, 51, .055);
+}
+
+:root[data-theme="dark"] {
+  --bg: #11141a;
+  --surface: #191d25;
+  --surface-muted: #202630;
+  --text: #f2f5fa;
+  --muted: #9ba5b5;
+  --border: #2d3542;
+  --accent: #6d9eff;
+  --accent-soft: #1e2d48;
+  --accent-border: #3e5f99;
+  --accent-text: #081326;
+  --tooltip-bg: #f2f5fa;
+  --tooltip-text: #172033;
+  --shadow: 0 16px 38px rgba(0, 0, 0, .2);
+}
+
+body {
+  background: var(--bg);
+  letter-spacing: -.01em;
+}
+
+.topbar, main { max-width: 1180px; }
+.topbar { padding: 34px 28px 24px; }
+main { padding: 0 28px 56px; }
+h1 { font-size: 32px; letter-spacing: -1.1px; }
+h2 { font-size: 17px; letter-spacing: -.35px; }
+.subtle { line-height: 1.45; }
+.eyebrow { color: var(--accent); letter-spacing: .13em; }
+.header-actions { align-items: center; gap: 8px; }
+.icon-button, .account-trigger { border-radius: 12px; }
+.icon-button { width: 38px; height: 38px; }
+.account-trigger { min-height: 38px; }
+.account-avatar { width: 28px; height: 28px; border-radius: 8px; background: var(--accent); }
+.account-popover { border-radius: 14px; box-shadow: var(--shadow); }
+
+.status-message {
+  min-height: 0;
+  margin: 0 0 14px;
+  padding: 9px 12px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font-size: 12px;
+}
+.status-message:not(:empty) { background: var(--surface); border-color: var(--border); }
+.status-message.error { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, var(--border)); background: color-mix(in srgb, var(--danger) 7%, var(--surface)); }
+
+.tabs {
+  width: 100%;
+  margin-bottom: 24px;
+  padding: 4px;
+  overflow-x: auto;
+  border-radius: 14px;
+  box-shadow: none;
+  scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar { display: none; }
+.tab-button { flex: 0 0 auto; padding: 10px 16px; border-radius: 10px; }
+.tab-button.active { color: var(--accent); background: var(--accent-soft); }
+
+.stats { gap: 14px; margin-bottom: 22px; }
+.stat-card, .panel { border-radius: 18px; box-shadow: var(--shadow); }
+.stat-card { min-height: 104px; padding: 18px; }
+.stat-card span { font-size: 11px; font-weight: 500; letter-spacing: .01em; }
+.stat-card strong { margin-top: 12px; font-size: 30px; font-weight: 600; }
+.stat-card.warning, .stat-card.danger { border-color: color-mix(in srgb, var(--warning) 18%, var(--border)); }
+.stat-card.danger { border-color: color-mix(in srgb, var(--danger) 20%, var(--border)); }
+
+.layout, .content-column, .intelligence-overview { gap: 20px; }
+.layout.knowledge-active { grid-template-columns: minmax(0, 1fr); }
+.layout.knowledge-active .quick-add { width: 100%; max-width: none; }
+.panel-heading { min-height: 68px; padding: 18px 20px; }
+.panel-note { max-width: 680px; line-height: 1.45; }
+.panel > .list, .panel > .empty-state { min-height: 76px; }
+.automation-body { padding: 20px 20px 0; }
+.automation-controls { gap: 14px; margin-bottom: 18px; }
+.automation-group { gap: 8px; padding: 12px; border-radius: 14px; }
+.automation-group-primary { min-width: 196px; }
+.automation-toggle { min-height: 42px; border-radius: 10px; }
+.automation-actions { gap: 8px; }
+.team-directory-section { margin: 20px -20px 0; }
+.directory-heading, .available-people summary { padding: 14px 20px; }
+
+.button, .mini-button { min-height: 36px; border-radius: 10px; }
+.button { padding: 9px 14px; box-shadow: 0 1px 2px rgba(23, 32, 51, .08); }
+.button:hover { filter: none; transform: translateY(-1px); box-shadow: 0 5px 14px rgba(37, 99, 235, .16); }
+.button.secondary, .mini-button { background: var(--surface); }
+.mini-button { padding: 7px 10px; }
+.button:focus-visible, .mini-button:focus-visible, .icon-button:focus-visible, .tab-button:focus-visible, .account-trigger:focus-visible, summary:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  outline-offset: 2px;
+}
+
+input, select, textarea { min-height: 40px; padding: 9px 11px; border-radius: 10px; }
+textarea { min-height: 88px; }
+form { gap: 13px; }
+form label { gap: 6px; }
+.list-item { padding: 15px 20px; transition: background .15s ease; }
+.list-item:hover { background: var(--surface-muted); }
+.empty-state { padding: 22px 20px; color: var(--muted); }
+.badge { padding: 4px 8px; color: var(--accent); background: var(--accent-soft); }
+
+.attention-list, .brief-grid { gap: 12px; padding: 16px; }
+.attention-card, .brief-section { border-radius: 14px; }
+.memory-grid { gap: 20px; padding: 20px; }
+.memory-grid section { border-radius: 14px; }
+.quick-add { padding-bottom: 20px; }
+.knowledge-entry { border-radius: 14px; }
+dialog { border-radius: 18px; }
+
+@media (max-width: 980px) {
+  .topbar, main { max-width: 900px; }
+  .stats { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 620px) {
+  .topbar { padding: 24px 16px 18px; }
+  main { padding: 0 16px 36px; }
+  h1 { font-size: 28px; }
+  .header-actions { width: 100%; flex-wrap: wrap; }
+  .header-actions .account-menu { margin-left: auto; }
+  .account-menu-name { max-width: 120px; }
+  .tabs { margin-bottom: 18px; }
+  .stats { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .stat-card { min-height: 92px; padding: 14px; }
+  .stat-card strong { font-size: 26px; }
+  .panel-heading { padding: 16px; }
+  .automation-body { padding: 16px 16px 0; }
+  .team-directory-section { margin-left: -16px; margin-right: -16px; }
+  .directory-heading, .available-people summary { padding-left: 16px; padding-right: 16px; }
+  .list-item { padding-left: 16px; padding-right: 16px; }
+}

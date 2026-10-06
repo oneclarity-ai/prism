@@ -81,6 +81,55 @@ Manager memory is supporting context, not unrestricted instruction. Prism still 
 recipient-scope checks, structured decision validation, and audit logging before changing
 state or sending a Teams message.
 
+## Product screenshots
+
+These screenshots show the main workflows available to a manager.
+
+### Manager attention queue
+
+The attention view highlights issues that may benefit from manager involvement. A manager
+can review why an item is visible, see the expected next step, inspect the evidence, and
+decide whether to wait for Prism's follow-up or intervene directly.
+
+![Manager attention queue](<docs/screenshots/Screenshot 2026-10-06 at 8.28.48 PM.png>)
+
+### Blocker resolution timeline: dependency follow-up
+
+This timeline shows how Prism records a blocker, asks for the responsible owner, follows
+up with that person, and marks the issue resolved when the dependency is delivered.
+
+![Blocker resolution timeline](<docs/screenshots/Screenshot 2026-10-06 at 8.27.46 PM.png>)
+
+### Blocker resolution timeline: deployment dependency
+
+Managers can review the full sequence of an employee's update, Prism's acknowledgement,
+the dependency request, and the final resolution in one auditable view.
+
+![Deployment dependency timeline](<docs/screenshots/Screenshot 2026-10-06 at 8.28.08 PM.png>)
+
+### Blocker resolution timeline: API dependency
+
+When an employee names the person who owns a dependency, Prism can capture that owner and
+send a focused follow-up requesting an expected completion time.
+
+![API dependency timeline](<docs/screenshots/Screenshot 2026-10-06 at 8.28.20 PM.png>)
+
+### Manager knowledge
+
+The knowledge screen lets a manager save communication preferences, working agreements,
+decision guidance, and other context. Prism can refer to this information when preparing
+follow-ups and summaries.
+
+![Manager knowledge](<docs/screenshots/Screenshot 2026-10-06 at 9.10.24 PM.png>)
+
+### Teams automation controls
+
+The Teams automation screen shows the connected account, managed employee scope, and
+controls for starting automation, running a daily cycle, sending a digest, and renewing
+the webhook listener.
+
+![Teams automation controls](<docs/screenshots/Screenshot 2026-10-06 at 9.10.37 PM.png>)
+
 ## Local setup guide
 
 This section takes you from a fresh checkout to a local Prism instance connected to
