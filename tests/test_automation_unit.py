@@ -1,6 +1,7 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+from app.core.config import get_settings
 from app.services.automation_service import DailyAutomationService
 
 
@@ -20,10 +21,15 @@ def test_daily_checkins_only_run_in_a_short_schedule_window() -> None:
     assert DailyAutomationService._is_within_schedule_window(late, "10:00") is False
 
 
-def test_daily_automation_formats_deadline_in_manager_timezone() -> None:
-    deadline = datetime(2026, 9, 5, 12, 30, tzinfo=ZoneInfo("UTC"))
+def test_daily_automation_formats_deadline_in_manager_timezone(monkeypatch) -> None:
+    monkeypatch.setenv("MANAGER_TIMEZONE", "Asia/Kolkata")
+    get_settings.cache_clear()
+    try:
+        deadline = datetime(2026, 9, 5, 12, 30, tzinfo=ZoneInfo("UTC"))
 
-    assert "IST" in DailyAutomationService._format_deadline(deadline)
+        assert "IST" in DailyAutomationService._format_deadline(deadline)
+    finally:
+        get_settings.cache_clear()
 
 
 def test_daily_digest_email_has_exactly_five_simple_sections() -> None:

@@ -23,4 +23,4 @@ typing_extensions==4.16.0
 uvicorn==0.39.0
 httpx==0.28.1
 cryptography==50.0.2
-opentelemetry-api==1.45.0
+opentelemetry-api==1.45.1
