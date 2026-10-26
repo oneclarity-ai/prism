@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 import uuid
 from dataclasses import dataclass
@@ -16,9 +17,11 @@ from app.models.message import Message
 from app.models.response_state import ConversationQuestion
 from app.models.task import Task
 from app.schemas.task import TaskCreate, TaskUpdate
-from app.services.errors import NotFoundError, RuleViolationError
+from app.services.errors import DomainError, NotFoundError, RuleViolationError
 from app.services.microsoft_service import MicrosoftService
 from app.services.task_service import TaskService
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -217,7 +220,17 @@ class DeploymentListService:
                 delivered.append(employee.name)
             except Exception as exc:
                 db.rollback()
-                failures.append({"employee": employee.name, "error": str(exc)})
+                logger.exception(
+                    "deployment_list_distribute_failed entry_id=%s employee_id=%s",
+                    entry.id,
+                    employee.id,
+                )
+                safe_detail = (
+                    exc.detail
+                    if isinstance(exc, DomainError)
+                    else "Failed to send follow-up message; inspect server logs"
+                )
+                failures.append({"employee": employee.name, "error": safe_detail})
         task_changes = 0
         if not failures:
             try:
