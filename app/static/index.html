@@ -4,260 +4,542 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Prism</title>
+    <script>try{var t=localStorage.getItem("manager-agent-theme");document.documentElement.dataset.theme=t||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")}catch(e){}</script>
     <link rel="stylesheet" href="/dashboard/styles.css">
   </head>
   <body>
-    <header class="topbar">
-      <div>
-        <p class="eyebrow">PRISM · SELF-HOSTED</p>
-        <h1>Prism</h1>
-        <p class="subtle">A quiet view of team work, risks, and follow-through.</p>
+    <div class="app" id="app" data-view="overview">
+      <aside class="sidebar" aria-label="Primary">
+        <div class="sidebar-head">
+          <div class="brand"><span class="brand-mark" aria-hidden="true">P</span><span class="brand-name">Prism</span></div>
+          <button id="prism-create-button" class="icon-button" type="button" aria-label="Create Prism" data-tooltip="Create Prism" data-v22-only hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+          <button id="sidebar-close" class="icon-button" type="button" aria-label="Close sidebar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m11 17-5-5 5-5M18 17l-5-5 5-5"/></svg></button>
+        </div>
+        <nav class="nav" aria-label="Dashboard sections">
+          <button class="nav-item active" type="button" data-tab-target="overview"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11 12 3l9 8M5 10v10h14V10"/></svg><span>Today</span><span id="nav-today-count" class="nav-count" hidden></span></button>
+          <div class="nav-label-row">
+            <p class="nav-label">Prisms</p>
+            <div class="nav-label-actions">
+              <button id="prism-archived-button" class="icon-button small" type="button" aria-pressed="false" aria-label="Show archived Prisms" data-tooltip="Show archived" data-v22-only hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v4H4zM6 9v10h12V9M10 13h4"/></svg></button>
+            </div>
+          </div>
+          <button class="nav-item" type="button" data-tab-target="agent" data-v21-only data-hide-v22 hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z"/><path d="M5 19h14"/></svg><span>Assistant Prism</span><span id="nav-agent-count" class="nav-count approval" aria-label="Drafts waiting for your approval" hidden></span></button>
+          <div id="prism-directory-list" class="prism-nav-list" data-v22-only hidden aria-live="polite"></div>
+        </nav>
+        <div class="sidebar-footer">
+          <button class="nav-item" type="button" data-tab-target="settings" data-tab-group="teams"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg><span>Settings</span><span id="nav-teams-status" class="nav-dot" aria-label="Teams automation running" hidden></span></button>
+          <div class="profile-row">
+            <div class="account-chip">
+              <span id="account-avatar" class="account-avatar">M</span>
+              <span id="account-menu-name" class="account-menu-name">Microsoft account</span>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <div class="scrim" id="scrim"></div>
+      <div class="workspace">
+        <div class="topbar">
+          <button id="sidebar-open" class="icon-button" type="button" aria-label="Open sidebar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+          <div class="breadcrumb"><span id="crumb-icon" aria-hidden="true">📊</span><span id="crumb-title">Overview</span></div>
+          <div class="topbar-actions">
+            <span id="ai-cost-today" aria-live="polite">Today's AI cost: —</span>
+            <button id="refresh-button" class="icon-button" type="button" aria-label="Refresh dashboard" data-tooltip="Reload all data">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0 1.4 4.5M20 4v7h-7"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="page">
+          <header class="page-head">
+            <div id="page-icon" class="page-icon" aria-hidden="true">📊</div>
+            <h1 id="page-title">Overview</h1>
+            <p id="page-subtitle" class="page-subtitle">A quiet view of team work, risks, and follow-through.</p>
+          </header>
+          <main>
+            <p id="status-message" class="status-message" role="status" aria-live="polite"></p>
+
+            <!-- Today: finish setup, approvals waiting, recent chats, then the team pulse. -->
+            <section class="view tab-panel" data-tab="overview">
+              <div class="callout setup-callout" data-setup hidden></div>
+
+              <div id="today-prisms" data-v22-only hidden>
+                <div class="section-label-row"><p class="section-label">Spend <span id="cost-updated" class="cost-updated"></span></p><span class="currency-toggle" role="group" aria-label="Currency"><button type="button" data-currency="USD" aria-pressed="true">$ USD</button><button type="button" data-currency="INR" aria-pressed="false">₹ INR</button></span></div>
+                <section class="stats" aria-label="AI spend">
+                  <article class="stat-card"><span>Today</span><strong id="cost-today">—</strong></article>
+                  <article class="stat-card"><span>Last 7 days</span><strong id="cost-week">—</strong></article>
+                  <article class="stat-card"><span>This month</span><strong id="cost-month">—</strong></article>
+                  <article class="stat-card"><span>Total so far</span><strong id="cost-total">—</strong></article>
+                </section>
+                <p class="section-label">Your Prisms</p>
+                <section class="stats" aria-label="Prism status">
+                  <article class="stat-card"><span>Active</span><strong id="prisms-active">—</strong></article>
+                  <article class="stat-card warning"><span>Setting up</span><strong id="prisms-setup">—</strong></article>
+                </section>
+                <section class="panel">
+                  <div class="panel-heading"><div><h2>Prisms</h2><p class="panel-note">Open one to continue its private conversation or finish setting it up.</p></div></div>
+                  <div id="today-prism-grid" class="prism-card-grid empty-state">No Prisms yet. Use + in the sidebar to create one.</div>
+                </section>
+              </div>
+
+              <section id="agent-foundation-panel" class="panel agent-activity" hidden>
+                <div class="panel-heading"><div><h2>Agent activity</h2><p class="panel-note">Every review, approval, edit, and delivery is stored for audit and safe recovery.</p></div></div>
+                <div class="stats compact-stats">
+                  <article class="stat-card"><span>Prism conversations</span><strong id="foundation-thread-count">0</strong></article>
+                  <article class="stat-card"><span>Reviews</span><strong id="foundation-job-count">0</strong></article>
+                  <article class="stat-card warning"><span>Awaiting approval</span><strong id="foundation-approval-count">0</strong></article>
+                  <article class="stat-card"><span>Messages sent</span><strong id="foundation-execution-count">0</strong></article>
+                </div>
+              </section>
+
+              <div id="legacy-today">
+              <section class="panel today-agent" data-v21-only hidden>
+                <div class="panel-heading">
+                  <div><h2>Agent</h2><p class="panel-note">Continue one conversation with Prism. Teams chats are work sources, not separate Prism chats.</p></div>
+                  <button class="button" type="button" data-agent-new>Open Prism</button>
+                </div>
+                <div class="callout approval-banner">
+                  <span class="callout-icon" aria-hidden="true">📝</span>
+                  <div class="callout-body"><strong id="approval-banner-title">No drafts waiting</strong><p id="approval-banner-text" class="panel-note">Open Prism to ask a question or continue your work.</p></div>
+                  <button id="approval-banner-button" class="button secondary" type="button">Open Prism</button>
+                </div>
+                <h3 class="subhead">Prism conversation</h3>
+                <div id="today-thread-list" class="list empty-state">No activity yet.</div>
+              </section>
+
+              
+
+              <p class="section-label">Team pulse</p>
+              <section class="stats" aria-label="Team overview">
+                <article class="stat-card"><span>Team members</span><strong id="stat-employees">—</strong></article>
+                <article class="stat-card"><span>Updates today</span><strong id="stat-updates">—</strong></article>
+                <article class="stat-card warning"><span>Open blockers</span><strong id="stat-blockers">—</strong></article>
+                <article class="stat-card warning"><span>Open commitments</span><strong id="stat-commitments">—</strong></article>
+                <article class="stat-card danger"><span>Open escalations</span><strong id="stat-escalations">—</strong></article>
+              </section>
+
+              <section class="panel intelligence-attention">
+                <div class="panel-heading">
+                  <div><h2>Needs your attention</h2><p class="panel-note">Only issues where manager involvement may improve the outcome.</p></div>
+                  <div class="intelligence-heading-actions"><button id="run-intelligence-button" class="mini-button" type="button" data-tooltip="Recalculate risks and management decisions. This does not send Teams messages.">Refresh intelligence</button><span id="intelligence-attention-count" class="badge">0</span></div>
+                </div>
+                <div id="intelligence-attention-list" class="attention-list empty-state">Nothing currently needs your intervention.</div>
+              </section>
+
+              <section class="panel intelligence-brief-panel">
+                <div class="panel-heading"><div><h2>Daily management brief</h2><p class="panel-note">Changes and consequences, without repeating every update.</p></div><time id="intelligence-brief-date" class="brief-date"></time></div>
+                <div id="intelligence-brief" class="brief-grid empty-state">No management brief is available yet.</div>
+              </section>
+
+              <details class="panel daily-review">
+                <summary class="panel-heading">
+                  <div><h2>Daily manager review</h2><p class="panel-note">People without an update today appear here. Send a reminder only when needed.</p></div>
+                  <span id="missing-updates-count" class="badge">0</span>
+                </summary>
+                <div id="missing-updates-list" class="list empty-state">Everyone has submitted an update today.</div>
+              </details>
+
+              <section class="panel">
+                <div class="panel-heading"><div><h2>Flagged by rules</h2><p class="panel-note">Deterministic checks on current work, separate from the agent's judgement.</p></div><span id="findings-count" class="badge">0</span></div>
+                <div id="findings-list" class="list empty-state">No active rule findings.</div>
+              </section>
+              </div>
+            </section>
+
+            <!-- Prisms: a private messenger-style workspace for specialized agents. -->
+            <section class="view tab-panel prism-directory-view" data-tab="prisms" data-v22-only hidden>
+              <section id="prism-workspace" class="chat" aria-live="polite">
+                <div id="prism-workspace-empty" class="chat-empty">
+                  <span class="chat-empty-mark" aria-hidden="true">P</span>
+                  <h2>Select a Prism</h2>
+                  <p>Choose a Prism in the sidebar to open its private conversation.</p>
+                </div>
+                <div id="prism-onboarding-workspace" class="chat-window" hidden>
+                  <header class="agent-bar">
+                    <div class="agent-bar-title"><strong id="prism-conversation-title">Prism</strong><span id="prism-conversation-subtitle" class="agent-bar-sub"></span></div>
+                    <div class="chat-header-actions">
+                      <span id="prism-conversation-state" class="prism-state"></span>
+                      <button id="prism-menu-button" class="icon-button" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="prism-menu" aria-label="More actions"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg></button>
+                      <div id="prism-menu" class="menu" role="menu" aria-label="Prism actions" hidden>
+                        <button id="prism-edit-button" class="menu-item" type="button" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4ZM13 7l4 4"/></svg><span id="prism-edit-label">Edit Prism</span></button>
+                        <button id="prism-policy-button" class="menu-item" type="button" role="menuitem" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.5 3 8.5 7 10 4-1.5 7-5.5 7-10V6l-7-3Z"/></svg><span>Teams monitoring scope</span></button>
+                        <button id="prism-trigger-button" class="menu-item" type="button" role="menuitem" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v7l4 2M5 5l2-2m10 0 2 2M4 18l2 2m12-2-2 2M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18Z"/></svg><span>Monitoring schedule</span></button>
+                        <button id="prism-sync-button" class="menu-item" type="button" role="menuitem" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0 1.4 4.5M20 4v7h-7"/></svg><span>Refresh Teams activity</span></button>
+                        <button id="prism-notify-button" class="menu-item" type="button" role="menuitem" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 17V11a6 6 0 1 1 12 0v6l1.5 2h-15L6 17ZM10 21h4"/></svg><span>Notifications</span></button>
+                        <button id="prism-health-button" class="menu-item" type="button" role="menuitem" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l2-6 4 12 2-6h6"/></svg><span>Status &amp; tuning</span></button>
+                        <div class="menu-divider" role="separator"></div>
+                        <button id="prism-archive-button" class="menu-item danger" type="button" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v4H4zM6 9v10h12V9M10 13h4"/></svg><span>Archive</span></button>
+                      </div>
+                      <button class="mini-button with-icon" type="button" disabled title="Available once onboarding is complete"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m20 20-4-4"/></svg>Search</button>
+                      <button class="mini-button with-icon" type="button" disabled title="Available once onboarding is complete"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h8M16 7h4M4 17h4M12 17h8"/><circle cx="14" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>Preferences</button>
+                    </div>
+                  </header>
+                  <details id="prism-pinned" class="chat-pinned" hidden>
+                    <summary></summary>
+                    <div class="chat-pinned-body"></div>
+                  </details>
+                  <div id="prism-scroll" class="agent-scroll"><div class="agent-stream"><div id="prism-onboarding-stream" class="agent-timeline" aria-live="polite"></div></div></div>
+                  <form id="prism-onboarding-form" class="agent-dock" hidden>
+                    <fieldset id="prism-onboarding-choices" class="onboarding-choices"></fieldset>
+                    <p id="prism-onboarding-error" class="form-error" role="alert" hidden></p>
+                    <div class="agent-composer">
+                      <div id="prism-source-control" class="prism-source-control" hidden>
+                        <button id="prism-source-button" class="source-chip" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4V5Z"/></svg><span id="prism-source-summary">Auto</span><svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+                      </div>
+                      <label id="prism-onboarding-custom-wrap" class="composer-input" hidden for="prism-onboarding-custom"><span class="sr-only">Message</span><textarea id="prism-onboarding-custom" rows="1" maxlength="4000" placeholder="Type your answer…"></textarea></label>
+                      <span id="prism-choice-hint" class="composer-placeholder" hidden>Choose an answer above</span>
+                      <div class="composer-foot">
+                        <span id="prism-composer-hint" class="composer-hint">Enter to send · Shift+Enter for a new line</span>
+                        <span class="composer-actions">
+                          <button id="prism-onboarding-back" class="mini-button ghost" type="button">Back</button>
+                          <button id="prism-onboarding-skip" class="mini-button ghost" type="button" hidden>Skip</button>
+                          <button id="prism-onboarding-next" class="button" type="submit">Continue</button>
+                        </span>
+                      </div>
+                    </div>
+                    <p class="agent-disclaimer">Prism drafts, you decide. Nothing is sent until you explicitly approve it.</p>
+                  </form>
+                </div>
+              </section>
+            </section>
+
+            <!-- Ask: one focused question box. -->
+            <section class="view tab-panel" data-tab="ask" data-v21-legacy hidden>
+              <section class="panel management-query-panel">
+                <div class="panel-heading"><div><h2>Ask about the team</h2><p class="panel-note">Answers come from structured organisational state and include evidence.</p></div></div>
+                <form id="management-query-form" class="management-query-form">
+                  <label for="management-query-input">Question</label>
+                  <div class="management-query-row"><input id="management-query-input" maxlength="1000" placeholder="For example: Who is blocked, and what needs my attention?" required><button class="button" type="submit">Ask</button></div>
+                  <div class="query-suggestions" aria-label="Suggested questions">
+                    <button class="mini-button" type="button" data-query="Who is blocked right now?">Who is blocked right now?</button>
+                    <button class="mini-button" type="button" data-query="What needs my attention?">What needs my attention?</button>
+                    <button class="mini-button" type="button" data-query="What changed today?">What changed today?</button>
+                    <button class="mini-button" type="button" data-query="Which commitments are at risk?">Which commitments are at risk?</button>
+                  </div>
+                </form>
+                <div id="management-query-results" class="management-query-results" hidden></div>
+              </section>
+            </section>
+
+            <!-- Work: most urgent first. -->
+            <section class="view tab-panel" data-tab="management" data-v21-legacy hidden>
+              <div class="view-toolbar">
+                <p class="panel-note">Add employees, projects, tasks, and other records by hand.</p>
+                <button id="new-record-button" class="button" type="button">New record</button>
+              </div>
+              <section class="panel">
+                <div class="panel-heading"><h2>Open escalations</h2><span id="escalations-count" class="badge">0</span></div>
+                <div id="escalations-list" class="list empty-state">No open escalations.</div>
+              </section>
+              <section class="panel">
+                <div class="panel-heading"><h2>What is blocked</h2><span id="blockers-count" class="badge">0</span></div>
+                <div id="blockers-list" class="list empty-state">No open blockers.</div>
+              </section>
+              <section class="panel">
+                <div class="panel-heading"><h2>Commitments &amp; deadlines</h2><span id="commitments-count" class="badge">0</span></div>
+                <div id="commitments-list" class="list empty-state">No open commitments.</div>
+              </section>
+              <section class="panel">
+                <div class="panel-heading"><h2>Today's updates</h2><span id="updates-count" class="badge">0</span></div>
+                <div id="updates-list" class="list empty-state">No updates received today.</div>
+              </section>
+            </section>
+
+            <section class="view tab-panel" data-tab="journey" data-v21-legacy hidden>
+              <section class="panel journey-panel">
+                <div class="panel-heading">
+                  <div><h2>Blocker journeys</h2><p class="panel-note">A read-only trail of how the agent handled each blocker across Teams and the database.</p></div>
+                  <div class="journey-header-actions"><button id="create-dummy-journey-button" class="mini-button" type="button" data-tooltip="Render an in-memory sample journey. It writes nothing to the database and does not contact Teams.">Preview dummy flow</button><span id="journeys-count" class="badge">0</span></div>
+                </div>
+                <div id="journeys-list" class="journeys empty-state">No blocker journeys recorded yet.</div>
+              </section>
+            </section>
+
+            <!-- Agent: one manager/Prism conversation. Teams chats are optional sources and destinations. -->
+            <section class="view tab-panel agent-workspace" data-tab="agent" data-v21-only hidden>
+              <div class="agent-chat" id="agent-chat">
+                <header class="agent-bar">
+                  <div class="agent-bar-title">
+                    <strong id="agent-thread-title">Prism</strong>
+                    <span id="agent-source-label" class="agent-bar-sub">Your manager agent</span>
+                  </div>
+                  <div class="agent-bar-actions">
+                  <div id="agent-prism-menu-wrap" class="chat-header-actions" hidden>
+                    <button id="agent-prism-menu-button" class="icon-button" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="agent-prism-menu" aria-label="Prism actions"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg></button>
+                    <div id="agent-prism-menu" class="menu" role="menu" aria-label="Prism actions" hidden>
+                      <button class="menu-item" type="button" role="menuitem" data-prism-action="prism-edit-button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4ZM13 7l4 4"/></svg><span>Edit Prism</span></button>
+                      <button class="menu-item" type="button" role="menuitem" data-prism-action="prism-policy-button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.5 3 8.5 7 10 4-1.5 7-5.5 7-10V6l-7-3Z"/></svg><span>Teams monitoring scope</span></button>
+                      <button class="menu-item" type="button" role="menuitem" data-prism-action="prism-trigger-button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v7l4 2M5 5l2-2m10 0 2 2M4 18l2 2m12-2-2 2M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18Z"/></svg><span>Monitoring schedule</span></button>
+                      <button class="menu-item" type="button" role="menuitem" data-prism-action="prism-sync-button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0 1.4 4.5M20 4v7h-7"/></svg><span>Refresh Teams activity</span></button>
+                      <button class="menu-item" type="button" role="menuitem" data-prism-action="prism-notify-button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 17V11a6 6 0 1 1 12 0v6l1.5 2h-15L6 17ZM10 21h4"/></svg><span>Notifications</span></button>
+                      <button class="menu-item" type="button" role="menuitem" data-prism-action="prism-health-button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l2-6 4 12 2-6h6"/></svg><span>Status &amp; tuning</span></button>
+                      <div class="menu-divider" role="separator"></div>
+                      <button class="menu-item danger" type="button" role="menuitem" data-prism-action="prism-archive-button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v4H4zM6 9v10h12V9M10 13h4"/></svg><span>Archive</span></button>
+                    </div>
+                  </div>
+                  <button id="agent-search-button" class="mini-button with-icon" type="button" aria-expanded="false" aria-controls="agent-search-panel"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m20 20-4-4"/></svg>Search</button>
+                  <button id="agent-preferences-button" class="mini-button with-icon" type="button" aria-expanded="false" aria-controls="agent-preferences-panel"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h8M16 7h4M4 17h4M12 17h8"/><circle cx="14" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>Preferences<span id="agent-preferences-count" class="tab-count" hidden></span></button>
+                  </div>
+                </header>
+                <div id="agent-search-panel" class="agent-search" hidden>
+                  <label class="sr-only" for="agent-search-input">Search your conversation with Prism</label>
+                  <input id="agent-search-input" type="search" autocomplete="off" maxlength="200" placeholder="Search your conversation with Prism">
+                  <div id="agent-search-results" class="agent-search-results" aria-live="polite"></div>
+                </div>
+
+                <div class="agent-scroll" id="agent-scroll">
+                  <div class="agent-stream">
+                    <div class="callout setup-callout" data-setup hidden></div>
+                    <div id="agent-timeline" class="agent-timeline" aria-live="polite">Ask Prism what needs your attention. You can constrain the request to a Teams chat.</div>
+                  </div>
+                </div>
+
+                <div class="agent-dock">
+                  <div id="agent-composer-notice" class="agent-composer-notice" aria-live="assertive"></div>
+                  <form id="agent-composer" class="agent-composer">
+                    <button id="agent-source-chip" class="source-chip" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4V5Z"/></svg><span id="agent-source-chip-label">Auto</span><svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+                    <label class="sr-only" for="agent-message-input">Message Prism</label>
+                    <textarea id="agent-message-input" rows="1" maxlength="4000" placeholder="Ask Prism about your team’s work…" required></textarea>
+                    <div class="composer-foot">
+                      <span class="composer-hint">Enter to send · Shift+Enter for a new line</span>
+                      <button id="agent-send-button" class="button" type="submit">Ask Prism</button>
+                    </div>
+                  </form>
+                  <p class="agent-disclaimer">Prism drafts, you decide. Nothing is sent until you explicitly approve it.</p>
+                </div>
+
+                <aside id="agent-preferences-panel" class="agent-drawer" aria-label="Reply preferences">
+                  <div class="drawer-head">
+                    <div><h3>Reply preferences</h3><p class="panel-note">Only explicit instructions are remembered. Draft edits stay feedback, not global rules.</p></div>
+                    <button id="agent-preferences-close" class="icon-button" type="button" aria-label="Close preferences"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+                  </div>
+                  <form id="agent-preference-form" class="agent-preference-form">
+                    <label class="sr-only" for="agent-preference-input">New preference</label>
+                    <input id="agent-preference-input" maxlength="4000" placeholder="For example: Keep replies concise and direct" required>
+                    <div class="agent-preference-row">
+                      <label class="sr-only" for="agent-preference-scope">Applies to</label>
+                      <select id="agent-preference-scope"><option value="general">All Teams drafts</option><option value="teams_chat">This Prism conversation</option></select>
+                      <button class="button" type="submit">Remember</button>
+                    </div>
+                  </form>
+                  <div id="agent-preference-list" class="agent-preference-list empty-state">No preferences saved.</div>
+                </aside>
+              </div>
+            </section>
+
+            <!-- Teams: connection first, then switchable views of people, activity, automation, and delivery. -->
+            <section class="view tab-panel" data-tab="teams" hidden>
+              <div class="connection-card">
+                <span id="teams-conn-avatar" class="account-avatar lg" aria-hidden="true">M</span>
+                <div class="connection-main">
+                  <div class="connection-line"><strong id="teams-conn-name">Microsoft Teams</strong><span id="teams-automation-badge" class="badge">—</span></div>
+                  <p id="teams-sender-identity" class="sender-identity" hidden></p>
+                  <p id="teams-automation-summary" class="panel-note">Checking Microsoft connection…</p>
+                </div>
+                <button class="button secondary" type="button" data-connect-microsoft>Connect Microsoft account</button>
+              </div>
+
+              <div class="view-tabs" role="tablist" aria-label="Teams views" data-subtabs="teams">
+                <button class="view-tab active" type="button" role="tab" data-subtab-target="activity">Activity<span id="teams-activity-count" class="tab-count">0</span></button>
+                <button class="view-tab" type="button" role="tab" data-subtab-target="people">People<span id="managed-people-count" class="tab-count">0</span></button>
+                <button class="view-tab" type="button" role="tab" data-subtab-target="automation">Automation</button>
+                <button class="view-tab" type="button" role="tab" data-subtab-target="delivery">Delivery<span id="agent-health-count" class="tab-count">0</span></button>
+              </div>
+
+              <section class="panel subtab-panel" data-subtab-group="teams" data-subtab="activity">
+                <div class="panel-heading"><div><h2>Teams activity</h2><p class="panel-note">Messages Prism sent and received, newest first.</p></div></div>
+                <div id="teams-activity-list" class="list empty-state">No Teams messages recorded yet.</div>
+              </section>
+
+              <section class="panel subtab-panel" data-subtab-group="teams" data-subtab="people" hidden>
+                <div class="panel-heading">
+                  <div><h2>Managed people</h2><p class="panel-note">Teams is where the agent works. Keep this list limited to the people it should manage.</p></div>
+                  <button id="sync-directory-button" class="mini-button" type="button" data-tooltip="Import active users from your Microsoft directory so you can choose who the agent manages.">Import from directory</button>
+                </div>
+                <div id="managed-team-list" class="list empty-state">No people selected yet.</div>
+                <details class="available-people">
+                  <summary>Add people from the organization <span id="available-people-count" class="directory-count">0</span></summary>
+                  <div id="available-team-list" class="list empty-state">Import active directory users to see people here.</div>
+                </details>
+              </section>
+
+              <section class="panel subtab-panel teams-automation" data-subtab-group="teams" data-subtab="automation" hidden>
+                <div class="panel-heading"><div><h2>Teams automation</h2><p class="panel-note">Daily check-ins with the people you manage. Replies are read and handled by the agent.</p></div></div>
+                <div class="setting-row">
+                  <div><strong>Daily check-ins</strong><p id="automation-toggle-hint" class="panel-note">Start the agent and send the first Teams check-in to selected people.</p></div>
+                  <button id="toggle-automation-button" class="button automation-toggle" type="button"><span class="automation-toggle-icon" aria-hidden="true"></span><span id="automation-toggle-label">Start automation</span></button>
+                </div>
+                <div class="setting-row">
+                  <div><strong>Daily cycle</strong><p class="panel-note">Run today's agent checks now instead of waiting for the schedule.</p></div>
+                  <button id="run-cycle-button" class="button secondary" type="button">Run daily cycle</button>
+                </div>
+                <div class="setting-row">
+                  <div><strong>Manager digest</strong><p class="panel-note">Email today's manager digest to the connected account now.</p></div>
+                  <button id="send-digest-email-button" class="button secondary" type="button">Send digest</button>
+                </div>
+                <div class="setting-row">
+                  <div><strong>Reply listener</strong><p class="panel-note">Keep the Teams reply connection open for incoming messages.</p></div>
+                  <button id="renew-listener-button" class="button secondary" type="button">Renew listener</button>
+                </div>
+              </section>
+
+              <section class="panel subtab-panel agent-health" data-subtab-group="teams" data-subtab="delivery" hidden>
+                <div class="panel-heading">
+                  <div><h2>Agent delivery health</h2><p class="panel-note">Failed replies and retries that need manager visibility.</p></div>
+                  <button id="retry-agent-runs-button" class="mini-button" type="button" data-tooltip="Retry pending and failed inbound replies with the currently deployed response policy.">Retry failed replies</button>
+                </div>
+                <div id="agent-health-list" class="list empty-state">No failed or pending replies.</div>
+              </section>
+            </section>
+
+            <section class="view tab-panel" data-tab="knowledge" data-v21-legacy hidden>
+              <aside class="panel quick-add">
+                <div class="panel-heading">
+                  <div>
+                    <h2>Add context</h2>
+                    <p class="panel-note">Add the context, preferences, and working agreements the agent should keep in mind.</p>
+                  </div>
+                </div>
+                <form id="knowledge-context-form" class="knowledge-context-form">
+                  <label>What is this about?
+                    <select name="category" required>
+                      <option value="team">Team context</option>
+                      <option value="work">Current work</option>
+                      <option value="people">Person or role</option>
+                      <option value="communication">Communication preference</option>
+                      <option value="escalation">Escalation guidance</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </label>
+                  <label>Short title
+                    <input name="title" maxlength="200" placeholder="For example: How the connector work is divided" required>
+                  </label>
+                  <label>What should the agent know?
+                    <textarea name="content" maxlength="10000" placeholder="Write the background, preference, rule, or important detail here." required></textarea>
+                  </label>
+                  <div class="knowledge-form-footer">
+                    <span>Saved privately in your database.</span>
+                    <div class="knowledge-form-actions">
+                      <button id="cancel-knowledge-edit" class="button secondary" type="button" hidden>Cancel</button>
+                      <button id="knowledge-submit-button" class="button" type="submit">Save context</button>
+                    </div>
+                  </div>
+                </form>
+                <div class="knowledge-saved">
+                  <div class="knowledge-saved-heading"><span>Saved knowledge</span><span id="knowledge-count" class="knowledge-count">0</span></div>
+                  <div id="knowledge-list" class="knowledge-list empty-state">No context saved yet.</div>
+                </div>
+              </aside>
+            </section>
+
+            <section class="view tab-panel" data-tab="memory" data-v21-legacy hidden>
+              <section class="panel memory-panel">
+                <div class="panel-heading">
+                  <div><h2>Organisational memory</h2><p class="panel-note">Operational records stay authoritative. This view shows evidence-backed facts and history derived from them.</p></div>
+                  <button id="consolidate-memory-button" class="mini-button" type="button" data-tooltip="Process saved management events into memory now. It does not send a Teams message.">Update memory</button>
+                </div>
+                <form id="memory-search-form" class="memory-search-form">
+                  <label for="memory-search-input">Search facts and past situations</label>
+                  <div class="memory-search-row"><input id="memory-search-input" placeholder="For example: connector API"><button class="button secondary" type="submit">Search</button></div>
+                </form>
+                <div id="memory-search-results" class="memory-search-results" hidden></div>
+                <div class="memory-grid">
+                  <section><h3>What the agent currently believes</h3><div id="memory-facts-list" class="list empty-state">No derived facts yet.</div></section>
+                  <section><h3>Recent situations</h3><div id="memory-episodes-list" class="list empty-state">No memory episodes yet.</div></section>
+                </div>
+                <details class="memory-context-preview">
+                  <summary>Preview the context given to the agent</summary>
+                  <div class="memory-context-controls"><label for="memory-employee-select">Team member</label><select id="memory-employee-select"><option value="">Choose a team member</option></select><button id="load-memory-context-button" class="mini-button" type="button">Load preview</button></div>
+                  <pre id="memory-context-output" class="memory-context-output">Choose a team member to see their limited working context.</pre>
+                </details>
+              </section>
+            </section>
+
+            <!-- Settings: one section at a time, like a preferences window. -->
+            <section class="view settings tab-panel" data-tab="settings" hidden>
+              <div class="settings-layout">
+                <nav class="settings-nav" role="tablist" aria-label="Settings sections" aria-orientation="vertical" data-subtabs="settings">
+                  <button class="nav-item active" type="button" role="tab" data-subtab-target="account"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span>Account</span></button>
+                  <button class="nav-item" type="button" role="tab" data-subtab-target="provider"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z"/></svg><span>AI provider</span><span id="provider-nav-dot" class="nav-dot warn" aria-label="Needs attention" hidden></span></button>
+                  <button class="nav-item" type="button" role="tab" data-subtab-target="usage"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Usage and spend</button>
+                  <button class="nav-item" type="button" role="tab" data-subtab-target="appearance"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18Z"/></svg><span>Appearance</span></button>
+                  <button class="nav-item" type="button" role="tab" data-subtab-target="access"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><span>Access</span></button>
+                  <button class="nav-item" type="button" data-tab-target="teams"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L3 21l1.9-6.2A8 8 0 1 1 21 12Z"/></svg><span>Teams</span></button>
+                </nav>
+
+                <div class="settings-body">
+                  <section data-subtab-group="settings" data-subtab="account">
+                    <h2 class="settings-title">Account</h2>
+                    <div class="setting-row">
+                      <div class="setting-identity">
+                        <span id="settings-account-avatar" class="account-avatar lg" aria-hidden="true">M</span>
+                        <div><strong id="settings-account-name">Microsoft account</strong><p id="account-menu-email" class="panel-note">No Microsoft account connected</p></div>
+                      </div>
+                      <button id="connect-microsoft-button" class="button secondary" type="button" data-connect-microsoft>Connect Microsoft account</button>
+                    </div>
+                    <p class="settings-foot">Prism reads your Teams chats and sends approved replies from this account. Choose who the agent manages, and import your directory, on the Teams page.</p>
+                  </section>
+
+                  <section data-subtab-group="settings" data-subtab="provider" hidden>
+                    <h2 class="settings-title">AI provider</h2>
+                    <div class="setting-row">
+                      <div><strong id="provider-status-name">Checking provider…</strong><p id="provider-status-detail" class="panel-note" aria-live="polite">Loading safe configuration status.</p></div>
+                      <span id="provider-status-badge" class="badge">Checking</span>
+                    </div>
+                    <form id="openai-key-form" class="provider-key-form">
+                      <div><strong>OpenAI API key</strong><p id="provider-key-help" class="panel-note">Stored encrypted on this Prism server. The key is never shown again.</p></div>
+                      <div class="field"><label for="openai-model-input">Model</label><input id="openai-model-input" name="model" value="gpt-4o-mini" autocomplete="off" required></div>
+                      <div class="field"><label for="openai-key-input">API key</label><input id="openai-key-input" name="api_key" type="password" autocomplete="new-password" minlength="20" placeholder="Paste a new API key" required></div>
+                      <div class="provider-key-actions">
+                        <button id="save-openai-key-button" class="button" type="submit">Save OpenAI key</button>
+                        <button id="remove-openai-key-button" class="button secondary" type="button" hidden>Remove saved key</button>
+                      </div>
+                    </form>
+                  </section>
+
+                  <section data-subtab-group="settings" data-subtab="usage" hidden>
+                    <div class="section-label-row"><h2 class="settings-title">Usage and spend</h2><span class="currency-toggle" role="group" aria-label="Currency"><button type="button" data-currency="USD" aria-pressed="true">$ USD</button><button type="button" data-currency="INR" aria-pressed="false">₹ INR</button></span></div>
+                    <p id="cost-note" class="panel-note">Estimated from provider tokens, month to date.</p>
+                    <p class="panel-note"><strong id="cost-calls">—</strong> model calls this month</p>
+                    <div class="cost-split">
+                      <div><h3 class="subhead">By feature</h3><div id="cost-by-feature" class="cost-list empty-state">No usage yet this month.</div></div>
+                      <div><h3 class="subhead">By model</h3><div id="cost-by-model" class="cost-list empty-state">No usage yet this month.</div></div>
+                    </div>
+                  </section>
+
+                  <section data-subtab-group="settings" data-subtab="appearance" hidden>
+                    <h2 class="settings-title">Appearance</h2>
+                    <div class="setting-row">
+                      <div><strong>Theme</strong><p class="panel-note">Customize how Prism looks on this browser.</p></div>
+                      <select id="theme-select" aria-label="Theme">
+                        <option value="system">Use system setting</option>
+                        <option value="light">Light</option>
+                        <option value="dark">Dark</option>
+                      </select>
+                    </div>
+                  </section>
+
+                  <section data-subtab-group="settings" data-subtab="access" hidden>
+                    <h2 class="settings-title">Access</h2>
+                    <div class="setting-row">
+                      <div><strong>Operator access key</strong><p class="panel-note">Required when this dashboard is exposed through ngrok. Stored only in this browser.</p></div>
+                      <button id="operator-token-button" class="button secondary" type="button">Set access key</button>
+                    </div>
+                  </section>
+                </div>
+              </div>
+            </section>
+          </main>
+        </div>
       </div>
-      <div class="header-actions">
-        <span id="ai-cost-today" class="subtle" aria-live="polite">Today's AI cost: —</span>
-        <button id="refresh-button" class="icon-button" type="button" aria-label="Refresh dashboard" data-tooltip="Last refreshed just now.">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0 1.4 4.5M20 4v7h-7"/></svg>
-        </button>
-        <button id="theme-toggle" class="icon-button" type="button" aria-label="Switch to dark mode" data-tooltip="Switch to dark mode.">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v2m0 14v2M3 12h2m14 0h2m-2.6-6.4-1.4 1.4M6 18l-1.4 1.4m0-14.8L6 6m12 12 1.4 1.4M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z"/></svg>
-        </button>
-        <button id="operator-token-button" class="icon-button" type="button" aria-label="Set operator access key" data-tooltip="Set the private access key required when this dashboard is exposed through ngrok.">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="15" r="3"/><path d="m10.5 12.5 7-7 2 2-2 2 1.5 1.5-2 2L15.5 11l-3 3"/></svg>
-        </button>
-        <details class="account-menu">
-          <summary id="account-menu-trigger" class="account-trigger" aria-label="Microsoft account options">
-            <span id="account-avatar" class="account-avatar">M</span>
-            <span id="account-menu-name" class="account-menu-name">Microsoft account</span>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
-          </summary>
-          <div class="account-popover">
-            <p class="account-popover-label">Teams messages are sent from</p>
-            <p id="account-menu-email" class="account-menu-email">No Microsoft account connected</p>
-            <div class="account-popover-actions">
-              <button id="connect-microsoft-button" class="button secondary" type="button">Connect Microsoft account</button>
-              <button id="sync-directory-button" class="button secondary" type="button">Import active directory users</button>
-            </div>
-          </div>
-        </details>
-      </div>
-    </header>
+    </div>
 
-    <main>
-      <p id="status-message" class="status-message" aria-live="polite">Loading dashboard…</p>
-
-      <nav class="tabs" aria-label="Dashboard sections">
-        <button class="tab-button active" type="button" data-tab-target="overview" data-tooltip="See the team summary and today's review.">Overview</button>
-        <button class="tab-button" type="button" data-tab-target="intelligence" data-tooltip="See what needs intervention, what changed, and ask about team state.">Intelligence</button>
-        <button class="tab-button" type="button" data-tab-target="teams" data-tooltip="Connect Teams, choose people, and control automation.">Teams</button>
-        <button class="tab-button" type="button" data-tab-target="management" data-tooltip="See blockers, commitments, updates, and escalations.">Management</button>
-        <button class="tab-button" type="button" data-tab-target="journey" data-tooltip="See how the agent followed a blocker between people.">Journey</button>
-        <button class="tab-button" type="button" data-tab-target="memory" data-tooltip="See evidence-backed organisational memory and its history.">Memory</button>
-        <button class="tab-button" type="button" data-tab-target="knowledge" data-tooltip="Save context the agent should keep in mind.">My knowledge</button>
-      </nav>
-
-      <section class="stats tab-panel" data-tab="overview" aria-label="Team overview">
-        <article class="stat-card"><span>Team members</span><strong id="stat-employees">—</strong></article>
-        <article class="stat-card"><span>Updates today</span><strong id="stat-updates">—</strong></article>
-        <article class="stat-card warning"><span>Open blockers</span><strong id="stat-blockers">—</strong></article>
-        <article class="stat-card warning"><span>Open commitments</span><strong id="stat-commitments">—</strong></article>
-        <article class="stat-card danger"><span>Open escalations</span><strong id="stat-escalations">—</strong></article>
-      </section>
-
-      <section class="panel teams-automation tab-panel" data-tab="teams">
-        <div class="panel-heading">
-          <div>
-            <h2>Teams automation</h2>
-            <p id="teams-automation-summary" class="panel-note">Checking Microsoft connection…</p>
-            <p id="teams-sender-identity" class="sender-identity" hidden></p>
-          </div>
-          <span id="teams-automation-badge" class="badge">—</span>
-        </div>
-        <div class="automation-body">
-          <div class="automation-controls">
-            <div class="automation-group automation-group-primary">
-              <span class="automation-label">Agent</span>
-              <button id="toggle-automation-button" class="button automation-toggle" type="button" data-tooltip="Start the agent and send the first Teams check-in to selected people.">
-                <span class="automation-toggle-icon" aria-hidden="true"></span><span id="automation-toggle-label">Start automation</span>
-              </button>
-            </div>
-            <div class="automation-group automation-group-tools">
-              <span class="automation-label">Utilities</span>
-              <div class="automation-actions">
-                <button id="run-cycle-button" class="button secondary" type="button" data-tooltip="Run today's agent checks now instead of waiting for the schedule.">Run daily cycle</button>
-                <button id="send-digest-email-button" class="button secondary" type="button" data-tooltip="Email today's manager digest to the connected manager account now.">Send digest</button>
-                <button id="renew-listener-button" class="button secondary" type="button" data-tooltip="Keep the Teams reply connection open for incoming messages.">Renew listener</button>
-              </div>
-            </div>
-          </div>
-          <p class="panel-note">Teams is where the agent works. Keep this list limited to the people the agent should manage.</p>
-          <section class="team-directory-section" aria-label="Managed people">
-            <div class="directory-heading"><span>Managed people</span><span id="managed-people-count" class="directory-count">0</span></div>
-            <div id="managed-team-list" class="list empty-state">No people selected yet.</div>
-          </section>
-          <details class="team-directory-section available-people">
-            <summary>Add people from the organization <span id="available-people-count" class="directory-count">0</span></summary>
-            <div id="available-team-list" class="list empty-state">Import active directory users to see people here.</div>
-          </details>
-        </div>
-      </section>
-
-      <section class="panel agent-health tab-panel" data-tab="teams">
-        <div class="panel-heading">
-          <div><h2>Agent delivery health</h2><p class="panel-note">Failed replies and retries that need manager visibility.</p></div>
-          <div class="journey-header-actions"><button id="retry-agent-runs-button" class="mini-button" type="button" data-tooltip="Retry pending and failed inbound replies with the currently deployed response policy.">Retry failed replies</button><span id="agent-health-count" class="badge">0</span></div>
-        </div>
-        <div id="agent-health-list" class="list empty-state">No failed or pending replies.</div>
-      </section>
-
-      <details class="panel daily-review tab-panel" data-tab="overview">
-        <summary class="panel-heading">
-          <div><h2>Daily manager review</h2><p class="panel-note">People without an update today appear here. Send a reminder only when needed.</p></div>
-          <span id="missing-updates-count" class="badge">0</span>
-        </summary>
-        <div id="missing-updates-list" class="list empty-state">Everyone has submitted an update today.</div>
-      </details>
-
-      <section class="layout">
-        <div class="content-column">
-          <section class="panel tab-panel" data-tab="overview">
-            <div class="panel-heading"><h2>Needs attention</h2><span id="findings-count" class="badge">0</span></div>
-            <div id="findings-list" class="list empty-state">No active rule findings.</div>
-          </section>
-
-          <section class="intelligence-overview tab-panel" data-tab="intelligence">
-            <section class="panel intelligence-attention">
-              <div class="panel-heading">
-                <div><h2>Needs your attention</h2><p class="panel-note">Only issues where manager involvement may improve the outcome.</p></div>
-                <div class="intelligence-heading-actions"><button id="run-intelligence-button" class="mini-button" type="button" data-tooltip="Recalculate risks and management decisions. This does not send Teams messages.">Refresh intelligence</button><span id="intelligence-attention-count" class="badge">0</span></div>
-              </div>
-              <div id="intelligence-attention-list" class="attention-list empty-state">Nothing currently needs your intervention.</div>
-            </section>
-
-            <section class="panel intelligence-brief-panel">
-              <div class="panel-heading"><div><h2>Daily management brief</h2><p class="panel-note">Changes and consequences, without repeating every update.</p></div><time id="intelligence-brief-date" class="brief-date"></time></div>
-              <div id="intelligence-brief" class="brief-grid empty-state">No management brief is available yet.</div>
-            </section>
-
-            <section class="panel management-query-panel">
-              <div class="panel-heading"><div><h2>Ask about the team</h2><p class="panel-note">Answers come from structured organisational state and include evidence.</p></div></div>
-              <form id="management-query-form" class="management-query-form">
-                <label for="management-query-input">Question</label>
-                <div class="management-query-row"><input id="management-query-input" maxlength="1000" placeholder="For example: Who is blocked, and what needs my attention?" required><button class="button" type="submit">Ask</button></div>
-              </form>
-              <div id="management-query-results" class="management-query-results" hidden></div>
-            </section>
-          </section>
-
-          <section class="two-column tab-panel" data-tab="management">
-            <section class="panel">
-              <div class="panel-heading"><h2>What is blocked</h2></div>
-              <div id="blockers-list" class="list empty-state">No open blockers.</div>
-            </section>
-            <section class="panel">
-              <div class="panel-heading"><h2>Commitments &amp; deadlines</h2></div>
-              <div id="commitments-list" class="list empty-state">No open commitments.</div>
-            </section>
-          </section>
-
-          <section class="two-column tab-panel" data-tab="management">
-            <section class="panel">
-              <div class="panel-heading"><h2>Today's updates</h2></div>
-              <div id="updates-list" class="list empty-state">No updates received today.</div>
-            </section>
-            <section class="panel">
-              <div class="panel-heading"><h2>Open escalations</h2></div>
-              <div id="escalations-list" class="list empty-state">No open escalations.</div>
-            </section>
-          </section>
-
-          <section class="panel tab-panel" data-tab="teams">
-            <div class="panel-heading"><h2>Teams activity</h2><span id="teams-activity-count" class="badge">0</span></div>
-            <div id="teams-activity-list" class="list empty-state">No Teams messages recorded yet.</div>
-          </section>
-
-          <section class="panel journey-panel tab-panel" data-tab="journey">
-            <div class="panel-heading">
-              <div><h2>Journey</h2><p class="panel-note">A read-only trail of how the agent handled each blocker across Teams and the database.</p></div>
-              <div class="journey-header-actions"><button id="create-dummy-journey-button" class="mini-button" type="button" data-tooltip="Render an in-memory sample journey. It writes nothing to the database and does not contact Teams.">Preview dummy flow</button><span id="journeys-count" class="badge">0</span></div>
-            </div>
-            <div id="journeys-list" class="journeys empty-state">No blocker journeys recorded yet.</div>
-          </section>
-
-          <section class="panel memory-panel tab-panel" data-tab="memory">
-            <div class="panel-heading">
-              <div><h2>Organisational memory</h2><p class="panel-note">Operational records stay authoritative. This view shows evidence-backed facts and history derived from them.</p></div>
-              <button id="consolidate-memory-button" class="mini-button" type="button" data-tooltip="Process saved management events into memory now. It does not send a Teams message.">Update memory</button>
-            </div>
-            <form id="memory-search-form" class="memory-search-form">
-              <label for="memory-search-input">Search facts and past situations</label>
-              <div class="memory-search-row"><input id="memory-search-input" placeholder="For example: connector API"><button class="button secondary" type="submit">Search</button></div>
-            </form>
-            <div id="memory-search-results" class="memory-search-results" hidden></div>
-            <div class="memory-grid">
-              <section><h3>What the agent currently believes</h3><div id="memory-facts-list" class="list empty-state">No derived facts yet.</div></section>
-              <section><h3>Recent situations</h3><div id="memory-episodes-list" class="list empty-state">No memory episodes yet.</div></section>
-            </div>
-            <details class="memory-context-preview">
-              <summary>Preview the context given to the agent</summary>
-              <div class="memory-context-controls"><label for="memory-employee-select">Team member</label><select id="memory-employee-select"><option value="">Choose a team member</option></select><button id="load-memory-context-button" class="mini-button" type="button">Load preview</button></div>
-              <pre id="memory-context-output" class="memory-context-output">Choose a team member to see their limited working context.</pre>
-            </details>
-          </section>
-        </div>
-
-        <aside class="panel quick-add tab-panel" data-tab="knowledge">
-          <div class="panel-heading">
-            <div>
-              <h2>My knowledge</h2>
-              <p class="panel-note">Add the context, preferences, and working agreements the agent should keep in mind.</p>
-            </div>
-          </div>
-          <form id="knowledge-context-form" class="knowledge-context-form">
-            <label>What is this about?
-              <select name="category" required>
-                <option value="team">Team context</option>
-                <option value="work">Current work</option>
-                <option value="people">Person or role</option>
-                <option value="communication">Communication preference</option>
-                <option value="escalation">Escalation guidance</option>
-                <option value="other">Other</option>
-              </select>
-            </label>
-            <label>Short title
-              <input name="title" maxlength="200" placeholder="For example: How the connector work is divided" required>
-            </label>
-            <label>What should the agent know?
-              <textarea name="content" maxlength="10000" placeholder="Write the background, preference, rule, or important detail here." required></textarea>
-            </label>
-            <div class="knowledge-form-footer">
-              <span>Saved privately in your database.</span>
-              <div class="knowledge-form-actions">
-                <button id="cancel-knowledge-edit" class="button secondary" type="button" hidden>Cancel</button>
-                <button id="knowledge-submit-button" class="button" type="submit">Save context</button>
-              </div>
-            </div>
-          </form>
-          <div class="knowledge-saved">
-            <div class="knowledge-saved-heading"><span>Saved knowledge</span><span id="knowledge-count" class="knowledge-count">0</span></div>
-            <div id="knowledge-list" class="knowledge-list empty-state">No context saved yet.</div>
-          </div>
-          <details class="manual-records">
-            <summary>Other manual records</summary>
-            <label for="form-selector">What do you want to add?</label>
-            <select id="form-selector">
-              <option value="employee">Employee</option>
-              <option value="project">Project</option>
-              <option value="task">Task</option>
-              <option value="daily-update">Daily update</option>
-              <option value="blocker">Blocker</option>
-              <option value="commitment">Commitment</option>
-              <option value="escalation">Escalation</option>
-            </select>
-            <div id="form-container"></div>
-          </details>
-        </aside>
-      </section>
-    </main>
+    <dialog id="confirm-dialog">
+      <form id="confirm-form" method="dialog">
+        <div><h2 id="confirm-title">Are you sure?</h2><p id="confirm-message"></p></div>
+        <label id="confirm-field" hidden><span id="confirm-field-label"></span><input id="confirm-input" autocomplete="off"></label>
+        <div class="dialog-actions"><button id="confirm-cancel" class="button secondary" type="button">Cancel</button><button id="confirm-ok" class="button" type="submit" value="ok">Confirm</button></div>
+      </form>
+    </dialog>
 
     <dialog id="revision-dialog">
       <form id="revision-form" method="dialog">
@@ -268,6 +550,24 @@
         <label>Revised deadline<input id="revision-deadline" type="datetime-local" required></label>
         <div class="dialog-actions"><button id="revision-cancel" class="button secondary" type="button" data-tooltip="Close this window without saving.">Cancel</button><button class="button" type="submit" data-tooltip="Keep the old commitment and save the new deadline.">Save revised ETA</button></div>
       </form>
+    </dialog>
+
+    <dialog id="record-dialog" class="wide">
+      <div class="dialog-body">
+        <div><h2>New record</h2><p>Add employees, projects, tasks, and other records by hand.</p></div>
+        <label for="form-selector">What do you want to add?</label>
+        <select id="form-selector">
+          <option value="employee">Employee</option>
+          <option value="project">Project</option>
+          <option value="task">Task</option>
+          <option value="daily-update">Daily update</option>
+          <option value="blocker">Blocker</option>
+          <option value="commitment">Commitment</option>
+          <option value="escalation">Escalation</option>
+        </select>
+        <div id="form-container"></div>
+        <div class="dialog-actions"><button id="record-close" class="button secondary" type="button">Close</button></div>
+      </div>
     </dialog>
 
     <template id="employee-form">
@@ -346,6 +646,99 @@
       </form>
     </template>
 
+    <dialog id="agent-source-dialog" class="picker">
+      <form method="dialog" class="agent-source-dialog-form">
+        <div><h2 id="agent-source-dialog-title">Choose a Teams chat</h2><p id="agent-source-dialog-note" class="panel-note">Optionally constrain Prism to one conversation. In Auto mode, Prism resolves the source from your request.</p></div>
+        <label class="sr-only" for="agent-source-search">Search chats</label>
+        <input id="agent-source-search" type="search" autocomplete="off" placeholder="Search chats or participants">
+        <div id="agent-source-list" class="agent-source-list empty-state">Loading chats…</div>
+        <div class="dialog-actions"><button class="button secondary" type="submit" value="cancel">Cancel</button></div>
+      </form>
+    </dialog>
+
+    <dialog id="prism-source-dialog" class="picker">
+      <div class="agent-source-dialog-form">
+        <div><h2>Select Teams chats</h2><p class="panel-note">Prism will read only the chats selected here for your next request. Select up to five chats.</p></div>
+        <label class="sr-only" for="prism-source-search">Search Teams chats</label>
+        <div class="search-field"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m20 20-4-4"/></svg><input id="prism-source-search" type="search" autocomplete="off" placeholder="Search chats or participants"></div>
+        <div id="prism-source-list" class="agent-source-list empty-state">Loading chats…</div>
+        <p id="prism-source-error" class="form-error" role="alert" hidden></p>
+        <div class="dialog-actions"><button id="prism-source-clear" class="button ghost push" type="button">Use auto-select</button><button id="prism-source-cancel" class="button secondary" type="button">Cancel</button><button id="prism-source-done" class="button" type="button">Use selected chats</button></div>
+      </div>
+    </dialog>
+
+    <dialog id="prism-policy-dialog" class="picker">
+      <div class="agent-source-dialog-form">
+        <div><h2>Teams monitoring scope</h2><p class="panel-note">This is a durable boundary for this Prism. It is enforced before Prism reads a chat or stores activity.</p></div>
+        <fieldset id="prism-policy-mode" class="prism-policy-modes">
+          <label class="template-choice"><input type="radio" name="prism-policy-mode" value="all_chats"><span><strong>All accessible chats</strong><small>Monitor every Teams chat you can access. This is the default.</small></span></label>
+          <label class="template-choice"><input type="radio" name="prism-policy-mode" value="include_only"><span><strong>Only selected chats</strong><small>Monitor only the chats checked below.</small></span></label>
+          <label class="template-choice"><input type="radio" name="prism-policy-mode" value="all_except"><span><strong>All except selected chats</strong><small>Never read the chats checked below.</small></span></label>
+        </fieldset>
+        <div id="prism-policy-selection-wrap" hidden>
+          <label class="sr-only" for="prism-policy-search">Search Teams chats</label>
+          <div class="search-field"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m20 20-4-4"/></svg><input id="prism-policy-search" type="search" autocomplete="off" placeholder="Search chats or participants"></div>
+          <p id="prism-policy-selection-note" class="panel-note"></p>
+          <div id="prism-policy-source-list" class="agent-source-list empty-state">Loading chats…</div>
+        </div>
+        <p id="prism-policy-error" class="form-error" role="alert" hidden></p>
+        <div class="dialog-actions"><button id="prism-policy-cancel" class="button secondary" type="button">Cancel</button><button id="prism-policy-save" class="button" type="button">Save scope</button></div>
+      </div>
+    </dialog>
+
+    <dialog id="prism-trigger-dialog" class="picker prism-editor-dialog">
+      <div class="prism-editor-form">
+        <div><h2>Monitoring schedule</h2><p class="panel-note">Runs only read Teams under this Prism’s scope. They never send a message or perform an action.</p></div>
+        <label for="prism-trigger-mode">Run mode<select id="prism-trigger-mode"><option value="manual">Manual only</option><option value="scheduled">Daily schedule</option><option value="continuous">Continuous local checks</option><option value="event_driven">Coalesced event checks</option></select></label>
+        <label class="check-label"><input id="prism-trigger-enabled" type="checkbox" checked> Enable this monitoring mode</label>
+        <div id="prism-trigger-schedule-fields" class="prism-trigger-fields">
+          <label for="prism-trigger-timezone">Timezone<input id="prism-trigger-timezone" type="text" maxlength="80" value="Asia/Kolkata" placeholder="Asia/Kolkata"></label>
+          <label for="prism-trigger-time">Daily time<input id="prism-trigger-time" type="time" value="09:00"></label>
+          <label for="prism-trigger-missed">If Prism was offline<select id="prism-trigger-missed"><option value="run_once">Run once on return</option><option value="skip">Skip the missed run</option></select></label>
+        </div>
+        <div id="prism-trigger-continuous-fields" class="prism-trigger-fields" hidden><label for="prism-trigger-interval">Check every (seconds)<input id="prism-trigger-interval" type="number" min="60" max="86400" value="300"></label></div>
+        <div id="prism-trigger-event-fields" class="prism-trigger-fields" hidden><label for="prism-trigger-coalesce">Wait for quiet period (seconds)<input id="prism-trigger-coalesce" type="number" min="30" max="86400" value="180"></label></div>
+        <p id="prism-trigger-error" class="form-error" role="alert" hidden></p>
+        <div class="dialog-actions"><button id="prism-trigger-cancel" class="button secondary" type="button">Cancel</button><button id="prism-trigger-save" class="button" type="button">Save monitoring schedule</button></div>
+      </div>
+    </dialog>
+
+    <dialog id="prism-notify-dialog" class="picker prism-editor-dialog">
+      <div class="prism-editor-form">
+        <div><h2>Notifications</h2><p class="panel-note">Browser alerts appear only while a Prism page is open on this computer. Every update is saved in this Prism’s conversation either way, and alerts never include Teams message text.</p></div>
+        <label class="check-label"><input id="prism-notify-enabled" type="checkbox"> Alert me about new updates from this Prism</label>
+        <label for="prism-notify-urgency">Alert me when urgency is at least<select id="prism-notify-urgency"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="critical">Critical</option></select></label>
+        <p id="prism-notify-permission" class="panel-note" role="status"></p>
+        <p id="prism-notify-error" class="form-error" role="alert" hidden></p>
+        <div class="dialog-actions"><button id="prism-notify-cancel" class="button secondary" type="button">Cancel</button><button id="prism-notify-save" class="button" type="button">Save</button></div>
+      </div>
+    </dialog>
+
+    <dialog id="prism-health-dialog" class="picker prism-editor-dialog prism-health-dialog">
+      <div class="prism-editor-form">
+        <div class="dialog-heading"><div><h2>Status &amp; tuning</h2><p class="panel-note">Why this Prism is quiet, delayed, or failing. Counts only; no message text or secrets are shown.</p></div><button id="prism-health-close" class="icon-button" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+        <div id="prism-health-body" class="health-body" aria-live="polite">Loading…</div>
+        <p id="prism-health-error" class="form-error" role="alert" hidden></p>
+      </div>
+    </dialog>
+
+    <dialog id="prism-editor-dialog" class="picker prism-editor-dialog">
+      <form id="prism-editor-form" method="dialog" class="prism-editor-form">
+        <div class="dialog-heading"><div><h2 id="prism-editor-title">Create a Prism</h2><p id="prism-editor-note" class="panel-note">Start with a role. Prism will ask tailored questions in the next phase.</p></div><button id="prism-editor-close" class="icon-button" type="button" aria-label="Close Prism editor"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+        <input id="prism-editor-id" type="hidden">
+        <input id="prism-editor-version" type="hidden">
+        <label for="prism-editor-name">Name<input id="prism-editor-name" maxlength="120" required placeholder="For example: Executive Assistant Prism"></label>
+        <label for="prism-editor-description">What is this Prism responsible for?<textarea id="prism-editor-description" rows="5" maxlength="2000" required placeholder="For example: Keep me updated on important work across Microsoft Teams in a friendly, concise tone."></textarea></label>
+        <p id="prism-editor-error" class="inline-error" role="alert" hidden></p>
+        <div class="dialog-actions"><button id="prism-editor-cancel" class="button secondary" type="button">Cancel</button><button id="prism-editor-submit" class="button" type="submit">Create draft</button></div>
+      </form>
+    </dialog>
+
     <script src="/dashboard/app.js"></script>
+    <script type="module" src="/dashboard/js/agent-chat.js"></script>
+    <script type="module" src="/dashboard/js/prism-directory.js"></script>
+    <script type="module" src="/dashboard/js/prism-updates.js"></script>
+    <script type="module" src="/dashboard/js/prism-health.js"></script>
+    <script type="module" src="/dashboard/js/today-prisms.js"></script>
   </body>
 </html>

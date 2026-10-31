@@ -1,19 +1,23 @@
-"""One metered Azure structured-output boundary. No credential or prompt logging."""
+"""Metered provider-neutral generation facade. No credential or prompt logging."""
 
 from __future__ import annotations
 
-import json
+import logging
 import time
 from decimal import Decimal
 from typing import Optional
 
 import httpx
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from app.core.config import get_settings
 from app.db.session import SessionLocal
 from app.models.llm_usage import LLMUsage
 from app.services.errors import ExternalServiceError, RuleViolationError
+from app.services.llm_provider import LLMProvider, ProviderResult, provider_from_settings
+from app.services.provider_credential_service import ProviderCredentialService
+
+logger = logging.getLogger(__name__)
 
 
 def calculate_cost(usage: dict, pricing) -> tuple:
@@ -61,15 +65,16 @@ def strict_schema(model: type[BaseModel]) -> dict:
         "maxProperties",
     }
 
-    def normalize(node):
+    def normalize(node, *, property_map: bool = False):
         if isinstance(node, dict):
-            for keyword in unsupported:
-                node.pop(keyword, None)
-            if node.get("type") == "object":
+            if not property_map:
+                for keyword in unsupported:
+                    node.pop(keyword, None)
+            if not property_map and node.get("type") == "object":
                 node["additionalProperties"] = False
                 node["required"] = list(node.get("properties", {}))
-            for value in node.values():
-                normalize(value)
+            for key, value in node.items():
+                normalize(value, property_map=key == "properties")
         elif isinstance(node, list):
             for value in node:
                 normalize(value)
@@ -79,6 +84,12 @@ def strict_schema(model: type[BaseModel]) -> dict:
 
 
 class LLMService:
+    provider_override: LLMProvider | None = None
+
+    @classmethod
+    def _provider(cls, settings) -> LLMProvider:
+        return cls.provider_override or provider_from_settings(settings)
+
     @staticmethod
     def complete(
         *,
@@ -92,67 +103,30 @@ class LLMService:
         message_id=None,
     ):
         settings = get_settings()
-        deployment = deployment or settings.azure_openai_deployment
-        if not (deployment and settings.azure_openai_endpoint and settings.azure_openai_api_key):
-            raise RuleViolationError("Azure OpenAI endpoint, key and deployment must be configured")
+        settings = ProviderCredentialService.effective_settings(settings)
+        provider = LLMService._provider(settings)
+        deployment = deployment or provider.default_model()
+        if not deployment or not provider.is_configured():
+            raise RuleViolationError("The selected LLM provider is not configured")
         started = time.monotonic()
-        payload = {}
+        provider_result: ProviderResult | None = None
         status = "failed"
-        request_id = None
         try:
             last_error = None
-            for attempt in range(settings.azure_openai_max_attempts):
+            for attempt in range(settings.selected_llm_max_attempts):
                 elapsed = time.monotonic() - started
-                remaining = settings.azure_openai_total_timeout_seconds - elapsed
+                remaining = settings.selected_llm_total_timeout_seconds - elapsed
                 if remaining <= 0:
                     break
                 try:
-                    response = httpx.post(
-                        str(settings.azure_openai_endpoint).rstrip("/")
-                        + "/openai/deployments/"
-                        + deployment
-                        + "/chat/completions",
-                        params={"api-version": settings.azure_openai_api_version},
-                        headers={"api-key": settings.azure_openai_api_key},
-                        json={
-                            "messages": [
-                                {"role": "system", "content": prompt},
-                                {"role": "user", "content": json.dumps(context, default=str)},
-                            ],
-                            "response_format": {
-                                "type": "json_schema",
-                                "json_schema": {
-                                    "name": output_model.__name__,
-                                    "strict": True,
-                                    "schema": strict_schema(output_model),
-                                },
-                            },
-                        },
-                        timeout=httpx.Timeout(
-                            min(settings.azure_openai_timeout_seconds, remaining),
-                            connect=min(10.0, max(1.0, remaining)),
-                        ),
+                    provider_result = provider.generate_structured(
+                        prompt=prompt,
+                        context=context,
+                        output_model=output_model,
+                        model=deployment,
+                        timeout_seconds=min(settings.selected_llm_timeout_seconds, remaining),
                     )
-                    request_id = response.headers.get("apim-request-id") or response.headers.get(
-                        "x-request-id"
-                    )
-                    payload = response.json()
-                    if response.is_error:
-                        if (
-                            response.status_code not in {408, 409, 429}
-                            and response.status_code < 500
-                        ):
-                            raise ExternalServiceError(
-                                "Azure OpenAI request failed (HTTP {})".format(response.status_code)
-                            )
-                        raise httpx.HTTPStatusError(
-                            "Transient Azure OpenAI response",
-                            request=response.request,
-                            response=response,
-                        )
-                    result = output_model.model_validate_json(
-                        payload["choices"][0]["message"]["content"]
-                    )
+                    result = output_model.model_validate_json(provider_result.text)
                     status = "completed"
                     return result
                 except (
@@ -165,24 +139,48 @@ class LLMService:
                     TypeError,
                 ) as exc:
                     last_error = exc
+                    # Never log model text or prompts: only what kind of failure and where.
+                    detail = (
+                        [
+                            (e["type"], ".".join(map(str, e["loc"])))
+                            for e in exc.errors(include_input=False)[:5]
+                        ]
+                        if isinstance(exc, ValidationError)
+                        else type(exc).__name__
+                    )
+                    logger.warning(
+                        "llm_attempt_failed feature=%s attempt=%s detail=%s output_tokens=%s",
+                        feature,
+                        attempt + 1,
+                        detail,
+                        (provider_result.usage if provider_result else {}).get("completion_tokens"),
+                    )
                     pause = 0.5 * (2**attempt)
                     if (
-                        attempt + 1 < settings.azure_openai_max_attempts
+                        attempt + 1 < settings.selected_llm_max_attempts
                         and time.monotonic() - started + pause
-                        < settings.azure_openai_total_timeout_seconds
+                        < settings.selected_llm_total_timeout_seconds
                     ):
                         time.sleep(pause)
+            if isinstance(last_error, httpx.TimeoutException):
+                raise ExternalServiceError(
+                    "The model provider timed out while preparing this review. Try again, or "
+                    "increase the provider timeout for large Teams histories"
+                ) from last_error
+            if isinstance(last_error, httpx.TransportError):
+                raise ExternalServiceError(
+                    "The model provider could not be reached. Check the provider endpoint and "
+                    "network connection"
+                ) from last_error
             raise ExternalServiceError(
-                "Azure OpenAI did not return a valid response after {} attempts".format(
-                    settings.azure_openai_max_attempts
-                )
+                "The model provider returned a response that Prism could not validate after {} "
+                "attempts".format(settings.selected_llm_max_attempts)
             ) from last_error
         finally:
             # Independent transaction retains actual billed usage even if validation
             # or a later management transaction fails. Unknown usage is not zero.
-            payload = payload if isinstance(payload, dict) else {}
-            usage = payload.get("usage") or {}
-            model = str(payload.get("model") or deployment)
+            usage = provider_result.usage if provider_result else {}
+            model = provider_result.model if provider_result else deployment
             pricing = settings.llm_model_pricing.get(model) or settings.llm_model_pricing.get(
                 deployment
             )
@@ -190,6 +188,7 @@ class LLMService:
             with SessionLocal() as usage_db:
                 usage_db.add(
                     LLMUsage(
+                        provider=provider.name,
                         model=model,
                         deployment=deployment,
                         feature=feature,
@@ -205,7 +204,7 @@ class LLMService:
                         estimated_output_cost_usd=output_cost,
                         estimated_total_cost_usd=total_cost,
                         pricing_snapshot=pricing.model_dump() if pricing else None,
-                        request_id=request_id or payload.get("id"),
+                        request_id=provider_result.request_id if provider_result else None,
                         conversation_id=conversation_id,
                         user_id=user_id,
                         message_id=message_id,

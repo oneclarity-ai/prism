@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 from html import escape as html_escape
 from html.parser import HTMLParser
 from typing import Any, Optional
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 from zoneinfo import ZoneInfo
 
 import httpx
@@ -43,7 +43,14 @@ from app.schemas.microsoft import (
     MicrosoftStatusRead,
     SubscriptionRenewalResult,
 )
-from app.services.errors import ConflictError, ExternalServiceError, RuleViolationError
+from app.services.errors import (
+    ConflictError,
+    ExternalPermissionError,
+    ExternalServiceError,
+    ExternalThrottleError,
+    ReconnectRequiredError,
+    RuleViolationError,
+)
 from app.services.memory_service import MemoryService
 
 GRAPH_BASE_URL = "https://graph.microsoft.com/v1.0"
@@ -295,6 +302,18 @@ class MicrosoftGraphClient:
         if response.is_error:
             graph_error = payload.get("error", {}) if isinstance(payload, dict) else {}
             message = graph_error.get("message") if isinstance(graph_error, dict) else None
+            if response.status_code == 401:
+                raise ReconnectRequiredError(
+                    "Microsoft connection expired. Reconnect the account from Settings"
+                )
+            if response.status_code == 403:
+                raise ExternalPermissionError(
+                    "Microsoft consent does not allow reading Teams chats. Reconnect and grant Chat.Read"
+                )
+            if response.status_code == 429:
+                raise ExternalThrottleError(
+                    "Microsoft is temporarily limiting Teams reads. Try again shortly"
+                )
             raise ExternalServiceError(message or fallback_detail)
         if not isinstance(payload, dict):
             raise ExternalServiceError(fallback_detail)
@@ -390,6 +409,37 @@ class MicrosoftGraphClient:
             next_link = payload.get("@odata.nextLink")
             url = next_link if isinstance(next_link, str) else ""
         return users
+
+    def list_chats(self) -> list[dict[str, Any]]:
+        chats: list[dict[str, Any]] = []
+        # Graph can order chats by the latest message only when the preview is
+        # included. This avoids treating a membership/topic update as chat activity.
+        url = (
+            "/me/chats?$expand=members,lastMessagePreview"
+            "&$orderby=lastMessagePreview/createdDateTime desc&$top=50"
+        )
+        while url:
+            payload = self.request("GET", url)
+            values = payload.get("value", [])
+            if not isinstance(values, list):
+                raise ExternalServiceError("Microsoft returned an invalid Teams chat list")
+            chats.extend(item for item in values if isinstance(item, dict))
+            next_link = payload.get("@odata.nextLink")
+            url = next_link if isinstance(next_link, str) else ""
+        return chats
+
+    def list_chat_messages(self, chat_id: str, *, limit: int) -> list[dict[str, Any]]:
+        messages: list[dict[str, Any]] = []
+        url = f"/chats/{quote(chat_id, safe='')}/messages?$top={min(limit, 50)}"
+        while url and len(messages) < limit:
+            payload = self.request("GET", url)
+            values = payload.get("value", [])
+            if not isinstance(values, list):
+                raise ExternalServiceError("Microsoft returned an invalid Teams message list")
+            messages.extend(item for item in values if isinstance(item, dict))
+            next_link = payload.get("@odata.nextLink")
+            url = next_link if isinstance(next_link, str) else ""
+        return messages[:limit]
 
     def create_direct_chat(self, target_microsoft_user_id: str) -> dict[str, Any]:
         return self.request(

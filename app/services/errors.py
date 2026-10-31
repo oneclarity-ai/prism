@@ -25,3 +25,18 @@ class RuleViolationError(DomainError):
 class ExternalServiceError(DomainError):
     status_code = 502
     code = "external_service_error"
+
+
+class ReconnectRequiredError(DomainError):
+    status_code = 409
+    code = "microsoft_reconnect_required"
+
+
+class ExternalPermissionError(DomainError):
+    status_code = 403
+    code = "microsoft_permission_required"
+
+
+class ExternalThrottleError(DomainError):
+    status_code = 503
+    code = "microsoft_throttled"

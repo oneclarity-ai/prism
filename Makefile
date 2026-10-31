@@ -1,7 +1,7 @@
 PYTHON ?= python3.11
 VENV ?= .venv
 
-.PHONY: setup dev migrate test test-integration lint format format-check typecheck secrets audit check
+.PHONY: setup dev migrate test test-integration test-e2e lint format format-check typecheck secrets audit check release-check
 
 setup:
 	$(PYTHON) -m venv $(VENV)
@@ -19,6 +19,10 @@ test:
 
 test-integration:
 	RUN_DB_TESTS=1 $(VENV)/bin/pytest -q
+
+# Browser journeys on a scratch schema with fake Graph and LLM; needs Google Chrome.
+test-e2e:
+	RUN_E2E=1 $(VENV)/bin/pytest -q tests/e2e
 
 lint:
 	$(VENV)/bin/ruff check .
@@ -39,3 +43,6 @@ audit:
 	$(VENV)/bin/pip-audit -r requirements.txt
 
 check: lint format-check typecheck test secrets
+
+# Everything the v2.2 release gate runs automatically (browser tests: make test-e2e).
+release-check: check test-integration audit

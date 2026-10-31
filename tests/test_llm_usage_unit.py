@@ -8,6 +8,7 @@ import pytest
 
 from app.core.config import ModelPricing, Settings
 from app.schemas.response_decision import IssueDecision, OutgoingDecision, ResponseDecision
+from app.services.errors import ExternalServiceError
 from app.services.llm_service import LLMService, calculate_cost, strict_schema
 from app.services.microsoft_service import MicrosoftService
 from app.services.response_service import ResponseService
@@ -81,6 +82,7 @@ def test_usage_is_saved_even_when_model_output_is_invalid(monkeypatch, valid):
 
     settings = Settings(
         DATABASE_URL="postgresql+psycopg://test:test@localhost/test",
+        LLM_PROVIDER="azure_openai",
         AZURE_OPENAI_ENDPOINT="https://test.openai.azure.com",
         AZURE_OPENAI_API_KEY="fake",
         AZURE_OPENAI_DEPLOYMENT="small",
@@ -146,9 +148,11 @@ def test_llm_retries_a_timeout_then_returns_the_structured_decision(monkeypatch)
 
     settings = Settings(
         DATABASE_URL="postgresql+psycopg://test:test@localhost/test",
+        LLM_PROVIDER="azure_openai",
         AZURE_OPENAI_ENDPOINT="https://test.openai.azure.com",
         AZURE_OPENAI_API_KEY="fake",
         AZURE_OPENAI_DEPLOYMENT="small",
+        AZURE_OPENAI_TIMEOUT_SECONDS=25,
         AZURE_OPENAI_MAX_ATTEMPTS=2,
     )
     monkeypatch.setattr("app.services.llm_service.get_settings", lambda: settings)
@@ -179,6 +183,41 @@ def test_llm_retries_a_timeout_then_returns_the_structured_decision(monkeypatch)
     assert len(calls) == 2
     assert calls[0]["timeout"].read == 25.0
     assert len(saved) == 1 and saved[0].status == "completed"
+
+
+def test_llm_reports_provider_timeout_separately_from_invalid_output(monkeypatch):
+    class UsageSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def add(self, _item):
+            pass
+
+        def commit(self):
+            pass
+
+    settings = Settings(
+        DATABASE_URL="postgresql+psycopg://test:test@localhost/test",
+        LLM_PROVIDER="azure_openai",
+        AZURE_OPENAI_ENDPOINT="https://test.openai.azure.com",
+        AZURE_OPENAI_API_KEY="fake",
+        AZURE_OPENAI_DEPLOYMENT="small",
+        AZURE_OPENAI_MAX_ATTEMPTS=1,
+    )
+    monkeypatch.setattr("app.services.llm_service.get_settings", lambda: settings)
+    monkeypatch.setattr("app.services.llm_service.SessionLocal", UsageSession)
+    monkeypatch.setattr(
+        "app.services.llm_provider.httpx.post",
+        lambda *args, **kwargs: (_ for _ in ()).throw(httpx.ReadTimeout("slow Azure response")),
+    )
+
+    with pytest.raises(ExternalServiceError, match="timed out while preparing this review"):
+        LLMService.complete(
+            prompt="test", context={}, output_model=ResponseDecision, feature="test"
+        )
 
 
 def test_explicit_no_blocker_fallback_discards_invented_dependency_actions():
@@ -418,6 +457,7 @@ def test_quoted_unknown_owner_followup_keeps_question_open():
 def test_multi_person_context_routes_to_configured_reasoning_deployment(monkeypatch):
     settings = Settings(
         DATABASE_URL="postgresql+psycopg://test:test@localhost/test",
+        LLM_PROVIDER="azure_openai",
         AZURE_OPENAI_ENDPOINT="https://test.openai.azure.com",
         AZURE_OPENAI_API_KEY="fake",
         AZURE_OPENAI_DEPLOYMENT="small",

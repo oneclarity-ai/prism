@@ -13,6 +13,7 @@ from app.models.intelligence import ManagementDecision, ManagementRisk
 from app.schemas.intelligence import ProactiveDecisionProposal
 from app.services.errors import DomainError
 from app.services.followup_intelligence_service import FollowUpIntelligenceService
+from app.services.llm_provider import provider_status
 from app.services.llm_service import LLMService
 from app.services.management_policy import ManagementPolicy
 from app.services.manager_feedback_service import ManagerFeedbackService
@@ -146,12 +147,7 @@ Return a concise factual reason, not chain-of-thought. Never invent people, work
             ]
             reason, confidence, model = risk.reason, risk.confidence, None
             settings = get_settings()
-            if (
-                settings.intelligence_llm_enabled
-                and settings.azure_openai_deployment
-                and settings.azure_openai_endpoint
-                and settings.azure_openai_api_key
-            ):
+            if provider_status(settings)["ready"]:
                 try:
                     proposal = LLMService.complete(
                         prompt=ManagementDecisionService.PROACTIVE_PROMPT,
@@ -186,7 +182,7 @@ Return a concise factual reason, not chain-of-thought. Never invent people, work
                     action = proposal.action
                     targets = [str(value) for value in proposal.target_employee_ids]
                     reason, confidence = proposal.reason, proposal.confidence
-                    model = settings.azure_openai_deployment
+                    model = settings.selected_llm_model
                 except (DomainError, ValueError):
                     # Deterministic policy remains the safe fallback.
                     pass

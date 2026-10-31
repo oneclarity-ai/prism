@@ -1,32 +1,148 @@
 const savedTab = localStorage.getItem("manager-agent-tab");
-const state = { employees: [], projects: [], tasks: [], blockers: [], commitments: [], escalations: [], journeys: [], knowledge: [], memoryFacts: [], memoryEpisodes: [], attention: [], agentRuns: [], brief: null, teamsConversationIds: new Set(), microsoft: null, activeTab: savedTab === "records" ? "knowledge" : (savedTab || "overview") };
+const state = { employees: [], projects: [], tasks: [], blockers: [], commitments: [], escalations: [], journeys: [], knowledge: [], memoryFacts: [], memoryEpisodes: [], attention: [], agentRuns: [], brief: null, teamsConversationIds: new Set(), microsoft: null, provider: null, foundation: null, activeTab: savedTab === "records" ? "knowledge" : (savedTab || "overview") };
 let selectedCommitmentId = null;
 let editingKnowledgeId = null;
 const operatorTokenKey = "manager-agent-operator-token";
+const legacyV21Tabs = new Set(["ask", "management", "journey", "knowledge", "memory", "records"]);
+let v21Mode = null; // null until /api/v2/agent/foundation answers
+let v22Mode = null; // null until /api/v2/prisms/foundation answers
+let singleExecutiveMode = false;
+const subtabKey = (group) => `manager-agent-subtab-${group}`;
 
 const $ = (selector) => document.querySelector(selector);
 const today = () => new Date().toISOString().slice(0, 10);
 
+let statusTimer;
 function setStatus(message, isError = false) {
   const element = $("#status-message");
+  clearTimeout(statusTimer);
+  if (!message) {
+    element.classList.remove("show");
+    return;
+  }
   element.textContent = message;
   element.classList.toggle("error", isError);
+  element.classList.add("show");
+  statusTimer = setTimeout(() => element.classList.remove("show"), isError ? 8000 : 4500);
 }
 
+// Resolves to true (confirm), the typed text (when `field` is set), or null when dismissed.
+function askDialog({ title, message = "", confirmLabel = "Confirm", danger = false, field = null }) {
+  const dialog = $("#confirm-dialog");
+  const input = $("#confirm-input");
+  const ok = $("#confirm-ok");
+  $("#confirm-title").textContent = title;
+  $("#confirm-message").textContent = message;
+  $("#confirm-message").hidden = !message;
+  $("#confirm-field").hidden = !field;
+  $("#confirm-field-label").textContent = field ? field.label : "";
+  input.type = field?.type || "text";
+  input.placeholder = field?.placeholder || "";
+  input.value = field?.value || "";
+  ok.textContent = confirmLabel;
+  ok.classList.toggle("danger", danger);
+  return new Promise((resolve) => {
+    dialog.returnValue = "";
+    dialog.addEventListener("close", () => resolve(dialog.returnValue === "ok" ? (field ? input.value : true) : null), { once: true });
+    dialog.showModal();
+    (field ? input : ok).focus();
+  });
+}
+
+const pageTitles = {
+  overview: ["Today", "Your Prisms at a glance, and what they cost you.", "☀️"],
+  prisms: ["Prisms", "Create private specialist assistants for the work you want covered.", "✦"],
+  ask: ["Ask", "Ask about team state. Answers cite their evidence.", "💡"],
+  management: ["Work", "Escalations, blockers, commitments, and today's updates.", "✅"],
+  journey: ["Journeys", "How the agent followed each blocker between people.", "🧭"],
+  agent: ["Assistant Prism", "Ask what matters across your team, then approve each exact message.", "✦"],
+  teams: ["Teams", "Connection, activity, people, automation, and delivery.", "💬"],
+  knowledge: ["My knowledge", "Context and preferences the agent should keep in mind.", "📚"],
+  memory: ["Memory", "Evidence-backed facts and history the agent relies on.", "🧠"],
+  settings: ["Settings", "Account, AI provider, appearance, and access.", "⚙️"],
+};
+
 function setActiveTab(tab) {
+  if (!pageTitles[tab]) tab = "overview";
+  if (v21Mode === false && tab === "agent") tab = "overview";
+  if (v22Mode === false && tab === "prisms") tab = "overview";
+  if (v21Mode === true && legacyV21Tabs.has(tab)) tab = "overview";
   state.activeTab = tab;
+  const [title, subtitle, icon] = pageTitles[tab];
+  $("#page-title").textContent = title;
+  $("#page-subtitle").textContent = subtitle;
+  $("#page-icon").textContent = icon;
+  $("#crumb-title").textContent = title;
+  $("#crumb-icon").textContent = icon;
+  document.title = `${title} · Prism`;
+  $("#app").dataset.view = tab;
+  document.dispatchEvent(new CustomEvent("prism:tab", { detail: { tab } }));
+  $(".workspace").scrollTo({ top: 0, behavior: "instant" });
   localStorage.setItem("manager-agent-tab", tab);
   document.querySelectorAll("[data-tab]").forEach((panel) => {
-    panel.hidden = panel.dataset.tab !== tab;
+    panel.hidden = panel.dataset.tab !== tab
+      || (v21Mode === true && panel.hasAttribute("data-v21-legacy"))
+      || (v22Mode !== true && panel.hasAttribute("data-v22-only"));
   });
   document.querySelectorAll("[data-tab-target]").forEach((button) => {
-    const active = button.dataset.tabTarget === tab;
+    if (button.hasAttribute("data-v21-legacy")) button.hidden = v21Mode === true;
+    if (button.hasAttribute("data-v21-only")) button.hidden = v21Mode !== true;
+    if (button.hasAttribute("data-hide-v22") && v22Mode === true) button.hidden = true;
+    if (button.hasAttribute("data-v22-only")) button.hidden = v22Mode !== true;
+    // A sidebar entry can also own pages opened from it (Settings -> Teams).
+    const active = button.dataset.tabTarget === tab || (button.dataset.tabGroup || "").split(" ").includes(tab);
     button.classList.toggle("active", active);
     button.setAttribute("aria-selected", active ? "true" : "false");
   });
-  const layout = document.querySelector(".layout");
-  if (layout) layout.classList.toggle("knowledge-active", tab === "knowledge");
 }
+
+function applyV21Mode(enabled) {
+  v21Mode = enabled;
+  document.querySelectorAll("[data-v21-legacy]").forEach((element) => {
+    if (!element.hasAttribute("data-tab")) element.hidden = enabled;
+  });
+  document.querySelectorAll("[data-v21-only]").forEach((element) => {
+    if (!element.hasAttribute("data-tab")) element.hidden = !enabled;
+  });
+  setActiveTab(enabled && legacyV21Tabs.has(state.activeTab) ? "overview" : state.activeTab);
+  renderSetup();
+}
+
+function applyV22Mode(enabled, executiveOnly = false) {
+  v22Mode = enabled;
+  singleExecutiveMode = enabled && executiveOnly;
+  document.querySelectorAll("[data-v22-only]").forEach((element) => {
+    if (!element.hasAttribute("data-tab")) element.hidden = !enabled;
+  });
+  document.querySelectorAll("[data-hide-v22]").forEach((element) => {
+    element.hidden = enabled;
+  });
+  document.querySelectorAll("[data-hide-v22-single]").forEach((element) => {
+    element.hidden = singleExecutiveMode || (element.hasAttribute("data-v22-only") && !enabled);
+  });
+  setActiveTab(enabled ? state.activeTab : (state.activeTab === "prisms" ? "overview" : state.activeTab));
+  $("#legacy-today").hidden = enabled;
+  document.dispatchEvent(new CustomEvent("prism:v22-mode", { detail: { enabled, singleExecutiveMode } }));
+}
+
+// Switchable views inside a page (Teams tabs, Settings sections). The last choice is remembered.
+function setSubtab(group, name) {
+  const root = document.querySelector(`[data-subtabs="${group}"]`);
+  const targets = [...root.querySelectorAll("[data-subtab-target]")];
+  if (!targets.some((button) => button.dataset.subtabTarget === name)) name = targets[0].dataset.subtabTarget;
+  targets.forEach((button) => {
+    const active = button.dataset.subtabTarget === name;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-selected", active ? "true" : "false");
+  });
+  document.querySelectorAll(`[data-subtab-group="${group}"]`).forEach((panel) => {
+    panel.hidden = panel.dataset.subtab !== name;
+  });
+  try { localStorage.setItem(subtabKey(group), name); } catch (_) { /* private mode */ }
+}
+
+// Lets the Agent module (agent-chat.js) reuse the shared toast, dialog, and tab helpers.
+window.prism = { setActiveTab, setSubtab, setStatus, askDialog, isV22Enabled: () => v22Mode };
 
 async function api(path, options = {}) {
   const operatorToken = localStorage.getItem(operatorTokenKey);
@@ -45,14 +161,16 @@ async function api(path, options = {}) {
   return response.status === 204 ? null : response.json();
 }
 
-function setOperatorToken() {
+async function setOperatorToken() {
   const current = localStorage.getItem(operatorTokenKey);
-  const value = window.prompt(
-    current
+  const value = await askDialog({
+    title: "Operator access key",
+    message: current
       ? "Replace the operator access key. Leave blank to remove it from this browser."
       : "Enter the operator access key from your local .env file.",
-    "",
-  );
+    confirmLabel: "Save",
+    field: { label: "Access key", type: "password" },
+  });
   if (value === null) return;
   if (value.trim()) {
     localStorage.setItem(operatorTokenKey, value.trim());
@@ -62,6 +180,13 @@ function setOperatorToken() {
     setStatus("Operator access key removed from this browser.");
   }
   loadDashboard();
+}
+
+function setNavCount(selector, count) {
+  const element = $(selector);
+  if (!element) return;
+  element.textContent = count;
+  element.hidden = !count;
 }
 
 function nameFor(id) {
@@ -199,6 +324,22 @@ function initials(name) {
   return String(name || "M").trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "M";
 }
 
+const avatarTones = ["gray", "blue", "green", "orange", "purple", "yellow", "red"];
+function avatar(name, extra = "") {
+  let hash = 0;
+  for (const character of String(name || "")) hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+  return `<span class="avatar ${avatarTones[hash % avatarTones.length]}${extra ? ` ${extra}` : ""}" aria-hidden="true">${escapeHtml(initials(name))}</span>`;
+}
+
+function dayLabel(value) {
+  const date = new Date(value);
+  const midnight = (day) => new Date(day.getFullYear(), day.getMonth(), day.getDate()).getTime();
+  const diff = Math.round((midnight(new Date()) - midnight(date)) / 864e5);
+  if (diff === 0) return "Today";
+  if (diff === 1) return "Yesterday";
+  return date.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+}
+
 function renderJourneys(journeys) {
   const container = $("#journeys-list");
   $("#journeys-count").textContent = journeys.length;
@@ -256,6 +397,32 @@ function renderMemorySearch(results) {
   container.innerHTML = `${facts.length ? `<div><strong>Facts</strong>${facts.map((fact) => `<p>${escapeHtml(`${fact.subject_text || fact.subject_type} ${String(fact.predicate || "").replaceAll("_", " ")} ${fact.object_text || fact.object_type || ""}`)}</p>`).join("")}</div>` : ""}${episodes.length ? `<div><strong>Past situations</strong>${episodes.map((episode) => `<p>${escapeHtml(episode.title)}<span>${escapeHtml(episode.summary)}</span></p>`).join("")}</div>` : ""}`;
 }
 
+function activityItem(message) {
+  const name = nameFor(message.employee_id);
+  const outbound = message.direction === "outbound";
+  const delivery = message.delivery_status === "failed" ? ["Failed", "red"] : message.delivery_status === "delivered" ? ["Delivered", "green"] : ["Recorded", "gray"];
+  const when = message.external_created_at || message.created_at;
+  const time = new Date(when).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  return `<div class="feed-item">
+    ${outbound ? `<span class="avatar prism" aria-hidden="true">P</span>` : avatar(name)}
+    <div class="feed-body">
+      <div class="feed-line"><strong>${escapeHtml(outbound ? "Prism" : name)}</strong><span class="feed-verb">${outbound ? `messaged ${escapeHtml(name)}` : "replied"}</span>${outbound ? `<span class="tag ${delivery[1]}">${delivery[0]}</span>` : ""}<time>${escapeHtml(time)}</time></div>
+      <p class="feed-text">${escapeHtml(message.content)}</p>
+    </div>
+  </div>`;
+}
+
+function activityGroups(messages) {
+  const groups = [];
+  messages.forEach((message) => {
+    const label = dayLabel(message.external_created_at || message.created_at);
+    const last = groups[groups.length - 1];
+    if (last && last.label === label) last.items.push(message);
+    else groups.push({ label, items: [message] });
+  });
+  return groups.map((group) => `<div class="feed-day">${escapeHtml(group.label)}</div>${group.items.map(activityItem).join("")}`).join("");
+}
+
 function renderTeamsActivity(messages) {
   const container = $("#teams-activity-list");
   $("#teams-activity-count").textContent = messages.length;
@@ -264,16 +431,10 @@ function renderTeamsActivity(messages) {
     container.textContent = "No Teams messages recorded yet.";
     return;
   }
-  const activityItem = (message) => {
-    const direction = message.direction === "outbound" ? "Sent to" : "Received from";
-    const delivery = message.delivery_status === "failed" ? "Failed" : message.delivery_status === "delivered" ? "Delivered" : "Recorded";
-    const when = message.external_created_at || message.created_at;
-    return item(`${direction} ${nameFor(message.employee_id)} · ${delivery}`, `${message.content} · ${dateTime(when)}`);
-  };
-  const recent = messages.slice(0, 5);
-  const earlier = messages.slice(5);
+  const recent = messages.slice(0, 12);
+  const earlier = messages.slice(12);
   container.className = "teams-activity-feed";
-  container.innerHTML = `<div class="list">${recent.map(activityItem).join("")}</div>${earlier.length ? `<details class="activity-history"><summary>Show ${earlier.length} earlier message${earlier.length === 1 ? "" : "s"}</summary><div class="list">${earlier.map(activityItem).join("")}</div></details>` : ""}`;
+  container.innerHTML = `<div class="feed">${activityGroups(recent)}</div>${earlier.length ? `<details class="activity-history"><summary>Show ${earlier.length} earlier message${earlier.length === 1 ? "" : "s"}</summary><div class="feed">${activityGroups(earlier)}</div></details>` : ""}`;
 }
 
 function renderAgentHealth(runs) {
@@ -317,30 +478,26 @@ function renderTeamsAutomation() {
   const badge = $("#teams-automation-badge");
   const summary = $("#teams-automation-summary");
   const senderIdentity = $("#teams-sender-identity");
-  const accountName = $("#account-menu-name");
-  const accountEmail = $("#account-menu-email");
-  const accountAvatar = $("#account-avatar");
+  const connected = microsoft.is_connected && microsoft.connection;
+  const name = connected ? microsoft.connection.display_name : "Microsoft account";
+  const letters = connected ? initials(name) : "M";
 
-  if (microsoft.is_connected && microsoft.connection) {
-    senderIdentity.hidden = false;
-    senderIdentity.textContent = `Sending Teams messages as: ${microsoft.connection.display_name} (${microsoft.connection.user_principal_name})`;
-    accountName.textContent = microsoft.connection.display_name;
-    accountEmail.textContent = microsoft.connection.user_principal_name;
-    accountAvatar.textContent = initials(microsoft.connection.display_name);
-  } else {
-    senderIdentity.hidden = true;
-    senderIdentity.textContent = "";
-    accountName.textContent = "Microsoft account";
-    accountEmail.textContent = "No Microsoft account connected";
-    accountAvatar.textContent = "M";
-  }
+  $("#account-menu-name").textContent = name;
+  $("#account-avatar").textContent = letters;
+  $("#settings-account-name").textContent = name;
+  $("#settings-account-avatar").textContent = letters;
+  $("#teams-conn-name").textContent = connected ? name : "Microsoft Teams";
+  $("#teams-conn-avatar").textContent = letters;
+  $("#account-menu-email").textContent = connected ? microsoft.connection.user_principal_name : "No Microsoft account connected";
+  senderIdentity.hidden = !connected;
+  senderIdentity.textContent = connected ? `${microsoft.connection.user_principal_name} · Approved replies are sent from this account` : "";
 
   if (activeRun) {
     badge.textContent = "Running";
     summary.textContent = `${activeRun.delivered_count}/${activeRun.target_count} first messages delivered. ${microsoft.listener_expires_at ? `Reply listener expires ${dateTime(microsoft.listener_expires_at)}.` : "No active reply listener."}`;
-  } else if (microsoft.is_connected) {
+  } else if (connected) {
     badge.textContent = "Connected";
-    summary.textContent = `Connected as ${microsoft.connection.display_name} (${microsoft.connection.user_principal_name}). ${managedEmployees.length} employee(s) selected for management.`;
+    summary.textContent = `${managedEmployees.length} ${managedEmployees.length === 1 ? "person" : "people"} managed. Daily check-in automation is off.`;
   } else {
     badge.textContent = "Setup";
     summary.textContent = microsoft.is_auth_configured
@@ -348,40 +505,143 @@ function renderTeamsAutomation() {
       : "Add the Microsoft settings to .env, then restart the API.";
   }
 
-  const connectButton = $("#connect-microsoft-button");
-  connectButton.disabled = !microsoft.is_auth_configured;
-  connectButton.textContent = microsoft.is_connected ? "Switch Microsoft account" : "Connect Microsoft account";
+  const teamsStatus = $("#nav-teams-status");
+  if (teamsStatus) teamsStatus.hidden = !activeRun;
+  badge.className = `badge ${activeRun ? "green" : microsoft.is_connected ? "blue" : "orange"}`;
+  document.querySelectorAll("[data-connect-microsoft]").forEach((button) => {
+    button.disabled = !microsoft.is_auth_configured;
+    button.textContent = microsoft.is_connected ? "Switch Microsoft account" : "Connect Microsoft account";
+    button.classList.toggle("secondary", Boolean(microsoft.is_connected));
+  });
   $("#sync-directory-button").disabled = !microsoft.is_connected;
   const automationButton = $("#toggle-automation-button");
-  const automationLabel = $("#automation-toggle-label");
   const canStart = microsoft.is_configured && microsoft.is_connected && managedEmployees.length;
   automationButton.disabled = activeRun ? false : !canStart;
   automationButton.classList.toggle("is-running", Boolean(activeRun));
   automationButton.setAttribute("aria-label", activeRun ? "Stop automation" : "Start automation");
-  automationButton.setAttribute("data-tooltip", activeRun
+  $("#automation-toggle-hint").textContent = activeRun
     ? "Pause the agent and stop listening for Teams replies."
-    : "Start the agent and send the first Teams check-in to selected people.");
-  automationLabel.textContent = activeRun ? "Stop automation" : "Start automation";
+    : "Start the agent and send the first Teams check-in to selected people.";
+  $("#automation-toggle-label").textContent = activeRun ? "Stop automation" : "Start automation";
   $("#run-cycle-button").disabled = !microsoft.is_configured || !microsoft.is_connected || !activeRun;
   $("#send-digest-email-button").disabled = !microsoft.is_connected;
   $("#renew-listener-button").disabled = !activeRun;
 
   const teamMember = (employee) => {
     const nextValue = employee.is_managed ? "false" : "true";
-    const actionLabel = employee.is_managed ? "Remove from managed team" : "Manage this person";
-    const help = employee.is_managed
-      ? "Stop including this person in the agent's check-ins."
-      : "Include this person in the agent's check-ins.";
-    return `<div class="list-item team-member"><div><strong>${escapeHtml(employee.name)}</strong><div class="meta">${escapeHtml(employee.email)} · ${escapeHtml(employee.title || employee.role)}</div></div><button class="mini-button" type="button" data-action="toggle-managed" data-id="${employee.id}" data-managed="${nextValue}" data-tooltip="${help}">${escapeHtml(actionLabel)}</button></div>`;
+    return `<div class="list-item team-member">${avatar(employee.name)}<div class="member-main"><strong>${escapeHtml(employee.name)}</strong><div class="meta">${escapeHtml(employee.email)} · ${escapeHtml(employee.title || employee.role)}</div></div><span class="member-state">${employee.is_managed ? "Managed" : "Not managed"}</span><button class="switch" type="button" role="switch" aria-checked="${employee.is_managed ? "true" : "false"}" aria-label="Manage ${escapeHtml(employee.name)}" data-action="toggle-managed" data-id="${employee.id}" data-managed="${nextValue}"></button></div>`;
   };
   $("#managed-people-count").textContent = managedEmployees.length;
   $("#available-people-count").textContent = availableEmployees.length;
-  renderList("#managed-team-list", managedEmployees, teamMember, "No people selected yet.");
+  renderList("#managed-team-list", managedEmployees, teamMember, "No people selected yet. Import your directory, then switch people on.");
   renderList("#available-team-list", availableEmployees, teamMember, "Everyone imported from the organization is already managed.");
+  renderSetup();
+}
+
+// A short checklist on Today and Agent until Teams and the AI provider are ready.
+function renderSetup() {
+  const steps = [];
+  const microsoft = state.microsoft;
+  if (microsoft && !microsoft.is_connected) {
+    steps.push(microsoft.is_auth_configured
+      ? { text: "Connect your Microsoft account so Prism can read your Teams chats and send replies you approve.", action: "connect", label: "Connect Microsoft account" }
+      : { text: "Add the Microsoft settings to .env and restart the API to connect Teams." });
+  }
+  const provider = state.provider;
+  if (v21Mode === true && provider && !provider.ready && provider.state !== "unavailable") {
+    steps.push({ text: `AI provider: ${provider.detail}`, action: "provider", label: "Open settings" });
+  }
+  document.querySelectorAll("[data-setup]").forEach((container) => {
+    container.hidden = steps.length === 0;
+    container.innerHTML = steps.length
+      ? `<span class="callout-icon" aria-hidden="true">👋</span><div class="callout-body"><strong>Finish setting up Prism</strong><ul class="setup-steps">${steps.map((step) => `<li><span>${escapeHtml(step.text)}</span>${step.action ? `<button class="mini-button" type="button" data-setup-action="${step.action}">${escapeHtml(step.label)}</button>` : ""}</li>`).join("")}</ul></div>`
+      : "";
+  });
+}
+
+function renderProviderStatus(provider) {
+  state.provider = provider;
+  const label = provider.provider === "azure_openai" ? "Azure OpenAI" : provider.provider === "openai" ? "OpenAI" : provider.provider === "codex_local" ? "Local Codex" : humanize(provider.provider);
+  $("#provider-status-name").textContent = provider.model ? `${label} · ${provider.model}` : label;
+  $("#provider-status-detail").textContent = provider.detail;
+  const badge = $("#provider-status-badge");
+  badge.textContent = provider.ready ? "Ready" : humanize(provider.state);
+  badge.className = `badge ${provider.ready ? "green" : provider.state === "disabled" ? "blue" : "orange"}`;
+  $("#provider-nav-dot").hidden = provider.ready || provider.state === "unavailable";
+  renderSetup();
+  const savedKey = provider.credential_source === "database";
+  $("#provider-key-help").textContent = savedKey
+    ? `${provider.masked_key} is stored encrypted on this Prism server. Enter a new key to replace it.`
+    : provider.can_manage
+      ? "Stored encrypted on this Prism server. The key is never shown again."
+      : "Configure a provider credential encryption key before saving a key.";
+  $("#openai-model-input").value = savedKey && provider.model ? provider.model : ($("#openai-model-input").value || "gpt-4o-mini");
+  $("#save-openai-key-button").disabled = !provider.can_manage;
+  $("#remove-openai-key-button").hidden = !savedKey;
+}
+
+async function saveOpenAIKey(event) {
+  event.preventDefault();
+  const keyInput = $("#openai-key-input");
+  const modelInput = $("#openai-model-input");
+  const button = $("#save-openai-key-button");
+  button.disabled = true;
+  try {
+    const provider = await api("/api/v1/provider/openai", {
+      method: "PUT",
+      body: JSON.stringify({ api_key: keyInput.value, model: modelInput.value }),
+    });
+    keyInput.value = "";
+    renderProviderStatus(provider);
+    setStatus("OpenAI key saved securely. Prism is now using OpenAI.");
+  } catch (error) {
+    setStatus(error.message, true);
+  } finally {
+    button.disabled = !state.provider?.can_manage;
+  }
+}
+
+async function removeOpenAIKey() {
+  const confirmed = await askDialog({
+    title: "Remove saved OpenAI key?",
+    message: "Prism will return to the provider configured on this server.",
+    confirmLabel: "Remove key",
+    danger: true,
+  });
+  if (!confirmed) return;
+  try {
+    await api("/api/v1/provider/openai", { method: "DELETE" });
+    const provider = await api("/api/v1/provider/status");
+    renderProviderStatus(provider);
+    setStatus("Saved OpenAI key removed.");
+  } catch (error) {
+    setStatus(error.message, true);
+  }
+}
+
+function renderAgentFoundation(foundation) {
+  state.foundation = foundation;
+  $("#agent-foundation-panel").hidden = false;
+  $("#foundation-thread-count").textContent = foundation.threads;
+  $("#foundation-job-count").textContent = foundation.jobs;
+  $("#foundation-approval-count").textContent = foundation.pending_approvals;
+  $("#foundation-execution-count").textContent = foundation.executions;
+  const pending = foundation.pending_approvals;
+  setNavCount("#nav-agent-count", pending);
+  $("#approval-banner-title").textContent = pending ? `${pending} draft${pending === 1 ? "" : "s"} waiting for your approval` : "No drafts waiting";
+  $("#approval-banner-text").textContent = pending
+    ? "Open the Agent to review each draft, edit it if needed, then approve to send."
+    : "Choose a Teams chat and ask Prism what needs your attention.";
+  $("#approval-banner-button").textContent = pending ? "Review drafts" : "Start a review";
+  $("#approval-banner-button").classList.toggle("secondary", !pending);
+}
+
+function refreshFoundation() {
+  return api("/api/v2/agent/foundation").then(renderAgentFoundation).catch(() => {});
 }
 
 async function loadDashboard() {
-  setStatus("Refreshing…");
+  $("#refresh-button").classList.add("spinning");
   api("/api/v1/usage/llm/today").then((usage) => {
     const amount = Number(usage.estimated_cost_usd).toFixed(4);
     $("#ai-cost-today").textContent = usage.complete
@@ -389,6 +649,21 @@ async function loadDashboard() {
       : `Today's AI cost: $${amount} + unpriced usage`;
     $("#ai-cost-today").title = `${usage.calls} calls · ${usage.timezone}. ${usage.unpriced_calls} calls missing pricing or token usage. Estimated from provider tokens.`;
   }).catch(() => { $("#ai-cost-today").textContent = "Today's AI cost: unavailable"; });
+  api("/api/v1/provider/status")
+    .then(renderProviderStatus)
+    .catch(() => renderProviderStatus({ provider: "unknown", model: null, state: "unavailable", ready: false, detail: "Provider status is unavailable" }));
+  api("/api/v2/agent/foundation")
+    .then((foundation) => {
+      applyV21Mode(true);
+      renderAgentFoundation(foundation);
+    })
+    .catch(() => {
+      applyV21Mode(false);
+      $("#agent-foundation-panel").hidden = true;
+    });
+  api("/api/v2/prisms/foundation")
+    .then((foundation) => applyV22Mode(true, foundation.single_executive_mode))
+    .catch(() => applyV22Mode(false));
   try {
     const [employees, projects, tasks, updates, blockers, commitments, escalations, findings, journeys, knowledge, microsoft, teamsConversations, messages, memoryFacts, memoryEpisodes, attention, brief, agentRuns] = await Promise.all([
       api("/api/v1/employees?limit=100&is_active=true"),
@@ -431,6 +706,12 @@ async function loadDashboard() {
     $("#stat-commitments").textContent = commitments.total;
     $("#stat-escalations").textContent = escalations.total;
     $("#findings-count").textContent = findings.length;
+    $("#updates-count").textContent = updates.total;
+    $("#blockers-count").textContent = blockers.total;
+    $("#commitments-count").textContent = commitments.total;
+    $("#escalations-count").textContent = escalations.total;
+    setNavCount("#nav-today-count", attention.length);
+    setNavCount("#nav-work-count", blockers.total + commitments.total + escalations.total);
 
     renderTeamsAutomation();
     renderAgentHealth(agentRuns);
@@ -469,9 +750,10 @@ async function loadDashboard() {
     const teamsMessages = messages.items.filter((message) => state.teamsConversationIds.has(message.conversation_id));
     renderTeamsActivity(teamsMessages);
     renderSelectedForm();
-    setStatus("");
   } catch (error) {
     setStatus(error.message + ". Check that the API and database are running.", true);
+  } finally {
+    $("#refresh-button").classList.remove("spinning");
   }
 }
 
@@ -516,6 +798,7 @@ async function submitForm(event) {
   try {
     await api(form.dataset.endpoint, { method: "POST", body: JSON.stringify(payloadFor(form)) });
     form.reset();
+    $("#record-dialog").close();
     setStatus("Saved successfully.");
     await loadDashboard();
   } catch (error) {
@@ -575,7 +858,7 @@ function editKnowledge(entryId) {
 
 async function deleteKnowledge(entryId) {
   const entry = state.knowledge.find((item) => item.id === entryId);
-  if (!entry || !window.confirm(`Delete “${entry.title}” from the agent's saved knowledge?`)) return;
+  if (!entry || !await askDialog({ title: `Delete “${entry.title}”?`, message: "It will be removed from the agent's saved knowledge.", confirmLabel: "Delete", danger: true })) return;
   try {
     await api(`/api/v1/management-context/${entryId}`, { method: "DELETE" });
     if (editingKnowledgeId === entryId) resetKnowledgeForm();
@@ -587,9 +870,7 @@ async function deleteKnowledge(entryId) {
 
 async function distributeDeploymentList(entryId) {
   const entry = state.knowledge.find((item) => item.id === entryId);
-  if (!entry || !window.confirm(
-    `Distribute “${entry.title}” to its owners in the active automation run?`
-  )) return;
+  if (!entry || !await askDialog({ title: `Distribute “${entry.title}”?`, message: "It will be sent to its owners in the active automation run.", confirmLabel: "Distribute" })) return;
   try {
     const result = await api(
       `/api/v1/management-context/${entryId}/distribute-deployment-list`,
@@ -621,6 +902,7 @@ async function handleAction(button) {
     }
     if (action === "toggle-managed") {
       const managed = button.dataset.managed === "true";
+      button.setAttribute("aria-checked", String(managed));
       await api(`/api/v1/employees/${id}`, { method: "PATCH", body: JSON.stringify({ is_managed: managed }) });
       setStatus(managed ? "Employee added to the managed team." : "Employee removed from the managed team.");
     }
@@ -630,13 +912,17 @@ async function handleAction(button) {
       await recordMessageIntent(owner.id, `Hi ${owner.name}, ${nameFor(blocker.blocked_employee_id)} is blocked: ${blocker.description} Please share a specific ETA.`);
     }
     if (action === "resolve-blocker") {
-      if (!window.confirm("Mark this blocker as resolved?")) return;
+      if (!await askDialog({ title: "Mark blocker as resolved?", confirmLabel: "Resolve" })) return;
       await api(`/api/v1/blockers/${id}`, { method: "PATCH", body: JSON.stringify({ status: "resolved" }) });
       setStatus("Blocker marked as resolved. Update the task status separately when work resumes.");
     }
     if (action === "mark-missed") {
-      if (!window.confirm("Mark this commitment as missed?")) return;
-      const reason = window.prompt("Why was it missed? You can leave this blank and add it with a revised ETA later.");
+      const reason = await askDialog({
+        title: "Mark commitment as missed?",
+        message: "You can leave the reason blank and add it with a revised ETA later.",
+        confirmLabel: "Mark missed",
+        field: { label: "Why was it missed?" },
+      });
       if (reason === null) return;
       await api(`/api/v1/commitments/${id}/mark-missed`, { method: "POST", body: JSON.stringify(reason.trim() ? { reason: reason.trim() } : {}) });
       setStatus("Commitment marked as missed. It remains in its history.");
@@ -652,13 +938,14 @@ async function handleAction(button) {
       setStatus("Escalation acknowledged.");
     }
     if (action === "resolve-escalation") {
-      if (!window.confirm("Resolve this escalation?")) return;
+      if (!await askDialog({ title: "Resolve this escalation?", confirmLabel: "Resolve" })) return;
       await api(`/api/v1/escalations/${id}/resolve`, { method: "POST" });
       setStatus("Escalation resolved.");
     }
     await loadDashboard();
   } catch (error) {
     setStatus(error.message, true);
+    renderTeamsAutomation();
   } finally {
     button.disabled = false;
   }
@@ -669,9 +956,11 @@ async function connectMicrosoft() {
     setStatus("Add the Microsoft values and encryption key to .env, then restart the API.", true);
     return;
   }
-  if (state.microsoft.is_connected && !window.confirm(
-    `Switch from ${state.microsoft.connection.display_name} to a different Microsoft account? Teams automation must be stopped first.`
-  )) return;
+  if (state.microsoft.is_connected && !await askDialog({
+    title: "Switch Microsoft account?",
+    message: `Switch from ${state.microsoft.connection.display_name} to a different account. Teams automation must be stopped first.`,
+    confirmLabel: "Switch",
+  })) return;
   window.location.assign("/api/v1/microsoft/auth/start");
 }
 
@@ -704,7 +993,7 @@ async function startAutomation() {
 }
 
 async function runDailyCycle() {
-  if (!window.confirm("Run the daily check-in cycle now? It may send check-ins and due commitment/escalation actions, but not immediate no-response reminders or a digest.")) return;
+  if (!await askDialog({ title: "Run the daily cycle now?", message: "It may send check-ins and due commitment or escalation actions, but not immediate no-response reminders or a digest.", confirmLabel: "Run cycle" })) return;
   const button = $("#run-cycle-button");
   button.disabled = true;
   try {
@@ -719,7 +1008,7 @@ async function runDailyCycle() {
 }
 
 async function sendDigestEmail() {
-  if (!window.confirm("Email today's manager digest to the connected Microsoft account now?")) return;
+  if (!await askDialog({ title: "Send today's digest?", message: "It will be emailed to the connected Microsoft account now.", confirmLabel: "Send" })) return;
   const button = $("#send-digest-email-button");
   button.disabled = true;
   try {
@@ -761,7 +1050,7 @@ async function retryAgentRuns() {
 }
 
 async function stopAutomation() {
-  if (!window.confirm("Stop Teams automation and remove the active reply listeners?")) return;
+  if (!await askDialog({ title: "Stop Teams automation?", message: "The active reply listeners will be removed.", confirmLabel: "Stop automation", danger: true })) return;
   const button = $("#toggle-automation-button");
   button.disabled = true;
   try {
@@ -893,19 +1182,46 @@ async function submitRevision(event) {
   }
 }
 
-function setTheme(theme) {
-  document.documentElement.dataset.theme = theme;
-  localStorage.setItem("manager-agent-theme", theme);
-  const themeButton = $("#theme-toggle");
-  const nextMode = theme === "dark" ? "light" : "dark";
-  themeButton.setAttribute("aria-label", `Switch to ${nextMode} mode`);
-  themeButton.setAttribute("data-tooltip", `Switch to ${nextMode} mode.`);
+const themeKey = "manager-agent-theme";
+const themeQuery = window.matchMedia("(prefers-color-scheme: dark)");
+
+function setTheme(choice) {
+  if (choice === "light" || choice === "dark") localStorage.setItem(themeKey, choice);
+  else localStorage.removeItem(themeKey);
+  document.documentElement.dataset.theme = choice === "light" || choice === "dark" ? choice : (themeQuery.matches ? "dark" : "light");
+  $("#theme-select").value = choice === "light" || choice === "dark" ? choice : "system";
 }
 
-$("#theme-toggle").addEventListener("click", () => setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark"));
+const appShell = $("#app");
+const narrowQuery = window.matchMedia("(max-width: 820px)");
+
+function toggleSidebar(open) {
+  if (narrowQuery.matches) {
+    appShell.classList.toggle("sidebar-open", open);
+    return;
+  }
+  appShell.classList.toggle("sidebar-collapsed", !open);
+  localStorage.setItem("manager-agent-sidebar", open ? "open" : "closed");
+}
+
+$("#theme-select").addEventListener("change", (event) => setTheme(event.target.value));
+themeQuery.addEventListener("change", () => { if (!localStorage.getItem(themeKey)) setTheme("system"); });
+$("#sidebar-close").addEventListener("click", () => toggleSidebar(false));
+$("#sidebar-open").addEventListener("click", () => toggleSidebar(true));
+$("#scrim").addEventListener("click", () => toggleSidebar(false));
+$("#confirm-cancel").addEventListener("click", () => $("#confirm-dialog").close("cancel"));
 $("#refresh-button").addEventListener("click", loadDashboard);
 $("#operator-token-button").addEventListener("click", setOperatorToken);
-$("#connect-microsoft-button").addEventListener("click", connectMicrosoft);
+$("#openai-key-form").addEventListener("submit", saveOpenAIKey);
+$("#remove-openai-key-button").addEventListener("click", removeOpenAIKey);
+document.querySelectorAll("[data-connect-microsoft]").forEach((button) => button.addEventListener("click", connectMicrosoft));
+$("#new-record-button").addEventListener("click", () => $("#record-dialog").showModal());
+$("#record-close").addEventListener("click", () => $("#record-dialog").close());
+$("#approval-banner-button").addEventListener("click", () => {
+  if (state.foundation?.pending_approvals) setActiveTab("agent");
+  else document.dispatchEvent(new CustomEvent("prism:new-chat"));
+});
+document.addEventListener("prism:agent-changed", refreshFoundation);
 $("#sync-directory-button").addEventListener("click", syncMicrosoftDirectory);
 $("#toggle-automation-button").addEventListener("click", () => {
   if (state.microsoft && state.microsoft.active_run) return stopAutomation();
@@ -925,6 +1241,17 @@ $("#knowledge-context-form").addEventListener("submit", submitKnowledgeContext);
 $("#cancel-knowledge-edit").addEventListener("click", resetKnowledgeForm);
 $("#form-selector").addEventListener("change", renderSelectedForm);
 document.addEventListener("click", (event) => {
+  const suggestion = event.target.closest("[data-query]");
+  if (suggestion) {
+    $("#management-query-input").value = suggestion.dataset.query;
+    $("#management-query-form").requestSubmit();
+  }
+  const setupAction = event.target.closest("[data-setup-action]");
+  if (setupAction?.dataset.setupAction === "connect") connectMicrosoft();
+  if (setupAction?.dataset.setupAction === "provider") {
+    setActiveTab("settings");
+    setSubtab("settings", "provider");
+  }
   const button = event.target.closest("[data-action]");
   if (button) handleAction(button);
   const knowledgeButton = event.target.closest("[data-knowledge-action]");
@@ -934,8 +1261,19 @@ document.addEventListener("click", (event) => {
 });
 $("#revision-form").addEventListener("submit", submitRevision);
 $("#revision-cancel").addEventListener("click", () => $("#revision-dialog").close());
-setTheme(localStorage.getItem("manager-agent-theme") || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));
-document.querySelectorAll("[data-tab-target]").forEach((button) => button.addEventListener("click", () => setActiveTab(button.dataset.tabTarget)));
+setTheme(localStorage.getItem(themeKey) || "system");
+if (!narrowQuery.matches && localStorage.getItem("manager-agent-sidebar") === "closed") appShell.classList.add("sidebar-collapsed");
+document.querySelectorAll("[data-tab-target]").forEach((button) => button.addEventListener("click", () => {
+  setActiveTab(button.dataset.tabTarget);
+  if (narrowQuery.matches) toggleSidebar(false);
+}));
+document.querySelectorAll("[data-subtabs]").forEach((root) => {
+  const group = root.dataset.subtabs;
+  root.querySelectorAll("[data-subtab-target]").forEach((button) => button.addEventListener("click", () => setSubtab(group, button.dataset.subtabTarget)));
+  let saved = null;
+  try { saved = localStorage.getItem(subtabKey(group)); } catch (_) { /* private mode */ }
+  setSubtab(group, saved || root.querySelector("[data-subtab-target]").dataset.subtabTarget);
+});
 setActiveTab(state.activeTab);
 const microsoftResult = new URLSearchParams(window.location.search);
 if (microsoftResult.get("microsoft") === "connected") setStatus("Microsoft account connected. Import your organization directory next.");

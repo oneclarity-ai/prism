@@ -5,6 +5,12 @@ class StringEnum(str, Enum):
     """String-backed enum suitable for PostgreSQL enum columns and API values."""
 
 
+class PrismOnboardingStatus(StringEnum):
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+
+
 class ProjectStatus(StringEnum):
     PLANNING = "planning"
     ACTIVE = "active"
@@ -232,3 +238,55 @@ class ManagementProcedureStatus(StringEnum):
     APPROVED = "approved"
     REJECTED = "rejected"
     RETIRED = "retired"
+
+
+class AgentJobState(StringEnum):
+    QUEUED = "queued"
+    RESEARCHING = "researching"
+    PLANNING = "planning"
+    WAITING_FOR_APPROVAL = "waiting_for_approval"
+    EXECUTING = "executing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+class AgentStepState(StringEnum):
+    QUEUED = "queued"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+class ActionProposalState(StringEnum):
+    DRAFT = "draft"
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    EXPIRED = "expired"
+    EXECUTING = "executing"
+    EXECUTED = "executed"
+    FAILED = "failed"
+
+
+class ApprovalDecisionType(StringEnum):
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+
+class ToolExecutionState(StringEnum):
+    PENDING = "pending"
+    RUNNING = "running"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+    UNCERTAIN = "uncertain"
+
+
+class PrismLifecycleState(StringEnum):
+    DRAFT = "draft"
+    ONBOARDING = "onboarding"
+    AWAITING_CONFIRMATION = "awaiting_confirmation"
+    ACTIVE = "active"
+    PAUSED = "paused"
+    ARCHIVED = "archived"

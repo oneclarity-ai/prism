@@ -1,6 +1,22 @@
 """Import all ORM models so SQLAlchemy metadata and Alembic can discover them."""
 
 from app.models.agent_run import AgentRun
+from app.models.agent_v21 import (
+    ActionProposal,
+    AgentActionPlan,
+    AgentConversationReview,
+    AgentFeedbackEvent,
+    AgentJob,
+    AgentJobSource,
+    AgentPreference,
+    AgentSourceMessage,
+    AgentStep,
+    AgentThread,
+    AgentThreadAlias,
+    AgentThreadMessage,
+    ApprovalDecision,
+    ToolExecution,
+)
 from app.models.automation_action import AutomationAction
 from app.models.automation_run import AutomationRun
 from app.models.blocker import Blocker
@@ -34,13 +50,52 @@ from app.models.message import Message
 from app.models.microsoft_connection import MicrosoftConnection
 from app.models.microsoft_oauth_state import MicrosoftOAuthState
 from app.models.microsoft_subscription import MicrosoftTeamsSubscription
+from app.models.prism_v22 import (
+    Prism,
+    PrismBudget,
+    PrismExternalEvent,
+    PrismIncident,
+    PrismIncidentEvent,
+    PrismLifecycleEvent,
+    PrismNotification,
+    PrismNotificationSetting,
+    PrismObservation,
+    PrismObservationDraft,
+    PrismObservationFeedback,
+    PrismOnboardingAnswer,
+    PrismOnboardingQuestion,
+    PrismOnboardingSession,
+    PrismPresence,
+    PrismRun,
+    PrismSignalPreference,
+    PrismTeamsSourceCursor,
+    PrismTeamsSourcePolicy,
+    PrismTeamsSourceRule,
+    PrismTriggerPolicy,
+    PrismWorkingAgreement,
+)
 from app.models.project import Project
+from app.models.provider_credential import ProviderCredential
 from app.models.response_state import BlockerDependency, ConversationQuestion, ConversationState
 from app.models.task import Task
 
 __all__ = [
     "Blocker",
     "AgentRun",
+    "AgentThread",
+    "AgentThreadAlias",
+    "AgentThreadMessage",
+    "AgentJob",
+    "AgentJobSource",
+    "AgentActionPlan",
+    "AgentSourceMessage",
+    "AgentStep",
+    "ActionProposal",
+    "AgentConversationReview",
+    "AgentPreference",
+    "AgentFeedbackEvent",
+    "ApprovalDecision",
+    "ToolExecution",
     "AutomationAction",
     "Commitment",
     "Conversation",
@@ -65,6 +120,29 @@ __all__ = [
     "ManagementProcedure",
     "MemoryJob",
     "Project",
+    "ProviderCredential",
+    "Prism",
+    "PrismExternalEvent",
+    "PrismLifecycleEvent",
+    "PrismOnboardingSession",
+    "PrismOnboardingQuestion",
+    "PrismOnboardingAnswer",
+    "PrismObservation",
+    "PrismObservationDraft",
+    "PrismObservationFeedback",
+    "PrismSignalPreference",
+    "PrismBudget",
+    "PrismIncident",
+    "PrismIncidentEvent",
+    "PrismNotification",
+    "PrismNotificationSetting",
+    "PrismPresence",
+    "PrismWorkingAgreement",
+    "PrismTeamsSourcePolicy",
+    "PrismTeamsSourceRule",
+    "PrismTeamsSourceCursor",
+    "PrismTriggerPolicy",
+    "PrismRun",
     "Task",
     "BlockerDependency",
     "ConversationQuestion",

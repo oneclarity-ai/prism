@@ -807,8 +807,8 @@ class ResponseService:
             or len(context.get("mentioned_people", [])) > 1
         )
         deployment = (
-            settings.azure_openai_reasoning_deployment if complex_context else None
-        ) or settings.azure_openai_deployment
+            settings.selected_reasoning_model if complex_context else None
+        ) or settings.selected_llm_model
         kwargs = dict(
             prompt=RESPONSE_PROMPT,
             context=context,
@@ -820,14 +820,14 @@ class ResponseService:
         )
         decision = LLMService.complete(deployment=deployment, **kwargs)
         if (
-            settings.azure_openai_reasoning_deployment
-            and deployment != settings.azure_openai_reasoning_deployment
+            settings.selected_reasoning_model
+            and deployment != settings.selected_reasoning_model
             and (
                 decision.confidence < 0.8
                 or sum(len(issue.dependency_owner_ids) for issue in decision.issues) > 1
             )
         ):
-            deployment = settings.azure_openai_reasoning_deployment
+            deployment = settings.selected_reasoning_model
             decision = LLMService.complete(deployment=deployment, **kwargs)
         context["decision_deployment"] = deployment
         return decision
@@ -837,7 +837,7 @@ class ResponseService:
         """Ask once for a corrected structured decision after policy rejection."""
 
         settings = get_settings()
-        deployment = settings.azure_openai_reasoning_deployment or settings.azure_openai_deployment
+        deployment = settings.selected_reasoning_model or settings.selected_llm_model
         decision = LLMService.complete(
             prompt=RESPONSE_REPAIR_PROMPT,
             context=context,

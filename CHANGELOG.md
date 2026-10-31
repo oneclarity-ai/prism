@@ -9,6 +9,10 @@ release. Dates use ISO 8601.
 
 ### Added
 
+- Prism v2.2: multiple private Prisms with onboarding, working agreements, Teams monitoring,
+  evidence-backed proactive updates, browser notifications, incident grouping, approval-gated
+  drafts, feedback and tuning, budgets, health status, retention, v2.1 migration, and
+  operator recovery commands. See `docs/v2.2-release-runbook.md` and `docs/v2.2-security-review.md`.
 - Open-source repository documentation, contributor guidance, security policy, and support policy.
 - Docker and Compose development path.
 - Ruff, mypy, dependency auditing, and tracked-file secret scanning commands.

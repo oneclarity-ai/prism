@@ -81,6 +81,31 @@ Manager memory is supporting context, not unrestricted instruction. Prism still 
 recipient-scope checks, structured decision validation, and audit logging before changing
 state or sending a Teams message.
 
+## Prism v2.1: one manager conversation
+
+With `PRISM_V21_ENABLED=true`, the **Agent** workspace is the main way to use Prism. You talk to one
+continuing Prism conversation, ask for an outcome ("What needs my attention across the release
+team?"), and Prism resolves, reads, and discloses the relevant Teams chats. Teams people and groups
+are sources and destinations, never separate Prism chats, and Prism is not a second Teams inbox.
+
+- **Auto by default.** Prism picks relevant authorized chats and shows what it read as source chips,
+  with a "Why these sources" view. The source filter only limits a request when you set it.
+- **Evidence you can open.** Every claim cites stored Teams messages, grouped by source.
+- **One card per action.** A request can prepare several replies. You edit, approve, or reject each
+  card on its own, and Prism sends only the exact approved text from your connected account.
+- **Clear recovery.** Reconnect, permission, throttling, and unconfirmed-delivery states say what
+  to do next and never imply a message was sent.
+- **One searchable history.** Day and topic separators, search, and "load earlier" navigate the
+  conversation.
+
+![What needs my attention, with disclosed sources](docs/screenshots/v2.1-attention-sources-desktop.png)
+
+![Coordinated approval cards on a narrow screen](docs/screenshots/v2.1-coordinated-approvals-narrow.png)
+
+See the [v2.2 runbook](docs/v2.2-release-runbook.md) for multiple Prisms, monitoring, upgrade, and
+recovery, and the [v2.1 release runbook](docs/v2.1-release-runbook.md) for setup, safe live testing, recovery, and
+the release gate.
+
 ## Product screenshots
 
 These screenshots show the main workflows available to a manager.
@@ -131,6 +156,9 @@ the webhook listener.
 ![Teams automation controls](<docs/screenshots/Screenshot 2026-10-06 at 9.10.37 PM.png>)
 
 ## Local setup guide
+
+For the manager-only Agent Chat release workflow, recovery behavior, safe live-send checklist, and
+backup guidance, see [the Prism v2.1 local release runbook](docs/v2.1-release-runbook.md).
 
 This section takes you from a fresh checkout to a local Prism instance connected to
 Microsoft Teams. Start with automation disabled, verify the dashboard, and only then expose
