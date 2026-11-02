@@ -46,6 +46,19 @@ class Prism(TimestampMixin, Base):
     description: Mapped[str] = mapped_column(Text, nullable=False)
     template_key: Mapped[str] = mapped_column(String(80), nullable=False, default="blank")
     template_version: Mapped[Optional[str]] = mapped_column(String(80))
+    color: Mapped[Optional[str]] = mapped_column(String(20))
+    # v2.4: what this Prism may use, whether it may sign in to sites, and its editable "How I'll work".
+    capabilities: Mapped[list] = mapped_column(
+        JSONB, nullable=False, default=lambda: ["browser"], server_default='["browser"]'
+    )
+    logins_policy: Mapped[str] = mapped_column(
+        String(10), nullable=False, default="never", server_default="never"
+    )
+    role_instructions: Mapped[Optional[str]] = mapped_column(Text)
+    # "all": this Prism knows everyone Prism knows; "selected": only the people in prism_people.
+    people_scope: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="all", server_default="all"
+    )
     state: Mapped[PrismLifecycleState] = mapped_column(
         Enum(PrismLifecycleState, name="prism_lifecycle_state"),
         nullable=False,
@@ -605,3 +618,16 @@ class PrismBudget(TimestampMixin, Base):
     max_runs_per_day: Mapped[int | None] = mapped_column(Integer)
     max_model_calls_per_day: Mapped[int | None] = mapped_column(Integer)
     max_consecutive_failures: Mapped[int | None] = mapped_column(Integer)
+
+
+class PrismPerson(Base):
+    """One person a Prism with people_scope="selected" is allowed to know about."""
+
+    __tablename__ = "prism_people"
+
+    prism_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("prisms.id", ondelete="CASCADE"), primary_key=True
+    )
+    employee_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("employees.id", ondelete="CASCADE"), primary_key=True
+    )

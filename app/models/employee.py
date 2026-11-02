@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import Boolean, ForeignKey, String
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin
@@ -37,6 +38,24 @@ class Employee(TimestampMixin, Base):
     is_managed: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default="false", nullable=False, index=True
     )
+
+    # Org knowledge: Microsoft fills title, department and manager; anything the user edits is
+    # listed in field_overrides and is never replaced by a later sync.
+    department: Mapped[Optional[str]] = mapped_column(String(255))
+    responsibilities: Mapped[Optional[str]] = mapped_column(Text)
+    notes: Mapped[Optional[str]] = mapped_column(Text)
+    field_overrides: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, default=list, server_default="[]"
+    )
+    in_chats: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false", nullable=False
+    )
+    # The user's reports, direct and indirect, as Microsoft's org chart lists them.
+    in_team: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false", nullable=False
+    )
+    last_chat_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    directory_synced_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 
     manager: Mapped[Optional["Employee"]] = relationship(
         "Employee", remote_side="Employee.id", back_populates="direct_reports"

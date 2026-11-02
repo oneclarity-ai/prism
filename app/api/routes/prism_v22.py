@@ -8,13 +8,13 @@ working manager-agent journey.
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import get_settings
 from app.db.session import get_db
-from app.models.agent_v21 import AgentJob, AgentThreadMessage
+from app.models.agent_v21 import AgentJob, AgentPreference, AgentThreadMessage
 from app.models.enums import PrismLifecycleState
 from app.models.prism_v22 import (
     Prism,
@@ -22,7 +22,13 @@ from app.models.prism_v22 import (
     PrismRun,
     PrismTeamsSourcePolicy,
 )
-from app.schemas.agent_v21 import AgentJobRead, AgentThreadMessageCreate
+from app.schemas.agent_v21 import (
+    AgentJobRead,
+    AgentPreferenceRead,
+    AgentThreadMessageCreate,
+    PrismPreferenceCreate,
+    PrismPreferenceUpdate,
+)
 from app.schemas.prism_v22 import (
     PrismAgreementConfirm,
     PrismAgreementConfirmationRead,
@@ -228,6 +234,14 @@ def archive_prism(
     )
 
 
+@router.delete("/{prism_id}", status_code=204, dependencies=[Depends(require_v22)])
+def delete_prism(prism_id: uuid.UUID, db: Session = Depends(get_db)) -> Response:
+    """Permanently delete an archived Prism."""
+
+    PrismLifecycleService.delete_archived(db, prism_id)
+    return Response(status_code=204)
+
+
 @router.post(
     "/{prism_id}/onboarding/start",
     response_model=PrismOnboardingSessionRead,
@@ -237,6 +251,11 @@ def start_onboarding(prism_id: uuid.UUID, db: Session = Depends(get_db)) -> dict
     """Create a durable, role-aware question set or resume the existing one."""
 
     return PrismOnboardingService.start(db, prism_id)
+
+
+@router.get("/{prism_id}/suggestions", response_model=None, dependencies=[Depends(require_v22)])
+def first_suggestions(prism_id: uuid.UUID, db: Session = Depends(get_db)) -> dict:
+    return PrismOnboardingService.suggestions(db, prism_id)
 
 
 @router.get(
@@ -633,3 +652,56 @@ def remember_for_prism(
         db, prism_id=prism_id, thread_id=thread.id, instruction=payload.instruction
     )
     return {"id": str(preference.id), "instruction": preference.instruction}
+
+
+@router.get(
+    "/{prism_id}/preferences",
+    response_model=list[AgentPreferenceRead],
+    dependencies=[Depends(require_v22)],
+)
+def list_prism_preferences(
+    prism_id: uuid.UUID, db: Session = Depends(get_db)
+) -> list[AgentPreference]:
+    PrismLifecycleService.get(db, prism_id)
+    return AgentPreferenceService.list_for_prism(db, prism_id)
+
+
+@router.post(
+    "/{prism_id}/preferences",
+    response_model=AgentPreferenceRead,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_v22)],
+)
+def create_prism_preference(
+    prism_id: uuid.UUID, payload: PrismPreferenceCreate, db: Session = Depends(get_db)
+) -> AgentPreference:
+    PrismLifecycleService.get(db, prism_id, include_archived=False)
+    _, thread = PrismConversationService.canonical_thread(db, prism_id)
+    return AgentPreferenceService.remember_for_prism(
+        db, prism_id=prism_id, thread_id=thread.id, instruction=payload.instruction
+    )
+
+
+@router.patch(
+    "/{prism_id}/preferences/{preference_id}",
+    response_model=AgentPreferenceRead,
+    dependencies=[Depends(require_v22)],
+)
+def update_prism_preference(
+    prism_id: uuid.UUID,
+    preference_id: uuid.UUID,
+    payload: PrismPreferenceUpdate,
+    db: Session = Depends(get_db),
+) -> AgentPreference:
+    return AgentPreferenceService.update_for_prism(db, prism_id, preference_id, payload)
+
+
+@router.delete(
+    "/{prism_id}/preferences/{preference_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_v22)],
+)
+def delete_prism_preference(
+    prism_id: uuid.UUID, preference_id: uuid.UUID, db: Session = Depends(get_db)
+) -> None:
+    AgentPreferenceService.delete_for_prism(db, prism_id, preference_id)

@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app.core.config import get_settings
 from app.models.enums import PrismLifecycleState, PrismOnboardingStatus
 from app.models.prism_v22 import (
     Prism,
@@ -70,6 +71,10 @@ class PrismAgreementService:
         )
         prism.agreement_revision = agreement.revision
         db.add(agreement)
+        if agreement.agreement.get("work"):
+            from app.services.prism_profile_service import PrismProfileService
+
+            PrismProfileService.ensure_instructions(prism, agreement.agreement)
         db.commit()
         db.refresh(agreement)
         return agreement
@@ -130,7 +135,18 @@ class PrismAgreementService:
             value = answer_text(key, "")
             return [part for part in value.split(", ") if part]
 
+        answers = [
+            {
+                "key": a.question.key,
+                "question": a.question.prompt,
+                "answer": answer_text(a.question.key, ""),
+            }
+            for a in sorted(session.answers, key=lambda a: a.question.position)
+            if not a.skipped and answer_text(a.question.key, "")
+        ]
         return {
+            "work": prism.template_key == "blank" and get_settings().prism_v24_enabled,
+            "answers": answers,
             "mission": answer_text("mission", prism.description),
             "attention_signals": answer_list("urgent_signals"),
             "regular_brief": answer_text("regular_brief"),

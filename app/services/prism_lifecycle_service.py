@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import logging
 import unicodedata
 import uuid
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -12,6 +13,9 @@ from app.models.enums import PrismLifecycleState
 from app.models.prism_v22 import Prism, PrismLifecycleEvent
 from app.schemas.prism_v22 import PrismCreate, PrismUpdate
 from app.services.errors import ConflictError, NotFoundError, RuleViolationError
+from app.services.prism_presets import normalize_capabilities
+
+logger = logging.getLogger(__name__)
 
 LIFECYCLE_TRANSITIONS: dict[PrismLifecycleState, set[PrismLifecycleState]] = {
     PrismLifecycleState.DRAFT: {
@@ -64,6 +68,9 @@ class PrismLifecycleService:
             description=description,
             template_key=data.template_key,
             template_version=data.template_version,
+            color=data.color,
+            capabilities=normalize_capabilities(data.template_key, data.capabilities),
+            logins_policy=data.logins_policy,
             state=PrismLifecycleState.DRAFT,
             lifecycle_version=1,
         )
@@ -92,16 +99,26 @@ class PrismLifecycleService:
             statement = statement.where(Prism.state != PrismLifecycleState.ARCHIVED)
         prisms = list(db.scalars(statement))
         # Most recently talked-to first; Prisms with no conversation fall back to updated_at.
-        last = dict(
-            db.execute(
-                select(AgentThread.prism_id, func.max(AgentThreadMessage.created_at))
+        latest = {
+            row.prism_id: row
+            for row in db.execute(
+                select(
+                    AgentThread.prism_id,
+                    AgentThreadMessage.created_at,
+                    AgentThreadMessage.role,
+                    AgentThreadMessage.content,
+                )
                 .join(AgentThreadMessage, AgentThreadMessage.thread_id == AgentThread.id)
                 .where(AgentThread.prism_id.in_([prism.id for prism in prisms]))
-                .group_by(AgentThread.prism_id)
-            ).all()
-        )
+                .distinct(AgentThread.prism_id)
+                .order_by(AgentThread.prism_id, AgentThreadMessage.created_at.desc())
+            )
+        }
         for prism in prisms:
-            prism.last_message_at = last.get(prism.id)
+            row = latest.get(prism.id)
+            prism.last_message_at = row.created_at if row else None
+            prism.last_message_role = row.role if row else None
+            prism.last_message_preview = " ".join(row.content.split())[:160] if row else None
         prisms.sort(key=lambda prism: prism.last_message_at or prism.updated_at, reverse=True)
         return prisms
 
@@ -111,6 +128,34 @@ class PrismLifecycleService:
         if prism is None or (not include_archived and prism.state == PrismLifecycleState.ARCHIVED):
             raise NotFoundError("Prism was not found")
         return prism
+
+    @classmethod
+    def delete_archived(cls, db: Session, prism_id: uuid.UUID) -> None:
+        """Permanently remove an archived Prism, its chats and its computer's saved logins."""
+
+        prism = cls._locked_prism(db, prism_id)
+        if prism.state != PrismLifecycleState.ARCHIVED:
+            raise RuleViolationError("Archive a Prism before deleting it")
+        cls._forget_computer(db, prism)
+        db.execute(delete(AgentThread).where(AgentThread.prism_id == prism.id))
+        db.delete(prism)
+        db.commit()
+
+    @staticmethod
+    def _forget_computer(db: Session, prism: Prism) -> None:
+        """Best effort: saved logins and the browser are cleared if the engine is reachable."""
+
+        from app.services import qa_run_service
+        from app.services.prism_agent_service import PrismAgentService
+        from app.services.prism_login_service import PrismLoginService
+
+        try:
+            with qa_run_service.make_client() as client:
+                PrismLoginService.forget_all(db, prism, client)
+                client.reset_computer(PrismAgentService.computer_key(prism.id))
+        except Exception:  # noqa: BLE001 - a Prism with no computer, or an engine that is down, can still go
+            db.rollback()
+            logger.info("prism_delete_computer_cleanup_skipped", exc_info=False)
 
     @classmethod
     def update(cls, db: Session, prism_id: uuid.UUID, data: PrismUpdate) -> Prism:
@@ -135,6 +180,8 @@ class PrismLifecycleService:
             if not description:
                 raise RuleViolationError("Prism description is required")
             prism.description = description
+        if data.color is not None:
+            prism.color = data.color
         prism.lifecycle_version += 1
         try:
             db.commit()

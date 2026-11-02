@@ -1,5 +1,5 @@
 const savedTab = localStorage.getItem("manager-agent-tab");
-const state = { employees: [], projects: [], tasks: [], blockers: [], commitments: [], escalations: [], journeys: [], knowledge: [], memoryFacts: [], memoryEpisodes: [], attention: [], agentRuns: [], brief: null, teamsConversationIds: new Set(), microsoft: null, provider: null, foundation: null, activeTab: savedTab === "records" ? "knowledge" : (savedTab || "overview") };
+const state = { employees: [], projects: [], tasks: [], blockers: [], commitments: [], escalations: [], journeys: [], knowledge: [], memoryFacts: [], memoryEpisodes: [], attention: [], brief: null, microsoft: null, provider: null, foundation: null, activeTab: savedTab === "records" ? "knowledge" : (savedTab || "overview") };
 let selectedCommitmentId = null;
 let editingKnowledgeId = null;
 const operatorTokenKey = "manager-agent-operator-token";
@@ -50,13 +50,12 @@ function askDialog({ title, message = "", confirmLabel = "Confirm", danger = fal
 }
 
 const pageTitles = {
-  overview: ["Today", "Your Prisms at a glance, and what they cost you.", "☀️"],
+  overview: ["Home", "Your Prisms, and what they cost.", ""],
   prisms: ["Prisms", "Create private specialist assistants for the work you want covered.", "✦"],
   ask: ["Ask", "Ask about team state. Answers cite their evidence.", "💡"],
   management: ["Work", "Escalations, blockers, commitments, and today's updates.", "✅"],
   journey: ["Journeys", "How the agent followed each blocker between people.", "🧭"],
   agent: ["Assistant Prism", "Ask what matters across your team, then approve each exact message.", "✦"],
-  teams: ["Teams", "Connection, activity, people, automation, and delivery.", "💬"],
   knowledge: ["My knowledge", "Context and preferences the agent should keep in mind.", "📚"],
   memory: ["Memory", "Evidence-backed facts and history the agent relies on.", "🧠"],
   settings: ["Settings", "Account, AI provider, appearance, and access.", "⚙️"],
@@ -72,8 +71,12 @@ function setActiveTab(tab) {
   $("#page-title").textContent = title;
   $("#page-subtitle").textContent = subtitle;
   $("#page-icon").textContent = icon;
+  $("#page-icon").hidden = !icon;
+  $("#page-logo").hidden = Boolean(icon);
   $("#crumb-title").textContent = title;
   $("#crumb-icon").textContent = icon;
+  $("#crumb-icon").hidden = !icon;
+  $("#crumb-logo").hidden = Boolean(icon);
   document.title = `${title} · Prism`;
   $("#app").dataset.view = tab;
   document.dispatchEvent(new CustomEvent("prism:tab", { detail: { tab } }));
@@ -397,60 +400,6 @@ function renderMemorySearch(results) {
   container.innerHTML = `${facts.length ? `<div><strong>Facts</strong>${facts.map((fact) => `<p>${escapeHtml(`${fact.subject_text || fact.subject_type} ${String(fact.predicate || "").replaceAll("_", " ")} ${fact.object_text || fact.object_type || ""}`)}</p>`).join("")}</div>` : ""}${episodes.length ? `<div><strong>Past situations</strong>${episodes.map((episode) => `<p>${escapeHtml(episode.title)}<span>${escapeHtml(episode.summary)}</span></p>`).join("")}</div>` : ""}`;
 }
 
-function activityItem(message) {
-  const name = nameFor(message.employee_id);
-  const outbound = message.direction === "outbound";
-  const delivery = message.delivery_status === "failed" ? ["Failed", "red"] : message.delivery_status === "delivered" ? ["Delivered", "green"] : ["Recorded", "gray"];
-  const when = message.external_created_at || message.created_at;
-  const time = new Date(when).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-  return `<div class="feed-item">
-    ${outbound ? `<span class="avatar prism" aria-hidden="true">P</span>` : avatar(name)}
-    <div class="feed-body">
-      <div class="feed-line"><strong>${escapeHtml(outbound ? "Prism" : name)}</strong><span class="feed-verb">${outbound ? `messaged ${escapeHtml(name)}` : "replied"}</span>${outbound ? `<span class="tag ${delivery[1]}">${delivery[0]}</span>` : ""}<time>${escapeHtml(time)}</time></div>
-      <p class="feed-text">${escapeHtml(message.content)}</p>
-    </div>
-  </div>`;
-}
-
-function activityGroups(messages) {
-  const groups = [];
-  messages.forEach((message) => {
-    const label = dayLabel(message.external_created_at || message.created_at);
-    const last = groups[groups.length - 1];
-    if (last && last.label === label) last.items.push(message);
-    else groups.push({ label, items: [message] });
-  });
-  return groups.map((group) => `<div class="feed-day">${escapeHtml(group.label)}</div>${group.items.map(activityItem).join("")}`).join("");
-}
-
-function renderTeamsActivity(messages) {
-  const container = $("#teams-activity-list");
-  $("#teams-activity-count").textContent = messages.length;
-  if (!messages.length) {
-    container.className = "list empty-state";
-    container.textContent = "No Teams messages recorded yet.";
-    return;
-  }
-  const recent = messages.slice(0, 12);
-  const earlier = messages.slice(12);
-  container.className = "teams-activity-feed";
-  container.innerHTML = `<div class="feed">${activityGroups(recent)}</div>${earlier.length ? `<details class="activity-history"><summary>Show ${earlier.length} earlier message${earlier.length === 1 ? "" : "s"}</summary><div class="feed">${activityGroups(earlier)}</div></details>` : ""}`;
-}
-
-function renderAgentHealth(runs) {
-  const actionable = runs.filter((run) => run.status === "failed" || run.status === "pending" || run.needs_manager_review);
-  $("#agent-health-count").textContent = actionable.length;
-  renderList("#agent-health-list", actionable, (run) => {
-    const employee = nameFor(run.source_employee_id);
-    const retry = run.next_retry_at ? `Next retry: ${dateTime(run.next_retry_at)}` : "No automatic retry scheduled";
-    const stateNote = run.state_applied ? "Operational state applied" : "Operational state not applied";
-    return item(
-      `${employee} · ${humanize(run.status)}`,
-      `${run.failure_reason || "Processing has not completed"} · Attempts: ${run.attempt_count} · ${stateNote} · ${retry}`,
-    );
-  }, "No failed or pending replies.");
-}
-
 function actionButton(label, action, id) {
   const help = {
     "daily-reminder": "Send this person a simple Teams reminder for today's update.",
@@ -468,16 +417,9 @@ function escapeHtml(value) {
   return String(value || "").replace(/[&<>'"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[character]);
 }
 
-function renderTeamsAutomation() {
+function renderTeamsConnection() {
   const microsoft = state.microsoft;
   if (!microsoft) return;
-  const activeRun = microsoft.active_run;
-  const managedEmployees = state.employees.filter((employee) => employee.is_managed);
-  const importedEmployees = state.employees.filter((employee) => employee.teams_user_id);
-  const availableEmployees = importedEmployees.filter((employee) => !employee.is_managed);
-  const badge = $("#teams-automation-badge");
-  const summary = $("#teams-automation-summary");
-  const senderIdentity = $("#teams-sender-identity");
   const connected = microsoft.is_connected && microsoft.connection;
   const name = connected ? microsoft.connection.display_name : "Microsoft account";
   const letters = connected ? initials(name) : "M";
@@ -486,55 +428,13 @@ function renderTeamsAutomation() {
   $("#account-avatar").textContent = letters;
   $("#settings-account-name").textContent = name;
   $("#settings-account-avatar").textContent = letters;
-  $("#teams-conn-name").textContent = connected ? name : "Microsoft Teams";
-  $("#teams-conn-avatar").textContent = letters;
   $("#account-menu-email").textContent = connected ? microsoft.connection.user_principal_name : "No Microsoft account connected";
-  senderIdentity.hidden = !connected;
-  senderIdentity.textContent = connected ? `${microsoft.connection.user_principal_name} · Approved replies are sent from this account` : "";
 
-  if (activeRun) {
-    badge.textContent = "Running";
-    summary.textContent = `${activeRun.delivered_count}/${activeRun.target_count} first messages delivered. ${microsoft.listener_expires_at ? `Reply listener expires ${dateTime(microsoft.listener_expires_at)}.` : "No active reply listener."}`;
-  } else if (connected) {
-    badge.textContent = "Connected";
-    summary.textContent = `${managedEmployees.length} ${managedEmployees.length === 1 ? "person" : "people"} managed. Daily check-in automation is off.`;
-  } else {
-    badge.textContent = "Setup";
-    summary.textContent = microsoft.is_auth_configured
-      ? "Microsoft account is not connected yet."
-      : "Add the Microsoft settings to .env, then restart the API.";
-  }
-
-  const teamsStatus = $("#nav-teams-status");
-  if (teamsStatus) teamsStatus.hidden = !activeRun;
-  badge.className = `badge ${activeRun ? "green" : microsoft.is_connected ? "blue" : "orange"}`;
   document.querySelectorAll("[data-connect-microsoft]").forEach((button) => {
     button.disabled = !microsoft.is_auth_configured;
     button.textContent = microsoft.is_connected ? "Switch Microsoft account" : "Connect Microsoft account";
     button.classList.toggle("secondary", Boolean(microsoft.is_connected));
   });
-  $("#sync-directory-button").disabled = !microsoft.is_connected;
-  const automationButton = $("#toggle-automation-button");
-  const canStart = microsoft.is_configured && microsoft.is_connected && managedEmployees.length;
-  automationButton.disabled = activeRun ? false : !canStart;
-  automationButton.classList.toggle("is-running", Boolean(activeRun));
-  automationButton.setAttribute("aria-label", activeRun ? "Stop automation" : "Start automation");
-  $("#automation-toggle-hint").textContent = activeRun
-    ? "Pause the agent and stop listening for Teams replies."
-    : "Start the agent and send the first Teams check-in to selected people.";
-  $("#automation-toggle-label").textContent = activeRun ? "Stop automation" : "Start automation";
-  $("#run-cycle-button").disabled = !microsoft.is_configured || !microsoft.is_connected || !activeRun;
-  $("#send-digest-email-button").disabled = !microsoft.is_connected;
-  $("#renew-listener-button").disabled = !activeRun;
-
-  const teamMember = (employee) => {
-    const nextValue = employee.is_managed ? "false" : "true";
-    return `<div class="list-item team-member">${avatar(employee.name)}<div class="member-main"><strong>${escapeHtml(employee.name)}</strong><div class="meta">${escapeHtml(employee.email)} · ${escapeHtml(employee.title || employee.role)}</div></div><span class="member-state">${employee.is_managed ? "Managed" : "Not managed"}</span><button class="switch" type="button" role="switch" aria-checked="${employee.is_managed ? "true" : "false"}" aria-label="Manage ${escapeHtml(employee.name)}" data-action="toggle-managed" data-id="${employee.id}" data-managed="${nextValue}"></button></div>`;
-  };
-  $("#managed-people-count").textContent = managedEmployees.length;
-  $("#available-people-count").textContent = availableEmployees.length;
-  renderList("#managed-team-list", managedEmployees, teamMember, "No people selected yet. Import your directory, then switch people on.");
-  renderList("#available-team-list", availableEmployees, teamMember, "Everyone imported from the organization is already managed.");
   renderSetup();
 }
 
@@ -642,13 +542,6 @@ function refreshFoundation() {
 
 async function loadDashboard() {
   $("#refresh-button").classList.add("spinning");
-  api("/api/v1/usage/llm/today").then((usage) => {
-    const amount = Number(usage.estimated_cost_usd).toFixed(4);
-    $("#ai-cost-today").textContent = usage.complete
-      ? `Today's AI cost: $${amount}`
-      : `Today's AI cost: $${amount} + unpriced usage`;
-    $("#ai-cost-today").title = `${usage.calls} calls · ${usage.timezone}. ${usage.unpriced_calls} calls missing pricing or token usage. Estimated from provider tokens.`;
-  }).catch(() => { $("#ai-cost-today").textContent = "Today's AI cost: unavailable"; });
   api("/api/v1/provider/status")
     .then(renderProviderStatus)
     .catch(() => renderProviderStatus({ provider: "unknown", model: null, state: "unavailable", ready: false, detail: "Provider status is unavailable" }));
@@ -665,7 +558,7 @@ async function loadDashboard() {
     .then((foundation) => applyV22Mode(true, foundation.single_executive_mode))
     .catch(() => applyV22Mode(false));
   try {
-    const [employees, projects, tasks, updates, blockers, commitments, escalations, findings, journeys, knowledge, microsoft, teamsConversations, messages, memoryFacts, memoryEpisodes, attention, brief, agentRuns] = await Promise.all([
+    const [employees, projects, tasks, updates, blockers, commitments, escalations, findings, journeys, knowledge, microsoft, memoryFacts, memoryEpisodes, attention, brief] = await Promise.all([
       api("/api/v1/employees?limit=100&is_active=true"),
       api("/api/v1/projects?limit=100"),
       api("/api/v1/tasks?limit=100"),
@@ -677,13 +570,10 @@ async function loadDashboard() {
       api("/api/v1/management/journeys"),
       api("/api/v1/management-context?limit=100"),
       api("/api/v1/microsoft/status"),
-      api("/api/v1/conversations?limit=100&channel=teams"),
-      api("/api/v1/messages?limit=100"),
       api("/api/v1/memory/facts?limit=12&status=current"),
       api("/api/v1/memory/episodes?limit=8"),
       api("/api/v2/management/attention"),
       api("/api/v2/management/brief/daily"),
-      api("/api/v1/microsoft/agent/runs?limit=30"),
     ]);
     Object.assign(state, {
       employees: employees.items,
@@ -695,10 +585,8 @@ async function loadDashboard() {
       journeys,
       knowledge: knowledge.items,
       attention,
-      agentRuns,
       brief,
       microsoft,
-      teamsConversationIds: new Set(teamsConversations.items.map((conversation) => conversation.id)),
     });
     $("#stat-employees").textContent = employees.total;
     $("#stat-updates").textContent = updates.total;
@@ -713,8 +601,7 @@ async function loadDashboard() {
     setNavCount("#nav-today-count", attention.length);
     setNavCount("#nav-work-count", blockers.total + commitments.total + escalations.total);
 
-    renderTeamsAutomation();
-    renderAgentHealth(agentRuns);
+    renderTeamsConnection();
     renderJourneys(journeys);
     renderKnowledge(knowledge.items);
     renderMemory(memoryFacts.items, memoryEpisodes);
@@ -747,8 +634,6 @@ async function loadDashboard() {
       `${escalation.escalation_type.replaceAll("_", " ")} · ${escalation.severity}`,
       `${actionButton("Acknowledge", "acknowledge-escalation", escalation.id)}${actionButton("Resolve", "resolve-escalation", escalation.id)}`,
     ), "No open escalations.");
-    const teamsMessages = messages.items.filter((message) => state.teamsConversationIds.has(message.conversation_id));
-    renderTeamsActivity(teamsMessages);
     renderSelectedForm();
   } catch (error) {
     setStatus(error.message + ". Check that the API and database are running.", true);
@@ -900,12 +785,6 @@ async function handleAction(button) {
       const employee = state.employees.find((item) => item.id === id);
       await recordMessageIntent(id, `Hi ${employee.name}, please share your daily update for today: what you completed, what you will deliver today, and any blockers.`);
     }
-    if (action === "toggle-managed") {
-      const managed = button.dataset.managed === "true";
-      button.setAttribute("aria-checked", String(managed));
-      await api(`/api/v1/employees/${id}`, { method: "PATCH", body: JSON.stringify({ is_managed: managed }) });
-      setStatus(managed ? "Employee added to the managed team." : "Employee removed from the managed team.");
-    }
     if (action === "blocker-follow-up") {
       const blocker = state.blockers.find((item) => item.id === id);
       const owner = state.employees.find((item) => item.id === blocker.dependency_owner_id);
@@ -945,7 +824,7 @@ async function handleAction(button) {
     await loadDashboard();
   } catch (error) {
     setStatus(error.message, true);
-    renderTeamsAutomation();
+    renderTeamsConnection();
   } finally {
     button.disabled = false;
   }
@@ -958,110 +837,10 @@ async function connectMicrosoft() {
   }
   if (state.microsoft.is_connected && !await askDialog({
     title: "Switch Microsoft account?",
-    message: `Switch from ${state.microsoft.connection.display_name} to a different account. Teams automation must be stopped first.`,
+    message: `Switch from ${state.microsoft.connection.display_name} to a different account.`,
     confirmLabel: "Switch",
   })) return;
   window.location.assign("/api/v1/microsoft/auth/start");
-}
-
-async function syncMicrosoftDirectory() {
-  const button = $("#sync-directory-button");
-  button.disabled = true;
-  try {
-    const result = await api("/api/v1/microsoft/directory/sync", { method: "POST" });
-    setStatus(`Directory imported: ${result.created} added, ${result.updated} updated, ${result.skipped} skipped.`);
-    await loadDashboard();
-  } catch (error) {
-    setStatus(error.message, true);
-  } finally {
-    button.disabled = false;
-  }
-}
-
-async function startAutomation() {
-  const button = $("#toggle-automation-button");
-  button.disabled = true;
-  try {
-    const run = await api("/api/v1/microsoft/automation/start", { method: "POST", body: JSON.stringify({}) });
-    setStatus(`Automation started. ${run.delivered_count}/${run.target_count} first Teams messages were delivered.`);
-    await loadDashboard();
-  } catch (error) {
-    setStatus(error.message, true);
-  } finally {
-    button.disabled = false;
-  }
-}
-
-async function runDailyCycle() {
-  if (!await askDialog({ title: "Run the daily cycle now?", message: "It may send check-ins and due commitment or escalation actions, but not immediate no-response reminders or a digest.", confirmLabel: "Run cycle" })) return;
-  const button = $("#run-cycle-button");
-  button.disabled = true;
-  try {
-    const result = await api("/api/v1/microsoft/automation/run-cycle?force=true", { method: "POST" });
-    setStatus(`Daily cycle complete: ${result.checkins} check-ins, ${result.followups} reminders, ${result.missed} commitment actions, ${result.escalations} escalation actions, ${result.digests} digest(es), ${result.listeners} listener renewal(s).`);
-    await loadDashboard();
-  } catch (error) {
-    setStatus(error.message, true);
-  } finally {
-    button.disabled = false;
-  }
-}
-
-async function sendDigestEmail() {
-  if (!await askDialog({ title: "Send today's digest?", message: "It will be emailed to the connected Microsoft account now.", confirmLabel: "Send" })) return;
-  const button = $("#send-digest-email-button");
-  button.disabled = true;
-  try {
-    const result = await api("/api/v1/microsoft/automation/send-digest-email", { method: "POST" });
-    setStatus(`Manager digest sent to ${result.recipient}. Check Outlook shortly.`);
-  } catch (error) {
-    setStatus(error.message, true);
-  } finally {
-    button.disabled = false;
-  }
-}
-
-async function renewTeamsListener() {
-  const button = $("#renew-listener-button");
-  button.disabled = true;
-  try {
-    const result = await api("/api/v1/microsoft/automation/renew-listener", { method: "POST" });
-    setStatus(`Reply listener renewed for ${result.renewed} chat(s).${result.failed ? ` ${result.failed} failed.` : ""}`);
-    await loadDashboard();
-  } catch (error) {
-    setStatus(error.message, true);
-  } finally {
-    button.disabled = false;
-  }
-}
-
-async function retryAgentRuns() {
-  const button = $("#retry-agent-runs-button");
-  button.disabled = true;
-  try {
-    const result = await api("/api/v1/microsoft/agent/process-pending?force=true", { method: "POST" });
-    setStatus(`Processed ${result.processed} pending or failed repl${result.processed === 1 ? "y" : "ies"}.`);
-    await loadDashboard();
-  } catch (error) {
-    setStatus(error.message, true);
-  } finally {
-    button.disabled = false;
-  }
-}
-
-async function stopAutomation() {
-  if (!await askDialog({ title: "Stop Teams automation?", message: "The active reply listeners will be removed.", confirmLabel: "Stop automation", danger: true })) return;
-  const button = $("#toggle-automation-button");
-  button.disabled = true;
-  try {
-    await api("/api/v1/microsoft/automation/stop", { method: "POST" });
-    setStatus("Teams automation stopped.");
-    await loadDashboard();
-  } catch (error) {
-    setStatus(error.message, true);
-  } finally {
-    button.disabled = false;
-  }
 }
 
 async function createDummyJourney() {
@@ -1208,6 +987,7 @@ $("#theme-select").addEventListener("change", (event) => setTheme(event.target.v
 themeQuery.addEventListener("change", () => { if (!localStorage.getItem(themeKey)) setTheme("system"); });
 $("#sidebar-close").addEventListener("click", () => toggleSidebar(false));
 $("#sidebar-open").addEventListener("click", () => toggleSidebar(true));
+document.querySelectorAll(".chat-sidebar-open").forEach((button) => button.addEventListener("click", () => toggleSidebar(true)));
 $("#scrim").addEventListener("click", () => toggleSidebar(false));
 $("#confirm-cancel").addEventListener("click", () => $("#confirm-dialog").close("cancel"));
 $("#refresh-button").addEventListener("click", loadDashboard);
@@ -1222,15 +1002,6 @@ $("#approval-banner-button").addEventListener("click", () => {
   else document.dispatchEvent(new CustomEvent("prism:new-chat"));
 });
 document.addEventListener("prism:agent-changed", refreshFoundation);
-$("#sync-directory-button").addEventListener("click", syncMicrosoftDirectory);
-$("#toggle-automation-button").addEventListener("click", () => {
-  if (state.microsoft && state.microsoft.active_run) return stopAutomation();
-  return startAutomation();
-});
-$("#run-cycle-button").addEventListener("click", runDailyCycle);
-$("#send-digest-email-button").addEventListener("click", sendDigestEmail);
-$("#renew-listener-button").addEventListener("click", renewTeamsListener);
-$("#retry-agent-runs-button").addEventListener("click", retryAgentRuns);
 $("#create-dummy-journey-button").addEventListener("click", createDummyJourney);
 $("#consolidate-memory-button").addEventListener("click", consolidateMemory);
 $("#run-intelligence-button").addEventListener("click", runIntelligence);

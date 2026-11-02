@@ -2,7 +2,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -54,6 +54,11 @@ class Settings(BaseSettings):
     azure_openai_total_timeout_seconds: float = Field(
         default=40.0, ge=10.0, le=180.0, validation_alias="AZURE_OPENAI_TOTAL_TIMEOUT_SECONDS"
     )
+    # Reasoning models (gpt-5*, o*) think before answering, and that thinking is billed and waited for as
+    # output. "low" keeps big reviews well inside the timeout; empty sends nothing (the model's default).
+    azure_openai_reasoning_effort: str = Field(
+        default="low", validation_alias="AZURE_OPENAI_REASONING_EFFORT"
+    )
     azure_openai_max_attempts: int = Field(
         default=2, ge=1, le=3, validation_alias="AZURE_OPENAI_MAX_ATTEMPTS"
     )
@@ -68,6 +73,35 @@ class Settings(BaseSettings):
     )
     prism_v21_enabled: bool = Field(default=False, validation_alias="PRISM_V21_ENABLED")
     prism_v22_enabled: bool = Field(default=False, validation_alias="PRISM_V22_ENABLED")
+    # The QA swarm is a hidden backend engine: end users only ever see Prism.
+    qa_swarm_url: Optional[str] = Field(default=None, validation_alias="QA_SWARM_URL")
+    qa_swarm_email: Optional[str] = Field(default=None, validation_alias="QA_SWARM_EMAIL")
+    qa_swarm_password: Optional[str] = Field(default=None, validation_alias="QA_SWARM_PASSWORD")
+    qa_swarm_agent: str = Field(default="QA Agent", validation_alias="QA_SWARM_AGENT")
+    qa_allow_local_targets: bool = Field(default=True, validation_alias="QA_ALLOW_LOCAL_TARGETS")
+    qa_max_turns_cap: int = Field(default=150, ge=5, le=300, validation_alias="QA_MAX_TURNS_CAP")
+    qa_budget_cap_usd: float = Field(default=3.0, gt=0, le=50, validation_alias="QA_BUDGET_CAP_USD")
+    qa_watcher_enabled: bool = Field(default=True, validation_alias="QA_WATCHER_ENABLED")
+    qa_watcher_interval_seconds: float = Field(
+        default=2.0, ge=0.5, le=30, validation_alias="QA_WATCHER_INTERVAL_SECONDS"
+    )
+
+    # v2.4: every Prism can have its own computer (a real browser run by the hidden engine).
+    prism_v24_enabled: bool = Field(default=False, validation_alias="PRISM_V24_ENABLED")
+    work_max_turns_cap: int = Field(
+        default=150, ge=5, le=300, validation_alias="WORK_MAX_TURNS_CAP"
+    )
+    work_budget_cap_usd: float = Field(
+        default=3.0, gt=0, le=50, validation_alias="WORK_BUDGET_CAP_USD"
+    )
+    work_max_minutes: int = Field(default=30, ge=1, le=240, validation_alias="WORK_MAX_MINUTES")
+    # Shared with the engine's PRISM_BRIDGE_SECRET: signs its calls back into Prism (Teams tools).
+    work_bridge_secret: Optional[str] = Field(default=None, validation_alias="WORK_BRIDGE_SECRET")
+
+    @property
+    def qa_swarm_configured(self) -> bool:
+        return bool(self.qa_swarm_url and self.qa_swarm_email and self.qa_swarm_password)
+
     prism_v22_single_executive_mode: bool = Field(
         default=False, validation_alias="PRISM_V22_SINGLE_EXECUTIVE_MODE"
     )
@@ -76,6 +110,9 @@ class Settings(BaseSettings):
     )
     v21_teams_source_limit: int = Field(
         default=5, ge=1, le=12, validation_alias="V21_TEAMS_SOURCE_LIMIT"
+    )
+    teams_catalog_cache_seconds: int = Field(
+        default=45, ge=0, le=600, validation_alias="TEAMS_CATALOG_CACHE_SECONDS"
     )
     v21_teams_history_days: int = Field(
         default=30, ge=1, le=365, validation_alias="V21_TEAMS_HISTORY_DAYS"
@@ -176,6 +213,22 @@ class Settings(BaseSettings):
     )
     llm_model_pricing: dict[str, ModelPricing] = Field(
         default_factory=dict, validation_alias="LLM_MODEL_PRICING"
+    )
+    # Azure Cost Management, to show what Azure actually billed next to the token estimate.
+    # Needs a service principal with Cost Management Reader on each scope. Leave empty to skip.
+    azure_billing_tenant_id: Optional[str] = Field(
+        default=None, validation_alias="AZURE_BILLING_TENANT_ID"
+    )
+    azure_billing_client_id: Optional[str] = Field(
+        default=None, validation_alias="AZURE_BILLING_CLIENT_ID"
+    )
+    azure_billing_client_secret: Optional[SecretStr] = Field(
+        default=None, validation_alias="AZURE_BILLING_CLIENT_SECRET"
+    )
+    # {"prism": "<ARM scope of the Azure OpenAI resource Prism uses>", "swarm": "<scope for the swarm's>"},
+    # e.g. /subscriptions/<id>/resourceGroups/<rg>/providers/Microsoft.CognitiveServices/accounts/<name>
+    azure_billing_scopes: dict[str, str] = Field(
+        default_factory=dict, validation_alias="AZURE_BILLING_SCOPES"
     )
     agent_context_turns: int = Field(
         default=12, ge=2, le=30, validation_alias="AGENT_CONTEXT_TURNS"

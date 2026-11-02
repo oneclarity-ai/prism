@@ -491,14 +491,16 @@ class MicrosoftGraphClient:
             json_body={"expirationDateTime": expires_at.isoformat().replace("+00:00", "Z")},
         )
 
-    def send_chat_message(self, chat_id: str, content: str) -> dict[str, Any]:
+    def send_chat_message(
+        self, chat_id: str, content: str, signature: str | None = None
+    ) -> dict[str, Any]:
         return self.request(
             "POST",
             "/chats/{}/messages".format(chat_id),
             json_body={
                 "body": {
                     "contentType": "html",
-                    "content": MicrosoftService.teams_html_message(content),
+                    "content": MicrosoftService.teams_html_message(content, signature),
                 }
             },
         )
@@ -1104,10 +1106,29 @@ class MicrosoftService:
         return parts[0] if parts and parts[0] else "there"
 
     @staticmethod
-    def teams_html_message(content: str) -> str:
+    def prism_signature(owner_name: str | None, prism_name: str | None) -> str:
+        """ "Sent by Yash's QA Tester Prism": the owner and the Prism that wrote the message."""
+
+        role = " ".join((prism_name or "").split())
+        if not role:
+            return get_settings().agent_signature.strip()
+        if role.lower().endswith(" prism") or role.lower() == "prism":
+            role = role[: -len("prism")].rstrip()
+        owner = MicrosoftService.first_name(owner_name) if owner_name else ""
+        if owner == "there":
+            owner = ""
+        possessive = ""
+        if owner:
+            possessive = owner + ("'" if owner.lower().endswith("s") else "'s") + " "
+        return "Sent by {}{}{}".format(possessive, role + " " if role else "", "Prism").replace(
+            "  ", " "
+        )
+
+    @staticmethod
+    def teams_html_message(content: str, signature: str | None = None) -> str:
         """Render a safe Teams HTML body while retaining plain text in the audit log."""
 
-        signature = get_settings().agent_signature.strip()
+        signature = (signature or get_settings().agent_signature).strip()
         paragraphs = [
             paragraph.strip() for paragraph in content.strip().split("\n\n") if paragraph.strip()
         ]

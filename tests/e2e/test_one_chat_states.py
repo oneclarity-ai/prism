@@ -65,6 +65,7 @@ def test_hostile_teams_and_model_text_never_becomes_markup(page: Page, e2e_app) 
     expect(turn).to_be_visible()
     # The model's tags are shown literally as text, not parsed.
     expect(turn).to_contain_text("<img src=x")
+    turn.locator(".turn-details > summary").click()
     turn.locator("details.evidence > summary").first.click()
     assert (
         page.locator("#agent-timeline img, #agent-timeline script, #agent-timeline b").count() == 0
@@ -152,17 +153,17 @@ def test_workspace_has_no_horizontal_scroll_and_exposes_a_live_region(page: Page
     assert overflow <= 0
     expect(page.locator("#agent-timeline")).to_have_attribute("aria-live", "polite")
     # Status is communicated with words, not colour alone.
-    expect(page.locator(".draft-card .tag").last).not_to_have_text("")
+    expect(page.locator(".draft-card .draft-state").last).not_to_have_text("")
 
 
 def test_source_filter_defaults_to_auto_and_can_limit_requests(page: Page, e2e_app) -> None:
     chip = page.locator("#agent-source-chip")
-    expect(chip).to_contain_text("Auto")
+    expect(chip).to_contain_text("All chats")
     chip.click()
     dialog = page.locator("#agent-source-dialog")
     expect(dialog).to_be_visible()
     dialog.get_by_role("button", name="Parv Pareek").first.click()
-    expect(chip).to_contain_text("Only Parv Pareek")
+    expect(chip).to_contain_text("Parv Pareek")
 
     ask(page, QUESTION)
     turn = page.locator(".turn.assistant", has_text="release schema")
@@ -170,8 +171,8 @@ def test_source_filter_defaults_to_auto_and_can_limit_requests(page: Page, e2e_a
     assert turn.locator(".source-chips .tag.blue").count() == 1
 
     chip.click()
-    dialog.get_by_role("button", name="Auto").first.click()
-    expect(chip).to_have_text("Auto")
+    dialog.get_by_role("button", name="All chats").first.click()
+    expect(chip).to_have_text("All chats")
 
 
 def test_empty_chat_review_ends_with_a_clear_message_and_no_spinner(page: Page, e2e_app) -> None:
@@ -218,7 +219,7 @@ def test_single_empty_group_chat_drafts_one_labelled_reply_to_that_group(
     chip = page.locator("#agent-source-chip")
     chip.click()
     page.locator("#agent-source-dialog").get_by_role("button", name="Release group").click()
-    expect(chip).to_contain_text("Only Release group")
+    expect(chip).to_contain_text("Release group")
 
     ask(page, "draft a message to Parv and Rohan to complete the things we discussed earlier")
 
@@ -233,3 +234,14 @@ def test_single_empty_group_chat_drafts_one_labelled_reply_to_that_group(
     card.get_by_role("button", name="Approve and send").click()
     expect(card).to_contain_text("Sent")
     assert [chat for chat, _ in e2e_app.graph.sent] == ["chat-release"]
+
+
+def test_small_talk_is_answered_without_reading_teams(page: Page, e2e_app) -> None:
+    box = page.locator("#agent-message-input")
+    box.fill("hi")
+    page.locator("#agent-send-button").click()
+    reply = page.locator(".turn.assistant").first
+    expect(reply).to_be_visible()
+    expect(page.locator("#agent-timeline .say-typing")).to_have_count(0)
+    # No review job, no evidence, no "Working on it" details: it was just a friendly answer.
+    expect(page.locator(".turn-details")).to_have_count(0)

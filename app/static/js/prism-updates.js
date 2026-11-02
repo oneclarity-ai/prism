@@ -1,4 +1,5 @@
 import { agentApi } from "./api.js";
+import { prismColorKey, prismLogoIcon } from "./prism-logo.js";
 
 const $ = (selector) => document.querySelector(selector);
 const ui = () => window.prism || {};
@@ -15,6 +16,9 @@ const clientId = (() => {
 })();
 
 let timer = null;
+// Each alert shows the Prism's own coloured logo; the directory shares the list as it loads.
+const prismsById = new Map();
+document.addEventListener("prism:list", (event) => { prismsById.clear(); event.detail.prisms.forEach((prism) => prismsById.set(prism.id, prism)); });
 let busy = false;
 const supported = () => "Notification" in window;
 const permission = () => (supported() ? Notification.permission : "unsupported");
@@ -31,7 +35,9 @@ async function deliver() {
   if (!notification) return;
   let result = "delivered";
   try {
-    const shown = new Notification(notification.title, { body: notification.body, tag: notification.tag });
+    const prism = prismsById.get(notification.prism_id);
+    const icon = await prismLogoIcon(prismColorKey(prism || { id: notification.prism_id }));
+    const shown = new Notification(notification.title, { body: notification.body, tag: notification.tag, icon });
     shown.onclick = () => {
       window.focus();
       document.dispatchEvent(new CustomEvent("prism:open", { detail: { id: notification.prism_id } }));

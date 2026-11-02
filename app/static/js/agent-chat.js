@@ -1,4 +1,6 @@
 import { agentApi } from "./api.js";
+import { colorPicker, prismColorKey, prismLogo } from "./prism-logo.js";
+import { computersEnabled, initQa, onPrism as onQaPrism, planRequest, renderQaMessage, setOpen as setComputerOpen } from "./qa-tester.js";
 
 const $ = (selector) => document.querySelector(selector);
 const ui = () => window.prism || {};
@@ -197,32 +199,42 @@ function markUpdatesRead(prismId, items) {
 function renderUpdate(item) {
   const { article, body } = assistantShell(`proactive-update ${item.state}`);
   article.dataset.observation = item.id;
-  const head = textElement("div", "turn-head");
-  head.append(textElement("strong", "", "Prism"), textElement("span", `tag ${URGENCY_TONES[item.urgency] || "blue"}`, `${item.urgency[0].toUpperCase()}${item.urgency.slice(1)} urgency`));
-  if (!item.read_at) head.append(textElement("span", "tag purple", "New"));
-  if (item.state !== "open") head.append(textElement("span", "tag green", item.state === "resolved" ? "Resolved" : "Superseded"));
-  head.append(textElement("time", "", formatTime(item.created_at)));
-  body.append(head, textElement("p", "review-summary", item.summary));
-  const meta = textElement("div", "chips");
-  meta.append(textElement("span", "tag blue", SIGNAL_LABELS[item.signal_type] || "Update"), confidenceTag(item.confidence));
-  if (item.source_label) meta.append(textElement("span", "tag gray", item.source_label));
-  body.append(meta);
-  const facts = item.verified_facts.length ? reviewSection("What Teams shows", item.verified_facts.length, item.verified_facts.map((fact) => textElement("p", "", fact))) : null;
-  if (facts) body.append(facts);
-  if (item.inference) body.append(textElement("p", "update-inference", `Inference, not a verified fact: ${item.inference}`));
-  body.append(textElement("p", "update-why", `Why it matters: ${item.why_it_matters}`), textElement("p", "update-next", `Suggested next step: ${item.suggested_next_step}`));
+  const lead = textElement("p", "review-summary");
+  if (["critical", "high"].includes(item.urgency) && item.state === "open") {
+    const dot = textElement("span", `urgency-dot ${URGENCY_TONES[item.urgency]}`);
+    dot.title = `${item.urgency[0].toUpperCase()}${item.urgency.slice(1)} urgency`;
+    lead.append(dot);
+  }
+  lead.append(item.state === "open" ? `${item.summary}.` : `${item.summary}. ${item.state === "resolved" ? "This looks resolved now." : "There is a newer update on this."}`);
+  body.append(msgBubble(lead));
+  if (item.verified_facts.length) {
+    const quote = textElement("div", "say say-quote");
+    item.verified_facts.forEach((fact) => quote.append(textElement("p", "", fact)));
+    quote.title = "Show the full message";
+    quote.addEventListener("click", () => quote.classList.toggle("expanded"));
+    body.append(quote);
+  }
+  if (item.state === "open" && item.suggested_next_step) body.append(msgBubble(textElement("p", "", item.suggested_next_step)));
+
+  const quiet = textElement("div", "turn-quiet");
+  const { details, content } = turnDetails([item.source_label, SIGNAL_LABELS[item.signal_type]].filter(Boolean).join(" · ") || "Details", `update:${item.id}`);
+  content.append(
+    textElement("p", "turn-meta", `${SIGNAL_LABELS[item.signal_type] || "Update"} · ${item.urgency[0].toUpperCase()}${item.urgency.slice(1)} urgency · ${confidenceText(item.confidence)}`),
+    textElement("p", "update-why", `Why it matters: ${item.why_it_matters}`),
+  );
+  if (item.inference) content.append(textElement("p", "update-inference", `Inference, not a verified fact: ${item.inference}`));
   if (item.unknowns.length) {
     const limits = textElement("details", "limitations");
     limits.append(textElement("summary", "", "What Prism could not verify"));
     const list = document.createElement("ul");
     item.unknowns.forEach((unknown) => list.append(textElement("li", "", unknown)));
     limits.append(list);
-    body.append(limits);
+    content.append(limits);
   }
-  if (item.state === "open") body.append(actionButton("Prepare a Teams draft", "mini-button", () => draftFromUpdate(item)));
-  body.append(renderFeedback(item));
-  body.append(renderIncidentHistory(item));
-  body.append(textElement("p", "turn-meta", "Recommendation only. Nothing was sent."));
+  content.append(renderIncidentHistory(item), renderFeedback(item));
+  quiet.append(details);
+  if (item.state === "open") quiet.append(actionButton("Prepare a Teams draft", "link-button", () => draftFromUpdate(item)));
+  body.append(quiet);
   return article;
 }
 
@@ -253,23 +265,44 @@ async function draftFromUpdate(item) {
 const FEEDBACK_LABELS = { helpful: "Helpful", not_helpful: "Not helpful", wrong_urgency: "Wrong urgency", wrong_evidence: "Wrong evidence", duplicate: "Duplicate", no_longer_relevant: "No longer relevant" };
 
 // Feedback is saved for this Prism only. It never changes behavior until you confirm it in Status & tuning.
+const FEEDBACK_REASONS = ["wrong_urgency", "wrong_evidence", "duplicate", "no_longer_relevant"];
+
 function renderFeedback(item) {
   const row = textElement("div", "update-feedback");
-  row.append(textElement("span", "turn-meta", "Was this useful?"));
   const selected = new Set(item.feedback_kinds || []);
-  Object.entries(FEEDBACK_LABELS).forEach(([kind, label]) => {
-    const button = actionButton(label, `mini-button feedback${selected.has(kind) ? " selected" : ""}`, async () => {
-      try {
-        const result = await agentApi(`/api/v2/prisms/${item.prism_id}/observations/${item.id}/feedback`, { method: "POST", body: JSON.stringify({ kind }) });
-        item.feedback_kinds = result.feedback_kinds;
-        row.querySelectorAll("button.feedback").forEach((node) => node.classList.toggle("selected", result.feedback_kinds.includes(node.dataset.kind)));
-        ui().setStatus?.("Thanks. Noted for this Prism only.");
-      } catch (error) { ui().setStatus?.(error.message, true); }
-    });
+  const reasons = textElement("div", "feedback-reasons");
+  reasons.id = `feedback-reasons-${item.id}`;
+  reasons.setAttribute("role", "group");
+  reasons.setAttribute("aria-label", "What was wrong");
+  const toggle = actionButton("What was off?", "mini-button ghost feedback-more", () => setReasons(reasons.hidden));
+  toggle.setAttribute("aria-controls", reasons.id);
+  const setReasons = (open) => {
+    reasons.hidden = !open;
+    toggle.setAttribute("aria-expanded", String(open));
+  };
+  const save = async (kind) => {
+    try {
+      const result = await agentApi(`/api/v2/prisms/${item.prism_id}/observations/${item.id}/feedback`, { method: "POST", body: JSON.stringify({ kind }) });
+      item.feedback_kinds = result.feedback_kinds;
+      row.querySelectorAll("button.feedback").forEach((node) => {
+        const on = result.feedback_kinds.includes(node.dataset.kind);
+        node.classList.toggle("selected", on);
+        node.setAttribute("aria-pressed", String(on));
+      });
+      ui().setStatus?.("Thanks. Noted for this Prism only.");
+    } catch (error) { ui().setStatus?.(error.message, true); }
+  };
+  const choice = (kind) => {
+    const button = actionButton(FEEDBACK_LABELS[kind], `mini-button feedback${selected.has(kind) ? " selected" : ""}`, () => save(kind));
     button.dataset.kind = kind;
     button.setAttribute("aria-pressed", String(selected.has(kind)));
-    row.append(button);
-  });
+    return button;
+  };
+  const main = textElement("div", "feedback-main");
+  main.append(textElement("span", "turn-meta", "Was this useful?"), choice("helpful"), choice("not_helpful"), toggle);
+  FEEDBACK_REASONS.forEach((kind) => reasons.append(choice(kind)));
+  setReasons(FEEDBACK_REASONS.some((kind) => selected.has(kind)));
+  row.append(main, reasons);
   return row;
 }
 
@@ -396,20 +429,30 @@ function renderHeader() {
   const label = thread?.source_label;
   const participants = thread?.source_metadata?.participants || [];
   $("#agent-thread-title").textContent = agentState.prism?.name || "Prism";
-  $("#agent-prism-menu-wrap").hidden = !agentState.prism;
+  const headerLogo = $("#agent-thread-logo");
+  headerLogo.hidden = !agentState.prism;
+  if (agentState.prism) headerLogo.replaceChildren(prismLogo(agentState.prism, "prism-logo"));
+  document.querySelectorAll("[data-needs-prism]").forEach((tab) => { tab.hidden = !agentState.prism; });
+  onQaPrism(agentState.prism);
+  renderPreferencesIntro();
+  if ((agentState.prism?.id || null) !== agentState.preferencesFor) {
+    agentState.preferences = [];
+    agentState.preferencesFor = agentState.prism?.id || null;
+    renderPreferences();
+    loadPreferences({ silent: true });
+  }
+  if (!agentState.prism) setDrawerTab("preferences");
   $("#agent-source-label").textContent = !thread
-    ? (agentState.prism ? "Private conversation" : "Your manager agent")
+    ? ""
     : label
       ? (participants.length ? `Source constraint · ${participants.slice(0, 4).join(", ")}${participants.length > 4 ? ` +${participants.length - 4}` : ""}` : `Source constraint · ${label}`)
-      : (agentState.prism ? "Private conversation" : "Your manager agent");
-  $("#agent-source-chip-label").textContent = label ? `Only ${label}` : "Auto";
+      : "";
+  $("#agent-source-chip-label").textContent = label || "All chats";
   $("#agent-source-chip").title = label
-    ? "Requests are limited to this chat. Choose Auto to let Prism pick and disclose sources."
-    : "Auto: Prism picks the relevant Teams chats and shows what it read. Choose one to limit requests.";
+    ? "Requests are limited to this chat. Choose All chats to let Prism pick and disclose sources."
+    : "All chats: Prism picks the relevant Teams chats and shows what it read. Choose one to limit requests.";
   $("#agent-source-chip").classList.toggle("empty", !label);
-  $("#agent-message-input").placeholder = label
-    ? `Ask Prism about ${label}…`
-    : "Ask Prism about your team’s work…";
+  $("#agent-message-input").placeholder = `Message ${agentState.prism?.name || "Prism"}`;
 }
 
 async function createThread() {
@@ -486,6 +529,7 @@ async function refreshMessages() {
   await ensureTurns(messages);
   agentState.messages = messages;
   renderStream();
+  document.dispatchEvent(new CustomEvent("prism:updates-refresh"));
 }
 
 async function loadEarlier() {
@@ -588,13 +632,25 @@ function renderStream({ scroll = "auto" } = {}) {
   if (agentState.anchor) timeline.append(renderHistoryBanner());
   if (agentState.hasEarlier) timeline.append(actionButton("Load earlier messages", "button secondary load-earlier", loadEarlier));
   let previous = null;
+  // A centered time appears at the start, after a pause of 20 minutes, or when the day changes.
+  let lastAt = null;
+  const stamp = (value) => {
+    if (!value) return;
+    const at = new Date(value);
+    if (lastAt === null || Math.abs(at - lastAt) >= STAMP_GAP_MS || at.toDateString() !== lastAt.toDateString()) timeline.append(renderTimeStamp(value));
+    lastAt = at;
+  };
   // Oldest first, so each update sits between the messages around the time it was found.
   const updates = [...agentState.updates].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
   const flushUpdates = (before) => {
-    while (updates.length && (!before || new Date(updates[0].created_at) <= new Date(before))) timeline.append(renderUpdate(updates.shift()));
+    while (updates.length && (!before || new Date(updates[0].created_at) <= new Date(before))) {
+      stamp(updates[0].created_at);
+      timeline.append(renderUpdate(updates.shift()));
+    }
   };
   messages.forEach((message) => {
     flushUpdates(message.created_at);
+    stamp(message.created_at);
     if (message.role === "manager") {
       const separator = renderTopicSeparator(message, previous);
       if (separator) timeline.append(separator);
@@ -609,45 +665,60 @@ function renderStream({ scroll = "auto" } = {}) {
   flushUpdates();
   if (agentState.pendingSubmission) {
     const pending = agentState.pendingSubmission;
+    stamp(pending.createdAt);
     timeline.append(renderUserMessage({
       id: "pending-submission",
       content: pending.content,
       created_at: pending.createdAt,
     }));
     const { article, body } = assistantShell("working pending-submission");
-    const progress = textElement("div", "progress-title");
-    progress.setAttribute("role", "status");
-    progress.setAttribute("aria-live", "polite");
-    progress.append(textElement("span", "spinner"), textElement("strong", "", pending.label));
-    body.append(progress);
+    body.append(typingBubble(pending.label));
     timeline.append(article);
   }
   timeline.querySelectorAll("textarea.autogrow").forEach((textarea) => autoGrow(textarea));
   if (scroll === "keep") return;
   scroller.scrollTop = scroll === "bottom" || (scroll === "auto" && nearBottom) ? scroller.scrollHeight : previousTop;
+  updateJumpButton();
 }
 
-function dayLabel(value) {
+// Scrolled up to read earlier messages: offer a way straight back to the latest.
+function updateJumpButton() {
+  const scroller = $("#agent-scroll");
+  $("#agent-jump-latest").hidden = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 240;
+}
+
+const STAMP_GAP_MS = 20 * 60 * 1000;
+const clockText = (date) => date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+// Centered time between messages: the clock for today, then day and clock the further back it is.
+function stampLabel(value) {
   const date = new Date(value);
   const days = Math.round((new Date().setHours(0, 0, 0, 0) - new Date(date).setHours(0, 0, 0, 0)) / 86400000);
-  if (days === 0) return "Today";
-  if (days === 1) return "Yesterday";
-  return date.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric", year: days > 300 ? "numeric" : undefined });
+  if (days <= 0) return clockText(date);
+  if (days === 1) return `Yesterday, ${clockText(date)}`;
+  if (days < 7) return `${date.toLocaleDateString([], { weekday: "long" })}, ${clockText(date)}`;
+  const day = date.toLocaleDateString([], { day: "numeric", month: "short", year: date.getFullYear() === new Date().getFullYear() ? undefined : "numeric" });
+  return `${day}, ${clockText(date)}`;
+}
+
+function renderTimeStamp(value) {
+  const stamp = textElement("time", "chat-stamp", stampLabel(value));
+  stamp.dateTime = new Date(value).toISOString();
+  stamp.title = formatTime(value);
+  return stamp;
 }
 
 const scopeKey = (job) => `${job?.scope_mode || ""}:${(job?.sources || []).map((source) => source.external_id).sort().join(",")}`;
 
-// A separator appears when the day changes or Prism starts working from a different source set.
+// A separator appears when Prism starts working from a different source set.
 function renderTopicSeparator(message, previous) {
   const job = agentState.turns.get(message.job_id)?.job;
-  const newDay = !previous || dayLabel(previous.created_at) !== dayLabel(message.created_at);
   const previousJob = previous && agentState.turns.get(previous.job_id)?.job;
   const newTopic = Boolean(previous && job?.sources?.length && previousJob?.sources?.length && scopeKey(job) !== scopeKey(previousJob));
-  if (!newDay && !newTopic) return null;
+  if (!newTopic) return null;
   const separator = textElement("div", "topic-separator");
   separator.setAttribute("role", "separator");
   const parts = [];
-  if (newDay) parts.push(dayLabel(message.created_at));
   if (newTopic) parts.push(`New topic · ${job.sources.map((source) => source.label || "Teams chat").join(", ")}`);
   separator.append(textElement("span", "", parts.join(" · ")));
   return separator;
@@ -663,19 +734,62 @@ function renderHistoryBanner() {
   return banner;
 }
 
+// A long job description becomes a one-line blurb: the first sentence, cut at a word boundary.
+function briefDescription(text, limit = 140) {
+  const clean = String(text || "").replace(/\s+/g, " ").trim();
+  if (!clean) return "Ask me about your team’s work and I’ll look into it.";
+  const first = clean.match(/^.*?[.!?](?=\s|$)/)?.[0] || clean;
+  if (first.length <= limit) return first;
+  return `${first.slice(0, limit).replace(/\s+\S*$/, "")}…`;
+}
+
+// Shown only while the conversation is empty, so they appear once after onboarding.
+async function addFirstSuggestions(welcome, prism) {
+  const key = `prism-first-suggestions-v2:${prism.id}`;
+  let data = {};
+  try { data = JSON.parse(localStorage.getItem(key) || "{}"); } catch { data = {}; }
+  if (!data.steps?.length && !data.suggestions?.length) {
+    try {
+      data = await agentApi(`/api/v2/prisms/${prism.id}/suggestions`);
+      if (data.steps?.length || data.suggestions?.length) {
+        try { localStorage.setItem(key, JSON.stringify(data)); } catch { /* storage unavailable */ }
+      }
+    } catch { return; }
+  }
+  if (!welcome.isConnected) return;
+  const list = welcome.querySelector(".welcome-steps");
+  if (list && data.steps?.length) list.replaceChildren(...data.steps.map((step) => textElement("li", "", step)));
+  if (!data.suggestions?.length) return;
+  const chips = textElement("div", "suggestions");
+  data.suggestions.forEach((suggestion) => chips.append(actionButton(suggestion, "mini-button", () => {
+    const input = $("#agent-message-input");
+    input.value = suggestion;
+    input.dispatchEvent(new Event("input"));
+    input.focus();
+  })));
+  welcome.append(chips);
+}
+
 function renderWelcome() {
   const thread = agentState.activeThread;
   const label = thread?.source_label;
   const welcome = textElement("div", "agent-welcome");
-  welcome.append(textElement("span", "welcome-mark", (agentState.prism?.name || "P").trim().charAt(0).toUpperCase()));
+  welcome.append(agentState.prism
+    ? prismLogo(agentState.prism, "prism-logo welcome-logo")
+    : textElement("span", "welcome-mark", "P"));
   if (!label) {
     welcome.append(
       textElement("h2", "", agentState.prism ? `Talk to your ${agentState.prism.name} Prism` : "Talk to your manager agent"),
-      textElement("p", "", agentState.prism?.description || "Ask naturally and Prism will disclose which Teams chats it reads. Use the chat selector in the message box to limit a request to one chat."),
+      textElement("p", "welcome-about", agentState.prism ? briefDescription(agentState.prism.description) : "Ask naturally and Prism will disclose which Teams chats it reads. Use the chat selector in the message box to limit a request to one chat."),
     );
     const steps = textElement("ol", "welcome-steps");
-    ["Ask naturally and Auto will choose relevant chats", "Select a chat only when you want a hard one-chat limit", "Check the evidence and approve only actions you requested"].forEach((step) => steps.append(textElement("li", "", step)));
+    (agentState.prism?.template_key === "qa_tester"
+      ? ["Tell me a site to test, for example “test example.com and check the contact form”", "I'll show you a plan; you decide when I start", "Watch my screen on the right, then read my report here"]
+      : agentState.prism && computersEnabled()
+      ? ["Give me a task, for example “find 5 fintech companies in Bangalore and list their websites”", "I'll show you a plan; you decide when I start", "Watch my computer on the right, then read my report here"]
+      : ["Ask naturally and Prism will choose the relevant chats", "Select a chat only when you want a hard one-chat limit", "Check the evidence and approve only actions you requested"]).forEach((step) => steps.append(textElement("li", "", step)));
     welcome.append(steps);
+    if (agentState.prism && computersEnabled()) addFirstSuggestions(welcome, agentState.prism);
   } else {
     welcome.append(
       textElement("h2", "", `Ask Prism about ${label}`),
@@ -711,24 +825,78 @@ function assistantShell(extraClass = "") {
   return { article, body };
 }
 
+// One chat bubble. Replies read like messages from a colleague; the machinery lives in details.
+function msgBubble(...children) {
+  const bubble = textElement("div", "say");
+  bubble.append(...children);
+  return bubble;
+}
+
+// "• Title → detail" lines, the way a person would summarise a list in chat.
+function listBubble(intro, rows) {
+  const bubble = textElement("div", "say say-list");
+  if (intro) bubble.append(textElement("p", "", intro));
+  rows.forEach(([title, detail]) => {
+    const line = textElement("p", "say-line");
+    line.append(textElement("strong", "", title));
+    if (detail) line.append(` → ${detail}`);
+    bubble.append(line);
+  });
+  return bubble;
+}
+
+function typingBubble(label) {
+  const bubble = textElement("div", "say say-typing");
+  bubble.setAttribute("role", "status");
+  const dots = textElement("span", "typing-dots");
+  dots.setAttribute("aria-hidden", "true");
+  dots.append(textElement("i"), textElement("i"), textElement("i"));
+  bubble.append(dots, textElement("span", "sr-only", label));
+  return bubble;
+}
+
+// Sources, confidence, evidence, and the audit trail stay one click away instead of in the message.
+const openDetails = new Set();
+function turnDetails(label, key) {
+  const details = textElement("details", "turn-details");
+  if (key) {
+    details.open = openDetails.has(key);
+    details.addEventListener("toggle", () => { if (details.open) openDetails.add(key); else openDetails.delete(key); });
+  }
+  details.append(textElement("summary", "", label));
+  const content = textElement("div", "turn-details-body");
+  details.append(content);
+  return { details, content };
+}
+
+function confidenceText(confidence) {
+  return confidence >= 0.75 ? "High confidence" : confidence >= 0.5 ? "Medium confidence" : "Low confidence";
+}
+
+function readLabel(turn) {
+  const read = (turn.job.sources || []).filter((source) => source.selection_reason !== "destination").map((source) => source.label || "Teams chat");
+  const count = turn.evidence.size;
+  const who = read.length > 2 ? `${read.slice(0, 2).join(", ")} +${read.length - 2}` : read.join(", ");
+  if (count && who) return `Read ${count} message${count === 1 ? "" : "s"} · ${who}`;
+  if (who) return who;
+  return "Details";
+}
+
 function renderAssistantMessage(message) {
   const turn = agentState.turns.get(message.job_id);
   if (turn?.review && message.message_metadata?.kind === "conversation_review") return renderReviewTurn(turn);
   const { article, body } = assistantShell();
-  const head = textElement("div", "turn-head");
-  head.append(textElement("strong", "", "Prism"), textElement("time", "", formatTime(message.created_at)));
-  body.append(head, textElement("p", "review-summary", message.content));
+  const qa = renderQaMessage(message);
+  if (qa) {
+    if (qa.lead) body.append(msgBubble(textElement("p", "review-summary", qa.lead)));
+    body.append(qa.card);
+    return article;
+  }
+  body.append(msgBubble(textElement("p", "review-summary", message.content)));
   return article;
 }
 
 /* A review: summary, what needs attention, a draft reply, and the audit trail. */
-
-function confidenceTag(confidence) {
-  const [label, tone] = confidence >= 0.75 ? ["High confidence", "green"] : confidence >= 0.5 ? ["Medium confidence", "yellow"] : ["Low confidence", "orange"];
-  const tag = textElement("span", `tag ${tone}`, label);
-  tag.title = `${Math.round(confidence * 100)}%`;
-  return tag;
-}
 
 function appendEvidence(container, turn, ids, label = "Evidence") {
   const cited = (ids || []).map((id) => turn.evidence.get(id)).filter(Boolean);
@@ -779,19 +947,32 @@ function renderReviewTurn(turn) {
   const { review, job } = turn;
   const { article, body } = assistantShell();
   article.dataset.job = job.id;
-  const head = textElement("div", "turn-head");
-  head.append(textElement("strong", "", "Prism"), confidenceTag(review.confidence));
-  if (turn.evidence.size) head.append(textElement("span", "turn-meta", `Read ${turn.evidence.size} message${turn.evidence.size === 1 ? "" : "s"}`));
-  head.append(textElement("time", "", formatTime(review.created_at)));
-  body.append(head, textElement("p", "review-summary", review.summary));
-  body.append(renderSourceDisclosure(job));
-  appendEvidence(body, turn, review.summary_evidence_ids);
+  // When you asked for a message, the draft is the answer. The analysis behind it stays in details.
+  if (review.action_plan) body.append(renderActionPlan(turn));
+  else if (review.proposal) {
+    const to = review.proposal.destination?.label || "them";
+    body.append(msgBubble(textElement("p", "review-summary", `Here’s a draft for ${to}. Have a look before it goes out.`)));
+    body.append(renderDraft(turn));
+  } else {
+    body.append(msgBubble(textElement("p", "review-summary", review.summary)));
+    if (review.attention_items.length) {
+      body.append(listBubble(review.attention_items.length > 1 ? "What needs you:" : "", review.attention_items.map((item) => [item.title, item.detail])));
+    }
+    if (review.manager_questions.length === 1) body.append(msgBubble(textElement("p", "", review.manager_questions[0].question)));
+    else if (review.manager_questions.length > 1) body.append(listBubble("A few things I need from you:", review.manager_questions.map((item) => [item.question, ""])));
+  }
+
+  const footer = textElement("div", "turn-quiet");
+  const { details, content } = turnDetails(readLabel(turn), `review:${job.id}`);
+  content.append(textElement("p", "turn-meta", confidenceText(review.confidence)), renderSourceDisclosure(job));
+  if (review.action_plan || review.proposal) content.append(textElement("p", "", review.summary));
+  appendEvidence(content, turn, review.summary_evidence_ids, "Messages behind this");
   if (review.attention_items.length) {
-    body.append(reviewSection("Needs your attention", review.attention_items.length,
+    content.append(reviewSection("Needs your attention", review.attention_items.length,
       review.attention_items.map((item) => renderFinding(turn, item.kind || "direct", item.title, item.detail, item.evidence_ids))));
   }
   if (review.manager_questions.length) {
-    body.append(reviewSection("Questions for you", review.manager_questions.length,
+    content.append(reviewSection("Questions for you", review.manager_questions.length,
       review.manager_questions.map((item) => renderFinding(turn, "question", item.question, "", item.evidence_ids))));
   }
   if (review.limitations?.length) {
@@ -800,29 +981,20 @@ function renderReviewTurn(turn) {
     const list = document.createElement("ul");
     review.limitations.forEach((limit) => list.append(textElement("li", "", limit)));
     limits.append(list);
-    body.append(limits);
+    content.append(limits);
   }
-  if (review.action_plan) {
-    body.append(renderActionPlan(turn));
-  } else if (review.proposal) {
-    body.append(renderDraft(turn));
-  } else if (!review.requires_reply) {
-    const callout = textElement("div", "callout quiet");
-    const calloutBody = textElement("div", "callout-body");
-    const multipleSources = (job.sources || []).length > 1;
-    calloutBody.append(
-      textElement("strong", "", "Information only"),
-      textElement("p", "", multipleSources
-        ? "No Teams message was drafted. Name one destination if you want Prism to prepare a follow-up."
-        : "No Teams message was drafted for this response."),
-    );
-    if (!multipleSources && (review.attention_items.length || review.manager_questions.length)) {
-      calloutBody.append(actionButton("Draft a follow-up", "mini-button", () => draftFollowUp(job)));
-    }
-    callout.append(textElement("span", "callout-icon", "✓"), calloutBody);
-    body.append(callout);
+  content.append(renderAudit(turn));
+  footer.append(details);
+  const single = (job.sources || []).length <= 1;
+  if (!review.action_plan && !review.proposal && !review.requires_reply && single && (review.attention_items.length || review.manager_questions.length)) {
+    footer.append(actionButton("Draft a follow-up", "link-button", () => draftFollowUp(job)));
   }
-  body.append(renderTurnFooter(turn));
+  body.append(footer);
+  if (turn.error) body.append(renderFailure({ code: turn.errorCode, message: turn.error }));
+  const recovery = textElement("div", "item-actions");
+  if (job.state === "executing") recovery.append(actionButton("Check interrupted delivery", "mini-button", () => recoverJob(job)));
+  if (["failed", "cancelled"].includes(job.state)) recovery.append(actionButton("Retry", "mini-button", () => retryJob(job, false)));
+  if (recovery.children.length) body.append(recovery);
   return article;
 }
 
@@ -857,15 +1029,10 @@ function draftStatusText(proposal, execution) {
 function renderActionPlan(turn) {
   const plan = turn.review.action_plan;
   const section = textElement("section", `action-plan plan-${plan.state}`);
-  const head = textElement("div", "action-plan-head");
-  const title = textElement("div", "");
-  title.append(
-    textElement("span", "tag purple", "Coordinated plan"),
-    textElement("h3", "", plan.summary),
-    textElement("p", "panel-note", `${plan.actions.length} independently controlled Teams action${plan.actions.length === 1 ? "" : "s"}.`),
-  );
-  head.append(title, textElement("span", `tag ${plan.state.includes("failed") ? "red" : plan.state === "completed" ? "green" : "orange"}`, humanize(plan.state)));
-  section.append(head);
+  const pendingCount = plan.actions.filter(({ proposal }) => proposal.state === "pending").length;
+  section.append(msgBubble(textElement("p", "", pendingCount
+    ? `${plan.summary}. ${pendingCount === 1 ? "One message is" : `${pendingCount} messages are`} ready for you to check.`
+    : `${plan.summary}.`)));
 
   const pending = plan.actions.filter(({ proposal }) => proposal.state === "pending");
   if (pending.length > 1) {
@@ -873,14 +1040,14 @@ function renderActionPlan(turn) {
     bulk.disabled = pending.some(({ proposal }) => agentState.drafts.has(proposal.id));
     const notice = textElement("div", "action-plan-bulk");
     notice.append(
-      textElement("span", "panel-note", "Bulk approval covers only the exact recipients and text shown below."),
+      textElement("span", "panel-note", "Sends exactly the messages below, as written."),
       bulk,
     );
     section.append(notice);
   }
   plan.actions.forEach(({ proposal, execution }, index) => {
     const wrapper = textElement("div", "planned-action");
-    wrapper.append(textElement("div", "planned-action-order", `Action ${index + 1}${proposal.depends_on_logical_action_ids?.length ? " · waits for a previous action" : ""}`));
+    if (proposal.depends_on_logical_action_ids?.length) wrapper.append(textElement("div", "planned-action-order", "Goes after the previous message"));
     wrapper.append(renderDraft(turn, proposal, execution));
     section.append(wrapper);
   });
@@ -895,15 +1062,10 @@ function renderDraft(turn, selectedProposal = null, selectedExecution = null) {
   const card = textElement("section", `draft-card ${state.key}`);
 
   const head = textElement("div", "draft-head");
+  const label = proposal.destination.label || "the selected Teams chat";
   const destination = textElement("span", "draft-dest", "To ");
-  destination.append(textElement("strong", "", proposal.destination.label || "the selected Teams chat"), " from your Teams account");
-  head.append(textElement("span", "tag blue", "Draft reply"), destination, textElement("span", `tag ${state.tone}`, state.label));
-  // No stored Teams messages back this draft; say so instead of implying evidence.
-  if (!proposal.evidence_ids?.length) {
-    const basis = textElement("span", "tag purple", "Based on your instruction");
-    basis.title = "No Teams messages were available, so this draft cites none. Check it carefully before approving.";
-    head.insertBefore(basis, head.children[1]);
-  }
+  destination.append(textElement("strong", "", label));
+  head.append(textElement("span", "draft-avatar", label.trim().charAt(0).toUpperCase()), destination, textElement("span", `draft-state ${state.tone}`, state.label));
   card.append(head);
 
   const textarea = document.createElement("textarea");
@@ -914,11 +1076,25 @@ function renderDraft(turn, selectedProposal = null, selectedExecution = null) {
   textarea.readOnly = proposal.state !== "pending";
   card.append(textarea);
 
-  const why = textElement("details", "draft-why");
-  why.append(textElement("summary", "", "Why this reply"), textElement("p", "", proposal.reason));
-  card.append(why);
-  appendEvidence(card, turn, proposal.evidence_ids, "Evidence for this reply");
+  // No stored Teams messages back this draft; say so instead of implying evidence.
+  const fromTests = Boolean(job.requested_scope?.qa_draft);
+  if (fromTests) {
+    card.append(textElement("p", "draft-basis", "Written from my test results, not from Teams messages. Edit it as you like, then approve to send."));
+  } else if (!proposal.evidence_ids?.length) {
+    card.append(textElement("p", "draft-basis", "Based on your instruction. There were no Teams messages to go on, so check it before sending."));
+  }
+  const status = textElement("p", `draft-status ${state.tone}`, draftStatusText(proposal, execution));
+  card.append(status);
 
+  // Why it was written, what it was based on, and which preferences shaped it stay one click away.
+  const more = textElement("details", "draft-more");
+  const detailKey = `draft:${proposal.id}`;
+  more.open = openDetails.has(detailKey);
+  more.addEventListener("toggle", () => { if (more.open) openDetails.add(detailKey); else openDetails.delete(detailKey); });
+  more.append(textElement("summary", "", "Why this reply"));
+  const moreBody = textElement("div", "draft-more-body");
+  moreBody.append(textElement("p", "", proposal.reason));
+  appendEvidence(moreBody, turn, proposal.evidence_ids, "Messages behind this reply");
   if (review.applied_preferences?.length) {
     const used = textElement("div", "pref-used");
     used.append(textElement("span", "pref-label", "Shaped by your preferences"));
@@ -928,19 +1104,18 @@ function renderDraft(turn, selectedProposal = null, selectedExecution = null) {
       used.append(chip);
     });
     used.append(actionButton("Manage", "link-button", () => setPreferencesOpen(true)));
-    card.append(used);
+    moreBody.append(used);
   }
-
-  const status = textElement("p", `draft-status ${state.tone}`, draftStatusText(proposal, execution));
-  card.append(status);
+  more.append(moreBody);
+  card.append(more);
 
   if (proposal.state === "pending") {
     const actions = textElement("div", "draft-actions");
-    const reject = actionButton("Reject", "button secondary", () => rejectDraft(turn, proposal));
-    const regenerate = actionButton("Redraft", "button secondary", () => requestActionRedraft(proposal));
+    const reject = actionButton("Reject", "button ghost", () => rejectDraft(turn, proposal));
+    const regenerate = actionButton("Redraft", "button ghost", () => requestActionRedraft(proposal));
     const save = actionButton("Save edit", "button secondary", () => reviseProposal(turn, proposal, textarea.value));
-    const approve = actionButton("Approve and send", "button", () => approveAndSend(turn, proposal, approve));
-    actions.append(reject, regenerate, textElement("span", "spacer"), save, approve);
+    const approve = actionButton("Approve and send", "button approve", () => approveAndSend(turn, proposal, approve));
+    actions.append(reject, ...(fromTests ? [] : [regenerate]), textElement("span", "spacer"), save, approve);
     card.append(actions);
     // An edited draft must be saved first so the approval covers exactly the text on screen.
     const sync = () => {
@@ -958,22 +1133,12 @@ function renderDraft(turn, selectedProposal = null, selectedExecution = null) {
     const actions = textElement("div", "draft-actions");
     if (proposal.state === "approved" && !execution) {
       actions.append(textElement("span", "spacer"), actionButton("Send approved message", "button", (event) => sendApprovedProposal(turn, proposal, event.currentTarget)));
-    } else if (["rejected", "expired", "failed"].includes(proposal.state) || ["failed"].includes(execution?.state)) {
+    } else if (!fromTests && (["rejected", "expired", "failed"].includes(proposal.state) || ["failed"].includes(execution?.state))) {
       actions.append(textElement("span", "spacer"), actionButton("Regenerate", "button secondary", () => retryJob(job, true)));
     }
     if (actions.children.length) card.append(actions);
   }
   return card;
-}
-
-function renderTurnFooter(turn) {
-  const { job } = turn;
-  const footer = textElement("div", "turn-footer");
-  if (turn.error) footer.append(renderFailure({ code: turn.errorCode, message: turn.error }));
-  if (job.state === "executing") footer.append(actionButton("Check interrupted delivery", "mini-button", () => recoverJob(job)));
-  if (["failed", "cancelled"].includes(job.state)) footer.append(actionButton("Retry", "mini-button", () => retryJob(job, false)));
-  footer.append(renderAudit(turn));
-  return footer;
 }
 
 // Every review, edit, approval, and delivery is stored; this makes that visible.
@@ -1018,25 +1183,34 @@ function renderProgressTurn(turn) {
   const { job } = turn;
   const { article, body } = assistantShell("working");
   article.dataset.progress = job.id;
-  const title = textElement("div", "progress-title");
-  if (ACTIVE_JOB_STATES.includes(job.state) || job.state === "executing") title.append(textElement("span", "spinner"));
-  title.append(textElement("strong", "", PROGRESS_LABELS[job.state] || humanize(job.state)));
-  body.append(title);
-  body.append(renderSourcePlan(job, true));
-  if (job.steps.length) {
-    const steps = textElement("ul", "step-list");
-    job.steps.forEach((step) => steps.append(textElement("li", `step ${step.state}`, step.label)));
-    body.append(steps);
-  }
-  if (job.safe_error_detail) body.append(renderFailure({ code: job.safe_error_code, message: job.safe_error_detail }));
-  if (turn.error && !job.safe_error_detail) body.append(renderFailure({ code: turn.errorCode, message: turn.error }));
+  const active = ACTIVE_JOB_STATES.includes(job.state) || job.state === "executing";
+  const failure = job.safe_error_detail
+    ? { code: job.safe_error_code, message: job.safe_error_detail }
+    : turn.error ? { code: turn.errorCode, message: turn.error } : null;
+  if (active && !failure) body.append(typingBubble(PROGRESS_LABELS[job.state] || humanize(job.state)));
+  else if (!failure) body.append(msgBubble(textElement("p", "", job.state === "cancelled" ? "Stopped before I finished this one." : "I didn't get to finish this one.")));
+  else if (RECOVERY[failure.code]) body.append(renderFailure(failure));
+  else body.append(msgBubble(textElement("p", "", `I couldn't finish this one. ${failure.message}`)));
   const controls = textElement("div", "item-actions");
-  if (ACTIVE_JOB_STATES.includes(job.state)) {
-    controls.append(actionButton("Cancel", "mini-button", () => cancelJob(job)), actionButton("Resume", "mini-button", () => recoverJob(job)));
-  }
   if (job.state === "executing") controls.append(actionButton("Check interrupted delivery", "mini-button", () => recoverJob(job)));
   if (["failed", "cancelled"].includes(job.state)) controls.append(actionButton("Retry", "mini-button", () => retryJob(job, false)));
   if (controls.children.length) body.append(controls);
+  // What it is reading and the step list stay available, out of the conversation.
+  const { details, content } = turnDetails(active ? "Working on it" : "Details", `progress:${job.id}`);
+  content.append(renderSourcePlan(job, true));
+  if (job.steps.length) {
+    const steps = textElement("ul", "step-list");
+    job.steps.forEach((step) => steps.append(textElement("li", `step ${step.state}`, step.label)));
+    content.append(steps);
+  }
+  if (ACTIVE_JOB_STATES.includes(job.state)) {
+    const stop = textElement("div", "item-actions");
+    stop.append(actionButton("Cancel", "mini-button", () => cancelJob(job)), actionButton("Resume", "mini-button", () => recoverJob(job)));
+    content.append(stop);
+  }
+  const quiet = textElement("div", "turn-quiet");
+  quiet.append(details);
+  body.append(quiet);
   return article;
 }
 
@@ -1120,10 +1294,10 @@ async function chooseSource() {
   const dialog = $("#agent-source-dialog");
   const search = $("#agent-source-search");
   $("#agent-source-dialog-title").textContent = "Choose a Teams source constraint";
-  $("#agent-source-dialog-note").textContent = "Auto resolves every request without a picker. Choose one chat only to apply a hard constraint.";
+  $("#agent-source-dialog-note").textContent = "All chats lets Prism choose for every request. Choose one chat only to apply a hard constraint.";
   search.value = "";
   $("#agent-source-list").className = "agent-source-list empty-state";
-  $("#agent-source-list").textContent = "Loading chats…";
+  $("#agent-source-list").replaceChildren(textElement("span", "spinner"), document.createTextNode(" Loading your Teams chats…"));
   dialog.showModal();
   search.focus();
   try {
@@ -1146,8 +1320,8 @@ function renderSources(query) {
     auto.type = "button";
     auto.className = "source-option";
     const copy = textElement("span", "source-copy");
-    copy.append(textElement("strong", "", "Auto"), textElement("span", "", "Resolve the relevant Teams chat from each request"));
-    auto.append(avatarFor("Auto"), copy);
+    copy.append(textElement("strong", "", "All chats"), textElement("span", "", "Prism picks the relevant Teams chats from each request"));
+    auto.append(avatarFor("All chats"), copy);
     auto.addEventListener("click", clearSourceConstraint);
     list.append(auto);
   }
@@ -1167,13 +1341,31 @@ function renderSources(query) {
       textElement("span", "", source.resolution_rationale || `${kinds[String(source.chat_type).toLowerCase()] || humanize(source.chat_type)} · ${source.participants.join(", ") || "Participants unavailable"}`),
     );
     option.append(avatarFor(source.label), copy);
-    option.addEventListener("click", () => selectSource(source));
+    option.addEventListener("click", () => selectSource(source, option));
     list.append(option);
   });
 }
 
-async function clearSourceConstraint() {
+// Choosing a chat saves it on the server, which can take a few seconds: show it working, and ignore
+// further clicks until it is done.
+function markChoosing(option, text) {
+  const list = $("#agent-source-list");
+  list.classList.add("is-busy");
+  list.setAttribute("aria-busy", "true");
+  option.classList.add("choosing");
+  option.querySelector(".source-copy span")?.replaceChildren(document.createTextNode(text));
+  option.append(textElement("span", "spinner"));
+  return () => {
+    list.classList.remove("is-busy");
+    list.removeAttribute("aria-busy");
+    option.classList.remove("choosing");
+    option.querySelector(".spinner")?.remove();
+  };
+}
+
+async function clearSourceConstraint(event) {
   const thread = agentState.activeThread;
+  const done = event?.currentTarget ? markChoosing(event.currentTarget, "Switching to all chats…") : () => {};
   try {
     const updated = await agentApi(`/api/v2/agent/threads/${thread.id}/source/teams`, { method: "DELETE" });
     agentState.activeThread = updated;
@@ -1185,10 +1377,11 @@ async function clearSourceConstraint() {
     $("#agent-message-input").focus();
   } catch (error) {
     ui().setStatus?.(error.message, true);
+    done();
   }
 }
 
-async function selectSource(source) {
+async function selectSource(source, option) {
   const thread = agentState.activeThread;
   if (thread.source_external_id && thread.source_external_id !== source.external_id && agentState.jobs.length) {
     const confirmed = await ui().askDialog?.({
@@ -1198,6 +1391,7 @@ async function selectSource(source) {
     });
     if (confirmed === null) return;
   }
+  const done = option ? markChoosing(option, "Selecting this chat…") : () => {};
   try {
     const updated = await agentApi(`/api/v2/agent/threads/${thread.id}/source/teams`, {
       method: "PUT",
@@ -1212,6 +1406,7 @@ async function selectSource(source) {
     $("#agent-message-input").focus();
   } catch (error) {
     ui().setStatus?.(error.message, true);
+    done();
   }
 }
 
@@ -1280,6 +1475,25 @@ async function submitMessage(event) {
     return;
   }
   try {
+    // A QA tester turns "test example.com" into a plan card; anything else carries on below.
+    if (await planRequest(agentState.prism, agentState.activeThread.id, content)) {
+      await refreshMessages();
+      clearPendingSubmission();
+      renderStream({ scroll: "bottom" });
+      setComposerBusy(false);
+      input.focus();
+      return;
+    }
+    // Small talk ("hi", "thanks") never needs Teams, so Prism just answers.
+    const chat = await agentApi(`/api/v2/agent/threads/${agentState.activeThread.id}/chat-reply`, { method: "POST", body: JSON.stringify({ content }) });
+    if (chat.handled) {
+      await refreshMessages();
+      clearPendingSubmission();
+      renderStream({ scroll: "bottom" });
+      setComposerBusy(false);
+      input.focus();
+      return;
+    }
     updatePendingSubmission(agentState.activeThread.source_external_id
       ? "Reading the selected Teams chat…"
       : "Auto-selecting the relevant Teams chats…");
@@ -1598,23 +1812,41 @@ async function runSearch() {
 /* Reply preferences: a side drawer, so the chat keeps its full width. ---- */
 
 function setPreferencesOpen(open) {
+  if (open) setComputerOpen(false);
   $("#agent-preferences-panel").classList.toggle("open", open);
+  $("#agent-chat").classList.toggle("drawer-open", open);
   const trigger = $("#agent-preferences-button");
   trigger.setAttribute("aria-expanded", String(open));
   trigger.classList.toggle("active", open);
   if (open) {
     loadPreferences();
+    setDrawerTab("preferences");
     $("#agent-preference-input").focus();
   }
 }
 
+// A Prism's instructions live under that Prism; only the old unscoped assistant uses the global list.
+const preferencesPath = () => (agentState.prism ? `/api/v2/prisms/${agentState.prism.id}/preferences` : "/api/v2/agent/preferences");
+
 async function loadPreferences({ silent = false } = {}) {
+  const owner = agentState.prism?.id || null;
   try {
-    agentState.preferences = await agentApi("/api/v2/agent/preferences");
+    const items = await agentApi(preferencesPath());
+    if ((agentState.prism?.id || null) !== owner) return;
+    agentState.preferences = items;
+    agentState.preferencesFor = owner;
     renderPreferences();
   } catch (error) {
     if (!silent) ui().setStatus?.(error.message, true);
   }
+}
+
+function renderPreferencesIntro() {
+  const name = agentState.prism?.name;
+  $("#agent-preferences-intro").textContent = name
+    ? `How ${name} should work. These apply to ${name} only, never to your other Prisms.`
+    : "Only explicit instructions are remembered. Draft edits stay feedback, not global rules.";
+  $("#agent-preference-input").placeholder = name ? `For example: Keep replies short and friendly` : "For example: Keep replies concise and direct";
 }
 
 function renderPreferences() {
@@ -1627,7 +1859,9 @@ function renderPreferences() {
   list.replaceChildren();
   list.className = `agent-preference-list${preferences.length ? "" : " empty-state"}`;
   if (!preferences.length) {
-    list.textContent = "No preferences saved yet. Tell Prism how you like to write replies.";
+    list.textContent = agentState.prism
+      ? `No instructions yet. Tell ${agentState.prism.name} how you want it to work.`
+      : "No preferences saved yet. Tell Prism how you like to write replies.";
     return;
   }
   preferences.forEach((preference) => {
@@ -1642,28 +1876,42 @@ function renderPreferences() {
     const copy = textElement("div", "pref-copy");
     copy.append(
       textElement("p", "pref-text", preference.instruction),
-      textElement("span", "pref-meta", `${preference.scope === "general" ? "All Teams drafts" : "One chat"} · ${humanize(preference.source_kind)}`),
+      textElement("span", "pref-meta", `${preference.is_active ? "On" : "Paused"} · added ${new Date(preference.created_at).toLocaleDateString([], { month: "short", day: "numeric" })}`),
     );
     const edit = textElement("button", "icon-button small");
     edit.type = "button";
     edit.setAttribute("aria-label", "Edit preference");
     edit.insertAdjacentHTML("afterbegin", EDIT_ICON);
     edit.addEventListener("click", () => editPreference(preference));
-    row.append(toggle, copy, edit);
+    const remove = textElement("button", "icon-button small danger-icon");
+    remove.type = "button";
+    remove.setAttribute("aria-label", "Delete preference");
+    remove.insertAdjacentHTML("afterbegin", TRASH_ICON);
+    remove.addEventListener("click", () => deletePreference(preference));
+    row.append(toggle, copy, edit, remove);
     list.append(row);
   });
 }
 
+const TRASH_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12h10l1-12M9 7V4h6v3"/></svg>';
+
+async function deletePreference(preference) {
+  const confirmed = await ui().askDialog?.({ title: "Delete this preference?", message: `Prism will stop following "${preference.instruction}". This can't be undone.`, confirmLabel: "Delete", danger: true });
+  if (!confirmed) return;
+  try {
+    await agentApi(`${preferencesPath()}/${preference.id}`, { method: "DELETE" });
+    await loadPreferences();
+    ui().setStatus?.("Preference deleted.");
+  } catch (error) { ui().setStatus?.(error.message, true); }
+}
+
 async function putPreference(preference, changes) {
   try {
-    await agentApi(`/api/v2/agent/preferences/${preference.id}`, {
-      method: "PUT",
-      body: JSON.stringify({
-        instruction: preference.instruction,
-        scope: preference.scope,
-        is_active: preference.is_active,
-        ...changes,
-      }),
+    await agentApi(`${preferencesPath()}/${preference.id}`, {
+      method: agentState.prism ? "PATCH" : "PUT",
+      body: JSON.stringify(agentState.prism
+        ? changes
+        : { instruction: preference.instruction, scope: preference.scope, is_active: preference.is_active, ...changes }),
     });
     await loadPreferences();
   } catch (error) {
@@ -1686,18 +1934,16 @@ async function editPreference(preference) {
 async function savePreference(event) {
   event.preventDefault();
   const input = $("#agent-preference-input");
-  const scope = $("#agent-preference-scope").value;
   try {
-    await agentApi("/api/v2/agent/preferences", {
+    await agentApi(preferencesPath(), {
       method: "POST",
-      body: JSON.stringify({
-        instruction: input.value.trim(),
-        scope,
-        source_thread_id: scope === "teams_chat" ? agentState.activeThread?.id : null,
-      }),
+      body: JSON.stringify(agentState.prism
+        ? { instruction: input.value.trim() }
+        : { instruction: input.value.trim(), scope: "general" }),
     });
     input.value = "";
-    ui().setStatus?.("Preference saved. Prism will use it in future drafts.");
+    autoGrow(input, 140);
+    ui().setStatus?.(agentState.prism ? `Saved. Only ${agentState.prism.name} will follow this.` : "Preference saved. Prism will use it in future drafts.");
     await loadPreferences();
   } catch (error) {
     ui().setStatus?.(error.message, true);
@@ -1719,23 +1965,132 @@ composerInput.addEventListener("keydown", (event) => {
 });
 $("#agent-composer").addEventListener("submit", submitMessage);
 $("#agent-source-chip").addEventListener("click", chooseSource);
-function setPrismMenu(open) {
-  const menu = $("#agent-prism-menu");
-  menu.hidden = !open;
-  $("#agent-prism-menu-button").setAttribute("aria-expanded", String(open));
-  if (open) menu.querySelector(".menu-item")?.focus();
+// Listing chats is slow on the first call; start it as soon as the user reaches for the picker.
+let sourcesWarmed = 0;
+["pointerenter", "focus"].forEach((name) => $("#agent-source-chip").addEventListener(name, () => {
+  if (Date.now() - sourcesWarmed < 30000) return;
+  sourcesWarmed = Date.now();
+  agentApi("/api/v2/agent/sources/teams").catch(() => {});
+}));
+$("#agent-scroll").addEventListener("scroll", updateJumpButton, { passive: true });
+// The scrollbar fades in while scrolling and out shortly after.
+document.querySelectorAll("#agent-scroll, #prism-scroll").forEach((scroller) => {
+  let hideTimer = null;
+  scroller.addEventListener("scroll", () => {
+    scroller.classList.add("scrolling");
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => scroller.classList.remove("scrolling"), 900);
+  }, { passive: true });
+});
+$("#agent-jump-latest").addEventListener("click", () => {
+  const scroller = $("#agent-scroll");
+  scroller.scrollTo({ top: scroller.scrollHeight, behavior: "smooth" });
+});
+// Settings tabs live in the right drawer. Prism management stays with the Prism list; rows just trigger those actions.
+function setDrawerTab(name) {
+  document.querySelectorAll("[data-drawer-tab]").forEach((tab) => {
+    const active = tab.dataset.drawerTab === name;
+    tab.classList.toggle("active", active);
+    tab.setAttribute("aria-selected", String(active));
+  });
+  document.querySelectorAll("[data-drawer-panel]").forEach((panel) => { panel.hidden = panel.dataset.drawerPanel !== name; });
+  $("#agent-archive-confirm").hidden = true;
+  if (name === "profile" && agentState.prism) loadProfile();
+  if (name === "scope" && agentState.prism) document.dispatchEvent(new CustomEvent("prism:scope-open"));
+  if (name === "people" && agentState.prism) document.dispatchEvent(new CustomEvent("prism:people-open", { detail: { prismId: agentState.prism.id, prismName: agentState.prism.name } }));
 }
-$("#agent-prism-menu-button").addEventListener("click", (event) => { event.stopPropagation(); setPrismMenu($("#agent-prism-menu").hidden); });
-// Prism management lives with the Prism list; the menu just triggers those actions.
-$("#agent-prism-menu").addEventListener("click", (event) => {
+
+// Edit profile happens right here in the drawer: name, description, and notifications.
+let profileSetting = null;
+let profileColor = null;
+function renderProfileColor() {
+  $("#agent-drawer-avatar").replaceChildren(prismLogo(profileColor, "prism-logo"));
+  $("#agent-profile-colors").replaceChildren(colorPicker(profileColor, (key) => {
+    profileColor = key;
+    renderProfileColor();
+    $("#agent-profile-save").disabled = !profileDirty();
+  }, "agent-profile-color"));
+}
+async function loadProfile() {
+  const prism = agentState.prism;
+  profileColor = prismColorKey(prism);
+  renderProfileColor();
+  $("#agent-profile-name").value = prism.name;
+  $("#agent-profile-description").value = prism.description || "";
+  $("#agent-profile-error").hidden = true;
+  $("#agent-profile-logins").hidden = !computersEnabled();
+  document.querySelectorAll('input[name="agent-profile-logins"]').forEach((input) => { input.checked = input.value === (prism.logins_policy || "never"); });
+  const archived = String(prism.state).toLowerCase() === "archived";
+  ["#agent-profile-name", "#agent-profile-description", "#agent-profile-notify"].forEach((id) => { $(id).disabled = archived; });
+  try {
+    profileSetting = await agentApi(`/api/v2/prisms/${prism.id}/notification-settings`);
+    if (agentState.prism?.id === prism.id) $("#agent-profile-notify").checked = profileSetting.enabled;
+  } catch { profileSetting = null; }
+  $("#agent-profile-save").disabled = true;
+}
+const profileLogins = () => document.querySelector('input[name="agent-profile-logins"]:checked')?.value || "never";
+function profileDirty() {
+  const prism = agentState.prism;
+  return profileColor !== prismColorKey(prism)
+    || $("#agent-profile-name").value.trim() !== prism.name
+    || $("#agent-profile-description").value.trim() !== (prism.description || "")
+    || (!$("#agent-profile-logins").hidden && profileLogins() !== (prism.logins_policy || "never"))
+    || Boolean(profileSetting && $("#agent-profile-notify").checked !== profileSetting.enabled);
+}
+document.querySelectorAll('input[name="agent-profile-logins"]').forEach((input) => input.addEventListener("change", () => { $("#agent-profile-save").disabled = !profileDirty(); }));
+["#agent-profile-name", "#agent-profile-description", "#agent-profile-notify"].forEach((id) => {
+  $(id).addEventListener("input", () => { $("#agent-profile-save").disabled = !profileDirty(); });
+});
+$("#agent-profile-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const prism = agentState.prism;
+  const save = $("#agent-profile-save");
+  const error = $("#agent-profile-error");
+  error.hidden = true;
+  save.disabled = true;
+  try {
+    const name = $("#agent-profile-name").value.trim();
+    const description = $("#agent-profile-description").value.trim();
+    if (name !== prism.name || description !== (prism.description || "") || profileColor !== prismColorKey(prism)) {
+      const updated = await agentApi(`/api/v2/prisms/${prism.id}`, { method: "PATCH", body: JSON.stringify({ name, description, color: profileColor, expected_lifecycle_version: prism.lifecycle_version }) });
+      Object.assign(agentState.prism, updated);
+      document.dispatchEvent(new CustomEvent("prism:prism-updated", { detail: { prism: updated } }));
+    }
+    if (!$("#agent-profile-logins").hidden && profileLogins() !== (prism.logins_policy || "never")) {
+      const updated = await agentApi(`/api/v2/prisms/${prism.id}/profile`, { method: "PATCH", body: JSON.stringify({ logins_policy: profileLogins() }) });
+      Object.assign(agentState.prism, updated);
+      document.dispatchEvent(new CustomEvent("prism:prism-updated", { detail: { prism: updated } }));
+    }
+    const notify = $("#agent-profile-notify").checked;
+    if (profileSetting && notify !== profileSetting.enabled) {
+      if (notify && "Notification" in window && Notification.permission === "default") await Notification.requestPermission();
+      profileSetting = await agentApi(`/api/v2/prisms/${prism.id}/notification-settings`, { method: "PUT", body: JSON.stringify({ enabled: notify, min_urgency: profileSetting.min_urgency }) });
+    }
+    renderHeader();
+    ui().setStatus?.("Profile saved.");
+  } catch (failure) {
+    error.textContent = failure.message;
+    error.hidden = false;
+  } finally { save.disabled = !profileDirty(); }
+});
+document.querySelectorAll("[data-drawer-tab]").forEach((tab) => tab.addEventListener("click", () => setDrawerTab(tab.dataset.drawerTab)));
+// Archiving is confirmed right here in the drawer, not in another popup.
+$("#agent-archive-start").addEventListener("click", () => { $("#agent-archive-confirm").hidden = false; $("#agent-archive-yes").focus(); });
+$("#agent-archive-cancel").addEventListener("click", () => { $("#agent-archive-confirm").hidden = true; });
+$("#agent-archive-yes").addEventListener("click", () => {
+  if (!agentState.prism) return;
+  setPreferencesOpen(false);
+  document.dispatchEvent(new CustomEvent("prism:archive-confirmed", { detail: { id: agentState.prism.id } }));
+});
+$("#agent-preferences-panel").addEventListener("click", (event) => {
   const item = event.target.closest("[data-prism-action]");
   if (!item) return;
-  setPrismMenu(false);
+  setPreferencesOpen(false);
   document.getElementById(item.dataset.prismAction)?.click();
 });
-document.addEventListener("click", (event) => { if (!event.target.closest("#agent-prism-menu-wrap")) setPrismMenu(false); });
-document.addEventListener("keydown", (event) => { if (event.key === "Escape" && !$("#agent-prism-menu").hidden) setPrismMenu(false); });
 document.addEventListener("prism:open-agent", (event) => openPrism(event.detail.prism));
+initQa({ refreshMessages, renderStream, setStatus: (message, isError) => ui().setStatus?.(message, isError) });
+document.addEventListener("prism:computer-opened", () => setPreferencesOpen(false));
 // New unread updates for the open Prism arrive through the shared poller; reopening the tab marks them read.
 document.addEventListener("prism:updates", (event) => {
   const current = agentState.prism && event.detail.summaries.get(agentState.prism.id);
@@ -1755,6 +2110,13 @@ $("#agent-search-input").addEventListener("keydown", (event) => {
 $("#agent-preferences-button").addEventListener("click", () => setPreferencesOpen(!$("#agent-preferences-panel").classList.contains("open")));
 $("#agent-preferences-close").addEventListener("click", () => setPreferencesOpen(false));
 $("#agent-preference-form").addEventListener("submit", savePreference);
+$("#agent-preference-input").addEventListener("input", (event) => autoGrow(event.target, 140));
+$("#agent-preference-input").addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+    event.preventDefault();
+    $("#agent-preference-form").requestSubmit();
+  }
+});
 document.addEventListener("prism:new-chat", newChat);
 document.addEventListener("click", (event) => {
   if (event.target.closest("[data-agent-new]")) newChat();

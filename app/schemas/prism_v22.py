@@ -27,22 +27,36 @@ class PrismFoundationRead(Schema):
     excluded_capabilities: list[str]
 
 
+PrismColor = Literal["red", "orange", "yellow", "green", "teal", "blue", "purple", "pink"]
+
+
 class PrismCreate(Schema):
     name: str = Field(min_length=1, max_length=120)
     description: str = Field(min_length=1, max_length=2000)
-    template_key: Literal["blank", "executive_assistant"] = "blank"
+    template_key: Literal["blank", "executive_assistant", "qa_tester"] = "blank"
     template_version: str | None = Field(default=None, max_length=80)
+    color: PrismColor | None = None
+    # v2.4: what the Prism may use (browsing is always on) and whether it may sign in to sites.
+    capabilities: list[Literal["files", "teams"]] | None = None
+    logins_policy: Literal["never", "ask"] = "never"
+
+
+class PrismProfileUpdate(Schema):
+    capabilities: list[Literal["files", "teams"]] | None = None
+    logins_policy: Literal["never", "ask"] | None = None
+    role_instructions: str | None = Field(default=None, max_length=6000)
 
 
 class PrismUpdate(Schema):
     expected_lifecycle_version: int = Field(ge=1)
     name: str | None = Field(default=None, min_length=1, max_length=120)
     description: str | None = Field(default=None, min_length=1, max_length=2000)
+    color: PrismColor | None = None
 
     @model_validator(mode="after")
     def has_change(self) -> "PrismUpdate":
-        if self.name is None and self.description is None:
-            raise ValueError("Provide a name or description to update a Prism")
+        if self.name is None and self.description is None and self.color is None:
+            raise ValueError("Provide a name, description, or colour to update a Prism")
         return self
 
 
@@ -57,11 +71,17 @@ class PrismRead(ORMResponse):
     description: str
     template_key: str
     template_version: str | None
+    color: str | None = None
+    capabilities: list[str] = ["browser"]
+    logins_policy: str = "never"
+    role_instructions: str | None = None
     state: PrismLifecycleState
     lifecycle_version: int
     created_at: datetime
     updated_at: datetime
     last_message_at: datetime | None = None
+    last_message_role: str | None = None
+    last_message_preview: str | None = None
 
 
 class PrismLifecycleEventRead(ORMResponse):

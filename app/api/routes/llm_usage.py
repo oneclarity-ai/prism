@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
-from typing import Optional
+from typing import Literal, Optional
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Query
@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.db.session import get_db
 from app.models.llm_usage import LLMUsage
+from app.services import azure_billing_service
 from app.services.errors import RuleViolationError
 
 router = APIRouter(prefix="/api/v1/usage/llm", tags=["AI usage"])
@@ -28,7 +29,13 @@ def bounds(start: Optional[date], end: Optional[date]):
     )
 
 
-def summary(db, start, end, group=None):
+SWARM_PROVIDER = (
+    "qa_workspace"  # runs the hidden agent swarm did; every other row is Prism's own calls
+)
+SOURCES = ("prism", "swarm")
+
+
+def summary(db, start, end, group=None, source=None):
     lower, upper = bounds(start, end)
     columns = [
         func.count(LLMUsage.id),
@@ -41,6 +48,10 @@ def summary(db, start, end, group=None):
     query = select(*(columns + ([group] if group is not None else []))).where(
         LLMUsage.timestamp >= lower, LLMUsage.timestamp < upper
     )
+    if source == "swarm":
+        query = query.where(LLMUsage.provider == SWARM_PROVIDER)
+    elif source == "prism":
+        query = query.where(LLMUsage.provider != SWARM_PROVIDER)
     if group is not None:
         query = query.group_by(group).order_by(group)
     result = []
@@ -61,6 +72,46 @@ def summary(db, start, end, group=None):
             item["group"] = row[6]
         result.append(item)
     return result if group is not None else result[0]
+
+
+@router.get("/sources")
+def sources(
+    period: Literal["today", "week", "month"] = "month",
+    db: Session = Depends(get_db),
+):
+    """Prism's own AI calls and the agent swarm's runs side by side: totals for today, the
+    last 7 days, this month and all time, plus breakdowns by feature and by model for `period`."""
+    zone = ZoneInfo(get_settings().manager_timezone)
+    today_ = datetime.now(zone).date()
+    month_start = today_.replace(day=1)
+    periods = {
+        "today": (today_, today_),
+        "week": (today_ - timedelta(days=6), today_),
+        "month": (month_start, today_),
+        "total": (today_ - timedelta(days=365), today_),
+    }
+    start, end = periods[period]
+    return {
+        "timezone": get_settings().manager_timezone,
+        "today": today_,
+        "range": {"from": start, "to": end},
+        "periods": {
+            name: {src: summary(db, a, b, source=src) for src in SOURCES}
+            for name, (a, b) in periods.items()
+        },
+        "by_feature": {src: summary(db, start, end, LLMUsage.feature, src) for src in SOURCES},
+        "by_model": {src: summary(db, start, end, LLMUsage.model, src) for src in SOURCES},
+    }
+
+
+@router.get("/azure-billed")
+def azure_billed(
+    start: Optional[date] = Query(None, alias="from"),
+    end: Optional[date] = Query(None, alias="to"),
+):
+    """What Azure itself billed per source, for comparing with the token-based estimate."""
+    lower, upper = bounds(start, end)
+    return azure_billing_service.billed(lower.date(), (upper - timedelta(days=1)).date())
 
 
 @router.get("/today")

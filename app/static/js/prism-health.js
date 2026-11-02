@@ -28,32 +28,65 @@ function section(title, ...children) {
   return wrap;
 }
 
+function kv(label, value, tone) {
+  const row = el("div", "health-kv");
+  row.append(el("span", "", label));
+  const right = el("strong", tone ? `tone-${tone}` : "", value);
+  row.append(right);
+  return row;
+}
+
 function renderHealth(prismId, health, tuning) {
   const body = $("#prism-health-body");
-  const diagnosis = el("ul");
-  health.diagnosis.forEach((line) => diagnosis.append(el("li", "", line)));
+  const mon = health.monitoring;
   const m = health.metrics;
+  const healthy = health.microsoft.connected && !health.review_required && !m.failed;
+  const hero = el("div", `health-hero ${healthy ? "ok" : "warn"}`);
+  hero.append(el("span", "health-dot"));
+  const heroText = el("div");
+  heroText.append(el("strong", "", health.diagnosis[0] || (healthy ? "Everything looks fine." : "Needs attention")));
+  health.diagnosis.slice(1).forEach((line) => heroText.append(el("p", "", line)));
+  hero.append(heroText);
+  if (health.review_required) {
+    const confirm = el("button", "button", "I've reviewed this Prism");
+    confirm.type = "button";
+    confirm.addEventListener("click", async () => {
+      confirm.disabled = true;
+      try {
+        await agentApi(`/api/v2/prisms/${prismId}/migration-review/acknowledge`, { method: "POST" });
+        ui().setStatus?.("Thanks. Automatic monitoring is now allowed for this Prism.");
+        await load();
+      } catch (error) { showError(error.message); confirm.disabled = false; }
+    });
+    heroText.append(confirm);
+  }
+
   const grid = el("div", "health-grid");
   [
-    [m.runs, "runs (24h)"], [m.failed, "failed"], [m.skipped, "skipped by limits"], [m.graph_reads, "Teams chats read"],
-    [m.events_created, "new messages"], [m.observations_created, "updates created"], [m.alerts_deduplicated, "duplicate alerts avoided"],
-    [m.notifications_delivered, "alerts shown"], [m.drafts_prepared, "drafts prepared"], [m.false_positive_feedback, "marked not useful"],
-    [m.model_calls, "model calls"], [m.avg_duration_ms === null ? "—" : `${m.avg_duration_ms} ms`, "avg run time"],
+    [m.runs, "Runs"], [m.failed, "Failed"], [m.events_created, "New messages"],
+    [m.observations_created, "Updates"], [m.notifications_delivered, "Alerts shown"], [m.drafts_prepared, "Drafts"],
   ].forEach(([value, label]) => grid.append(stat(value, label)));
-
-  const mon = health.monitoring;
-  const status = el("ul");
+  const more = el("details", "health-more");
+  more.append(el("summary", "", "More numbers"));
+  const moreGrid = el("div", "health-grid");
   [
-    `Microsoft: ${health.microsoft.connected ? "connected" : "not connected"}`,
-    `Model provider: ${health.provider.configured ? "configured" : "not configured"}${health.provider.signal_model_enabled ? "" : " (signal model off; rules only)"}`,
-    `Scheduler: server ${health.scheduler.server_enabled ? "on" : "off"}, mode ${health.scheduler.mode.replace("_", " ")}${health.scheduler.mode_enabled ? "" : " (disabled)"}`,
-    `Last checked Teams: ${when(mon.last_checked_at)}`,
-    `Last successful run: ${when(mon.last_successful_run_at)}`,
-    `Runs today: ${health.budget.runs_today} of ${health.budget.max_runs_per_day}`,
-    `Raw Teams activity is kept for ${health.retention_days} days; updates and approvals are kept.`,
-  ].forEach((line) => status.append(el("li", "", line)));
+    [m.skipped, "Skipped by limits"], [m.graph_reads, "Teams chats read"], [m.alerts_deduplicated, "Duplicates avoided"],
+    [m.false_positive_feedback, "Marked not useful"], [m.model_calls, "Model calls"], [m.avg_duration_ms === null ? "—" : `${m.avg_duration_ms} ms`, "Avg run time"],
+  ].forEach(([value, label]) => moreGrid.append(stat(value, label)));
+  more.append(moreGrid);
 
-  const signals = el("div");
+  const status = el("div", "health-card");
+  status.append(
+    kv("Microsoft", health.microsoft.connected ? "Connected" : "Not connected", health.microsoft.connected ? "ok" : "warn"),
+    kv("Model provider", health.provider.configured ? (health.provider.signal_model_enabled ? "Configured" : "Rules only") : "Not configured", health.provider.configured ? "ok" : "warn"),
+    kv("Scheduler", `${health.scheduler.server_enabled ? "On" : "Off"} · ${health.scheduler.mode.replace("_", " ")}${health.scheduler.mode_enabled ? "" : " (disabled)"}`, health.scheduler.server_enabled && health.scheduler.mode_enabled ? "ok" : "warn"),
+    kv("Last checked Teams", when(mon.last_checked_at)),
+    kv("Last successful run", when(mon.last_successful_run_at)),
+    kv("Runs today", `${health.budget.runs_today} of ${health.budget.max_runs_per_day}`),
+  );
+  const retention = el("p", "health-note", `Raw Teams activity is kept for ${health.retention_days} days. Updates and approvals are kept.`);
+
+  const signals = el("div", "health-card");
   tuning.signals.forEach((signal) => {
     const row = el("div", "health-signal");
     const label = el("div", "grow");
@@ -64,28 +97,27 @@ function renderHealth(prismId, health, tuning) {
     const feedback = Object.entries(signal.feedback).map(([kind, count]) => `${count} ${kind.replaceAll("_", " ")}`);
     if (feedback.length) notes.push(`Feedback: ${feedback.join(", ")}.`);
     if (signal.suggestion) notes.push(signal.suggestion);
-    if (notes.length) label.append(el("div", "turn-meta", notes.join(" ")));
+    if (notes.length) label.append(el("small", "", notes.join(" ")));
     row.append(label);
-    if (!signal.protected) {
-      const button = el("button", "mini-button", signal.muted ? "Unmute" : signal.suggestion ? "Mute for this Prism" : "Mute");
-      button.type = "button";
-      button.addEventListener("click", async () => {
-        button.disabled = true;
-        try {
-          await agentApi(`/api/v2/prisms/${prismId}/tuning/signals/${signal.signal_type}`, { method: "PUT", body: JSON.stringify({ muted: !signal.muted }) });
-          await load();
-        } catch (error) { showError(error.message); button.disabled = false; }
-      });
-      row.append(button);
-    }
+    const toggle = el("input", "toggle");
+    toggle.type = "checkbox";
+    toggle.setAttribute("role", "switch");
+    toggle.setAttribute("aria-label", `${signal.label} alerts`);
+    toggle.checked = !signal.muted;
+    toggle.disabled = Boolean(signal.protected);
+    toggle.addEventListener("change", async () => {
+      toggle.disabled = true;
+      try {
+        await agentApi(`/api/v2/prisms/${prismId}/tuning/signals/${signal.signal_type}`, { method: "PUT", body: JSON.stringify({ muted: !toggle.checked }) });
+        await load();
+      } catch (error) { showError(error.message); toggle.checked = !toggle.checked; toggle.disabled = false; }
+    });
+    row.append(toggle);
     signals.append(row);
   });
 
   const budget = el("div", "health-budget");
-  const fields = [
-    ["max_runs_per_day", "Runs per day"], ["max_model_calls_per_day", "Model calls per day"], ["max_consecutive_failures", "Pause after failed runs in a row"],
-  ];
-  fields.forEach(([key, label]) => {
+  [["max_runs_per_day", "Runs per day"], ["max_model_calls_per_day", "Model calls per day"], ["max_consecutive_failures", "Pause after failures in a row"]].forEach(([key, label]) => {
     const wrap = el("label", "", label);
     const input = el("input");
     input.type = "number"; input.min = key === "max_model_calls_per_day" ? "0" : "1"; input.value = health.budget[key]; input.dataset.key = key;
@@ -105,27 +137,15 @@ function renderHealth(prismId, health, tuning) {
       await load();
     } catch (error) { showError(error.message); save.disabled = false; }
   });
+  const limits = el("div", "health-card");
+  limits.append(budget, save);
 
-  const review = el("div");
-  if (health.review_required) {
-    const confirm = el("button", "button", "I've reviewed this Prism");
-    confirm.type = "button";
-    confirm.addEventListener("click", async () => {
-      confirm.disabled = true;
-      try {
-        await agentApi(`/api/v2/prisms/${prismId}/migration-review/acknowledge`, { method: "POST" });
-        ui().setStatus?.("Thanks. Automatic monitoring is now allowed for this Prism.");
-        await load();
-      } catch (error) { showError(error.message); confirm.disabled = false; }
-    });
-    review.append(confirm);
-  }
   body.replaceChildren(
-    section("What's going on", diagnosis, review),
-    section("Last 24 hours", grid),
-    section("Status", status),
-    section("Signals for this Prism (mute only after you confirm)", signals),
-    section("Limits", budget, save),
+    hero,
+    section("Last 24 hours", grid, more),
+    section("Status", status, retention),
+    section("Signals · switch off to mute", signals),
+    section("Limits", limits),
   );
 }
 

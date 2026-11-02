@@ -486,10 +486,6 @@ def test_sent_digest_is_persisted_and_retrievable() -> None:
                 and item.message.content == "Daily manager digest\nResponded: 1/1"
                 for item in digests
             )
-        client = TestClient(app)
-        response = client.get("/api/v1/microsoft/automation/digests")
-        assert response.status_code == 200
-        assert any(item["id"] == str(action_id) for item in response.json())
     finally:
         with SessionLocal() as db:
             if action_id is not None:

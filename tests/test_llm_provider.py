@@ -218,3 +218,28 @@ def test_openai_adapter_uses_bearer_auth_and_structured_output(monkeypatch) -> N
     assert captured["headers"]["Authorization"] == "Bearer server-secret"
     assert captured["json"]["response_format"]["type"] == "json_schema"
     assert result.text == '{"answer": "done"}'
+
+
+def _azure(**extra) -> AzureOpenAIProvider:
+    return AzureOpenAIProvider(
+        Settings(
+            DATABASE_URL=DATABASE_URL,
+            INTELLIGENCE_LLM_ENABLED=True,
+            LLM_PROVIDER="azure_openai",
+            AZURE_OPENAI_ENDPOINT="https://example.openai.azure.com",
+            AZURE_OPENAI_API_KEY="fake",
+            AZURE_OPENAI_DEPLOYMENT="gpt-5-nano",
+            **extra,
+        )
+    )
+
+
+def test_reasoning_models_are_asked_to_think_briefly_and_others_are_left_alone() -> None:
+    assert _azure()._reasoning("gpt-5-nano") == {"reasoning_effort": "low"}
+    assert _azure()._reasoning("o4-mini") == {"reasoning_effort": "low"}
+    assert _azure()._reasoning("gpt-4o-mini") == {}
+    assert _azure()._reasoning("gpt-5-chat") == {}  # chat variants do not reason
+    assert _azure(AZURE_OPENAI_REASONING_EFFORT="")._reasoning("gpt-5-nano") == {}
+    assert _azure(AZURE_OPENAI_REASONING_EFFORT="medium")._reasoning("gpt-5-nano") == {
+        "reasoning_effort": "medium"
+    }

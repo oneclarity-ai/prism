@@ -324,7 +324,21 @@ def reset_scratch_data() -> None:
         ).scalars()
         names = ", ".join(f'"{SCRATCH_SCHEMA}".{name}' for name in tables)
         if names:
-            db.execute(text(f"TRUNCATE {names} RESTART IDENTITY CASCADE"))
+            # A request from the previous test may still be finishing (it can be waiting on its own
+            # usage-log insert, which queues behind this TRUNCATE). Give up on the lock quickly and
+            # retry, so the in-flight request can finish instead of both waiting on each other.
+            from sqlalchemy.exc import OperationalError
+
+            for attempt in range(8):
+                try:
+                    db.execute(text("SET LOCAL lock_timeout = '3s'"))
+                    db.execute(text(f"TRUNCATE {names} RESTART IDENTITY CASCADE"))
+                    break
+                except OperationalError:
+                    db.rollback()
+                    if attempt == 7:
+                        raise
+                    time.sleep(0.5)
         db.commit()
 
 

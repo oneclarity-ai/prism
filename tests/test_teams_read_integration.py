@@ -75,7 +75,7 @@ class FakeSendGraph:
     def __init__(self, _db, _connection) -> None:
         pass
 
-    def send_chat_message(self, chat_id: str, content: str):
+    def send_chat_message(self, chat_id: str, content: str, signature: str | None = None):
         self.calls.append((chat_id, content))
         return {
             "id": "delivered-message-1",
@@ -782,5 +782,106 @@ def test_selected_chat_is_snapshotted_and_evidence_is_deduplicated(monkeypatch) 
                         stored_thread.source_label,
                         stored_thread.source_metadata,
                     ) = original_source
+                db.commit()
+        get_settings.cache_clear()
+
+
+class FakeRecentOneOnOnes:
+    """Two chats active just now, and Sanjay's own chat quiet for days."""
+
+    read: list[str] = []
+
+    def __init__(self, _db, _connection) -> None:
+        pass
+
+    @staticmethod
+    def _now(hours_ago: float = 0) -> str:
+        from datetime import datetime, timedelta, timezone
+
+        moment = datetime.now(timezone.utc) - timedelta(hours=hours_ago)
+        return moment.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    def list_chats(self):
+        def chat(chat_id, user_id, name, hours_ago):
+            return {
+                "id": chat_id,
+                "chatType": "oneOnOne",
+                "lastUpdatedDateTime": self._now(hours_ago),
+                "members": [
+                    {"userId": "manager", "displayName": "Manager"},
+                    {"userId": user_id, "displayName": name},
+                ],
+            }
+
+        return [
+            chat("chat-parv", "parv", "Parv Pareek", 1),
+            chat("chat-meera", "meera", "Meera Shah", 3),
+            chat("chat-sanjay", "sanjay", "Sanjay Kumar", 72),
+        ]
+
+    def list_chat_messages(self, chat_id: str, *, limit: int):
+        FakeRecentOneOnOnes.read.append(chat_id)
+        name = {"chat-parv": "Parv Pareek", "chat-meera": "Meera Shah"}[chat_id]
+        return [
+            {
+                "id": f"m-{chat_id}",
+                "messageType": "message",
+                "createdDateTime": self._now(0.5),
+                "from": {"user": {"id": chat_id.removeprefix("chat-"), "displayName": name}},
+                "body": {"contentType": "text", "content": f"Update from {name}."},
+            }
+        ]
+
+
+def test_read_all_one_on_ones_from_the_last_day_and_send_the_summary_to_one_person(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("PRISM_V21_ENABLED", "true")
+    get_settings.cache_clear()
+    monkeypatch.setattr(
+        "app.services.teams_read_service.MicrosoftService.get_connection",
+        lambda _db: SimpleNamespace(microsoft_user_id="manager"),
+    )
+    monkeypatch.setattr("app.services.teams_read_service.MicrosoftGraphClient", FakeRecentOneOnOnes)
+    FakeRecentOneOnOnes.read = []
+    original_source = None
+    try:
+        client = TestClient(app)
+        thread = client.get("/api/v2/agent/conversation").json()
+        with SessionLocal() as db:
+            stored = db.get(AgentThread, thread["id"])
+            original_source = (
+                stored.source_kind,
+                stored.source_external_id,
+                stored.source_label,
+                dict(stored.source_metadata),
+            )
+        client.delete(f"/api/v2/agent/threads/{thread['id']}/source/teams")
+        created = client.post(
+            f"/api/v2/agent/threads/{thread['id']}/messages",
+            json={
+                "content": "Read all my 1:1 chats from the last 24 hours, summarize what each person "
+                "said, and send it to Sanjay."
+            },
+        )
+        assert created.status_code == 201, created.text
+        sources = created.json()["sources"]
+        read = {s["external_id"] for s in sources if s["selection_reason"] != "destination"}
+        destination = {s["external_id"] for s in sources if s["selection_reason"] == "destination"}
+        assert read == {"chat-parv", "chat-meera"}
+        assert destination == {"chat-sanjay"}  # his chat was quiet, but he is who it goes to
+        synced = client.post(f"/api/v2/agent/jobs/{created.json()['id']}/evidence/sync")
+        assert synced.status_code == 200
+        assert set(FakeRecentOneOnOnes.read) == {"chat-parv", "chat-meera"}  # never reads his own
+    finally:
+        with SessionLocal() as db:
+            if original_source is not None:
+                stored = db.get(AgentThread, thread["id"])
+                (
+                    stored.source_kind,
+                    stored.source_external_id,
+                    stored.source_label,
+                    stored.source_metadata,
+                ) = original_source
                 db.commit()
         get_settings.cache_clear()

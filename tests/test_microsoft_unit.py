@@ -92,3 +92,23 @@ def test_graph_mail_sender_accepts_html_content(monkeypatch) -> None:
         "contentType": "HTML",
         "content": "<h1>Brief</h1>",
     }
+
+
+def test_the_signature_names_the_owner_and_the_prism_that_sent_it() -> None:
+    sign = MicrosoftService.prism_signature
+    assert sign("Yash Mandi", "QA Tester") == "Sent by Yash's QA Tester Prism"
+    assert sign("Yash Mandi", "Chief of Staff") == "Sent by Yash's Chief of Staff Prism"
+    assert sign("Yash Mandi", "Sales Prism") == "Sent by Yash's Sales Prism"  # no "Prism Prism"
+    assert sign("Chris Lee", "QA Tester") == "Sent by Chris' QA Tester Prism"
+    assert sign(None, "QA Tester") == "Sent by QA Tester Prism"
+    assert sign("Yash Mandi", None) == SIGNATURE  # no Prism: the configured default
+
+
+def test_teams_message_uses_the_sending_prisms_signature() -> None:
+    sig = MicrosoftService.prism_signature("Yash Mandi", "QA Tester")
+    html = MicrosoftService.teams_html_message("Hi Avery,\n\nThe test passed.", sig)
+    assert (
+        "— Sent by Yash&#x27;s QA Tester Prism" in html
+        or "— Sent by Yash's QA Tester Prism" in html
+    )
+    assert SIGNATURE not in html

@@ -19,14 +19,9 @@ from app.models.llm_usage import LLMUsage
 from app.models.message import Message
 from app.schemas.microsoft import (
     AgentDecisionRunRead,
-    AutomationRunRead,
-    AutomationStart,
-    DailyDigestRead,
     DirectorySyncResult,
     MicrosoftStatusRead,
-    SubscriptionRenewalResult,
 )
-from app.services.automation_service import DailyAutomationService
 from app.services.errors import DomainError
 from app.services.microsoft_service import (
     MicrosoftDirectoryService,
@@ -34,7 +29,7 @@ from app.services.microsoft_service import (
     MicrosoftService,
 )
 
-router = APIRouter(prefix="/api/v1/microsoft", tags=["Microsoft Teams automation"])
+router = APIRouter(prefix="/api/v1/microsoft", tags=["Microsoft Teams"])
 logger = logging.getLogger(__name__)
 
 
@@ -80,69 +75,6 @@ def sync_active_organization_users(db: Session = Depends(get_db)) -> DirectorySy
     """Import or update active directory users in the organization without messaging them."""
 
     return MicrosoftDirectoryService.sync_active_users(db)
-
-
-@router.post("/automation/start", response_model=AutomationRunRead)
-def start_teams_automation(
-    payload: Optional[AutomationStart] = None, db: Session = Depends(get_db)
-) -> AutomationRunRead:
-    """Send the initial check-in from the manager's Teams account to selected managed employees."""
-
-    return MicrosoftService.start_automation(db, payload or AutomationStart())
-
-
-@router.post("/automation/stop", response_model=AutomationRunRead)
-def stop_teams_automation(db: Session = Depends(get_db)) -> AutomationRunRead:
-    """Stop the current run and delete its active Microsoft reply listeners."""
-
-    return MicrosoftService.stop_automation(db)
-
-
-@router.post("/automation/renew-listener", response_model=SubscriptionRenewalResult)
-def renew_teams_listener(db: Session = Depends(get_db)) -> SubscriptionRenewalResult:
-    """Renew current Graph reply listeners; V1 needs this manually about once per hour."""
-
-    return MicrosoftService.renew_listener(db)
-
-
-@router.post("/automation/run-cycle")
-def run_manager_automation_cycle(
-    force: bool = False,
-    include_later_day_actions: bool = False,
-    db: Session = Depends(get_db),
-) -> dict[str, int]:
-    """Run the approved V1 daily automation cycle once; force is for controlled testing."""
-
-    return DailyAutomationService.run_cycle(
-        db, force=force, include_later_day_actions=include_later_day_actions
-    )
-
-
-@router.post("/automation/send-digest-email")
-def send_manager_digest_email(db: Session = Depends(get_db)) -> dict[str, object]:
-    """Send an on-demand manager digest to the connected Microsoft account's mailbox."""
-
-    recipient = DailyAutomationService.send_daily_digest_email(db)
-    return {"sent": 1, "recipient": recipient}
-
-
-@router.get("/automation/digests", response_model=list[DailyDigestRead])
-def list_persisted_daily_digests(
-    limit: int = 30, db: Session = Depends(get_db)
-) -> list[DailyDigestRead]:
-    """Return the exact daily digest copies previously sent through Teams."""
-
-    return [
-        DailyDigestRead(
-            id=action.id,
-            digest_date=action.executed_at.date(),
-            status=action.status,
-            sent_at=action.executed_at,
-            content=action.message.content,
-        )
-        for action in DailyAutomationService.list_daily_digests(db, limit=min(max(limit, 1), 100))
-        if action.message is not None
-    ]
 
 
 def process_reply_in_background(message_id: str) -> None:

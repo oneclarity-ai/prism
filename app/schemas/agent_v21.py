@@ -48,6 +48,14 @@ class AgentThreadMessageCreate(Schema):
     source_external_ids: list[str] = Field(default_factory=list, max_length=12)
 
 
+class ChatReplyCreate(Schema):
+    content: str = Field(min_length=1, max_length=4000)
+
+
+class ChatReplyRead(Schema):
+    handled: bool
+
+
 class AgentThreadMessageRead(ORMResponse):
     id: uuid.UUID
     thread_id: uuid.UUID
@@ -69,6 +77,15 @@ class AgentPreferenceUpdate(Schema):
     instruction: str = Field(min_length=3, max_length=4000)
     scope: str = Field(pattern=r"^(general|teams_chat)$")
     is_active: bool
+
+
+class PrismPreferenceCreate(Schema):
+    instruction: str = Field(min_length=3, max_length=4000)
+
+
+class PrismPreferenceUpdate(Schema):
+    instruction: str | None = Field(default=None, min_length=3, max_length=4000)
+    is_active: bool | None = None
 
 
 class AgentPreferenceRead(ORMResponse):

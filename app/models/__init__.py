@@ -20,6 +20,7 @@ from app.models.agent_v21 import (
 from app.models.automation_action import AutomationAction
 from app.models.automation_run import AutomationRun
 from app.models.blocker import Blocker
+from app.models.brain import BrainEntry
 from app.models.commitment import Commitment
 from app.models.conversation import Conversation
 from app.models.daily_update import DailyUpdate
@@ -65,6 +66,7 @@ from app.models.prism_v22 import (
     PrismOnboardingAnswer,
     PrismOnboardingQuestion,
     PrismOnboardingSession,
+    PrismPerson,
     PrismPresence,
     PrismRun,
     PrismSignalPreference,
@@ -76,10 +78,17 @@ from app.models.prism_v22 import (
 )
 from app.models.project import Project
 from app.models.provider_credential import ProviderCredential
+from app.models.qa import QaApproval, QaRun
 from app.models.response_state import BlockerDependency, ConversationQuestion, ConversationState
 from app.models.task import Task
+from app.models.work import PrismComputer, PrismLogin
 
 __all__ = [
+    "BrainEntry",
+    "QaApproval",
+    "QaRun",
+    "PrismComputer",
+    "PrismLogin",
     "Blocker",
     "AgentRun",
     "AgentThread",
@@ -137,6 +146,7 @@ __all__ = [
     "PrismNotification",
     "PrismNotificationSetting",
     "PrismPresence",
+    "PrismPerson",
     "PrismWorkingAgreement",
     "PrismTeamsSourcePolicy",
     "PrismTeamsSourceRule",

@@ -7,7 +7,11 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.models.agent_v21 import AgentFeedbackEvent, AgentPreference, AgentThread
-from app.schemas.agent_v21 import AgentPreferenceCreate, AgentPreferenceUpdate
+from app.schemas.agent_v21 import (
+    AgentPreferenceCreate,
+    AgentPreferenceUpdate,
+    PrismPreferenceUpdate,
+)
 from app.services.errors import NotFoundError
 
 
@@ -56,7 +60,14 @@ class AgentPreferenceService:
 
     @staticmethod
     def list(db: Session) -> list[AgentPreference]:
-        return list(db.scalars(select(AgentPreference).order_by(AgentPreference.created_at.desc())))
+        # Prism preferences are managed per Prism; this is the legacy, unscoped list.
+        return list(
+            db.scalars(
+                select(AgentPreference)
+                .where(AgentPreference.prism_id.is_(None))
+                .order_by(AgentPreference.created_at.desc())
+            )
+        )
 
     @staticmethod
     def create(db: Session, data: AgentPreferenceCreate) -> AgentPreference:
@@ -114,6 +125,44 @@ class AgentPreferenceService:
         return item
 
     @staticmethod
+    def _for_prism(db: Session, prism_id: uuid.UUID, preference_id: uuid.UUID) -> AgentPreference:
+        item = db.get(AgentPreference, preference_id)
+        if item is None or item.prism_id != prism_id:
+            raise NotFoundError("Agent preference was not found")
+        return item
+
+    @staticmethod
+    def update_for_prism(
+        db: Session, prism_id: uuid.UUID, preference_id: uuid.UUID, data: PrismPreferenceUpdate
+    ) -> AgentPreference:
+        item = AgentPreferenceService._for_prism(db, prism_id, preference_id)
+        if data.instruction is not None:
+            item.instruction = data.instruction.strip()
+        if data.is_active is not None:
+            item.is_active = data.is_active
+        db.add(
+            AgentFeedbackEvent(
+                event_type="prism_preference_updated",
+                details={"preference_id": str(item.id), "prism_id": str(prism_id)},
+            )
+        )
+        db.commit()
+        db.refresh(item)
+        return item
+
+    @staticmethod
+    def delete_for_prism(db: Session, prism_id: uuid.UUID, preference_id: uuid.UUID) -> None:
+        item = AgentPreferenceService._for_prism(db, prism_id, preference_id)
+        db.add(
+            AgentFeedbackEvent(
+                event_type="prism_preference_deleted",
+                details={"preference_id": str(item.id), "prism_id": str(prism_id)},
+            )
+        )
+        db.delete(item)
+        db.commit()
+
+    @staticmethod
     def update(
         db: Session, preference_id: uuid.UUID, data: AgentPreferenceUpdate
     ) -> AgentPreference:
@@ -132,3 +181,17 @@ class AgentPreferenceService:
         db.commit()
         db.refresh(item)
         return item
+
+    @staticmethod
+    def delete(db: Session, preference_id: uuid.UUID) -> None:
+        item = db.get(AgentPreference, preference_id)
+        if item is None:
+            raise NotFoundError("Agent preference was not found")
+        db.add(
+            AgentFeedbackEvent(
+                event_type="preference_deleted",
+                details={"preference_id": str(item.id), "scope": item.scope},
+            )
+        )
+        db.delete(item)
+        db.commit()

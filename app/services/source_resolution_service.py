@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
@@ -442,10 +443,57 @@ class SourceResolutionService:
                     excluded.add(source.external_id)
         return excluded
 
+    # "... and send it to Sanjay": the person after "to" receives the result, so they say nothing about
+    # which chats to read.
+    _SEND_CLAUSE = re.compile(
+        r"\b(?:send|share|forward|post|message|dm|ping)\b(?:\s+\w+){0,8}?\s+(?:to|with)\s+(?P<who>.+)$"
+    )
+
     @staticmethod
     def _inclusion_text(goal: str) -> str:
         normalized = SourceResolutionService._normalize(goal)
-        return re.split(r"\b(?:do not|dont|exclude|except|without)\b", normalized, maxsplit=1)[0]
+        normalized = re.split(
+            r"\b(?:do not|dont|exclude|except|without)\b", normalized, maxsplit=1
+        )[0]
+        if SourceResolutionService._requests_all_sources(goal):
+            normalized = SourceResolutionService._SEND_CLAUSE.split(normalized, maxsplit=1)[0]
+        return normalized
+
+    @staticmethod
+    def destination_for(
+        goal: str, catalog: list[TeamsChatSourceRead] | Callable[[], list[TeamsChatSourceRead]]
+    ) -> TeamsChatSourceRead | None:
+        """Who a "read all those chats and send it to X" request is addressed to, or None.
+
+        Only for sweeps of many chats; a request about one named person keeps meaning that person's chat.
+        The recipient's own 1:1 chat is used even when it had no activity in the reading window.
+        """
+
+        if not SourceResolutionService._requests_all_sources(goal):
+            return None
+        normalized = SourceResolutionService._normalize(goal)
+        found = SourceResolutionService._SEND_CLAUSE.search(normalized)
+        if found is None:
+            return None
+        who = SourceResolutionService._inclusion_text_for(found.group("who"))
+        if callable(catalog):
+            catalog = catalog()  # only fetched once the request is known to name a recipient
+        matches = [
+            match
+            for source in catalog
+            if source.chat_type == "private"
+            and (match := SourceResolutionService._score(who, source)) is not None
+        ]
+        if not matches:
+            return None
+        matches.sort(key=lambda item: item.score, reverse=True)
+        if len(matches) > 1 and matches[0].score == matches[1].score:
+            return None  # two equally good people: never guess who gets it
+        return matches[0].source
+
+    @staticmethod
+    def _inclusion_text_for(text: str) -> str:
+        return re.split(r"\b(?:do not|dont|exclude|except|without)\b", text, maxsplit=1)[0]
 
     @staticmethod
     def _contains(text: str, phrase: str) -> bool:

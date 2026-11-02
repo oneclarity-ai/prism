@@ -40,6 +40,20 @@ class ApprovedTeamsExecutionService:
     MANAGER_IDENTITY = "local_manager"
 
     @staticmethod
+    def _signature(db: Session, job: AgentJob, connection) -> str | None:
+        """Which Prism wrote this message, so the recipient sees "Sent by Yash's QA Tester Prism"."""
+        from app.models.agent_v21 import AgentThread
+        from app.models.prism_v22 import Prism
+
+        thread = db.get(AgentThread, job.thread_id)
+        prism = db.get(Prism, thread.prism_id) if thread is not None and thread.prism_id else None
+        if prism is None:
+            return None
+        return MicrosoftService.prism_signature(
+            getattr(connection, "display_name", None), prism.name
+        )
+
+    @staticmethod
     def execute(db: Session, proposal_id: uuid.UUID) -> ToolExecution:
         proposal = db.scalar(
             select(ActionProposal).where(ActionProposal.id == proposal_id).with_for_update()
@@ -91,7 +105,11 @@ class ApprovedTeamsExecutionService:
             connection = MicrosoftService.get_connection(db)
             graph = MicrosoftGraphClient(db, connection)
             destination_chat_id = str(proposal.destination.get("chat_id") or "")
-            result = graph.send_chat_message(destination_chat_id, proposal.body)
+            result = graph.send_chat_message(
+                destination_chat_id,
+                proposal.body,
+                ApprovedTeamsExecutionService._signature(db, job, connection),
+            )
             message_id = result.get("id") if isinstance(result, dict) else None
             if not isinstance(message_id, str) or not message_id:
                 raise RuleViolationError("Microsoft did not return a Teams message identifier")

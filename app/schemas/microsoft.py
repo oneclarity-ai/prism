@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime
+from datetime import datetime
 from decimal import Decimal
 from typing import Optional
 
@@ -9,7 +9,6 @@ from pydantic import Field, field_validator
 
 from app.models.enums import (
     AgentRunStatus,
-    AutomationActionStatus,
     AutomationStatus,
     MicrosoftSubscriptionStatus,
 )
@@ -87,14 +86,6 @@ class MicrosoftSubscriptionRead(ORMResponse):
     last_error: Optional[str]
     created_at: datetime
     updated_at: datetime
-
-
-class DailyDigestRead(Schema):
-    id: uuid.UUID
-    digest_date: date
-    status: AutomationActionStatus
-    sent_at: datetime
-    content: str
 
 
 class AgentDecisionRunRead(Schema):

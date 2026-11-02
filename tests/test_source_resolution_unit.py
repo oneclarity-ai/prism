@@ -283,3 +283,50 @@ def test_prefiltered_prism_policy_catalog_cannot_be_bypassed_by_manual_selection
             selected_external_ids=["ai-team"],
             catalog=[catalog[0]],
         )
+
+
+def _sweep_catalog():
+    recent = datetime.now(timezone.utc)
+    items = [
+        source("dm-ajay", "Ajay Nikumbh", "private", [("ajay", "Ajay", [])]),
+        source("dm-parv", "Parv Pareek", "private", [("parv", "Parv", [])]),
+        source("dm-sanjay", "Sanjay Kumar", "private", [("sanjay", "Sanjay", [])]),
+        source("team", "OneClarity Team", "group", [("ajay", "Ajay", []), ("parv", "Parv", [])]),
+    ]
+    items = [item.model_copy(update={"last_updated_at": recent}) for item in items]
+    # Sanjay's own chat is quiet: no activity in the last 24 hours.
+    items[2] = items[2].model_copy(update={"last_updated_at": recent - timedelta(days=3)})
+    return items
+
+
+GOAL = (
+    "Read all my 1:1 chats from the last 24 hours, write a summary of what each person said, "
+    "and send it to Sanjay"
+)
+
+
+def test_a_sweep_that_ends_with_send_it_to_a_person_reads_the_chats_not_just_that_person() -> None:
+    plan = SourceResolutionService.resolve(None, GOAL, catalog=_sweep_catalog())
+
+    assert plan.status == "resolved"
+    assert plan.selection_reason == "auto_all"
+    assert {item.external_id for item in plan.selected_sources} == {"dm-ajay", "dm-parv"}
+    assert plan.limits["history_days"] == 1
+
+
+def test_the_person_it_is_sent_to_is_the_destination_even_when_their_chat_was_quiet() -> None:
+    catalog = _sweep_catalog()
+
+    assert SourceResolutionService.destination_for(GOAL, catalog).external_id == "dm-sanjay"
+    # Not a sweep: naming one person still means reading that person's chat.
+    assert SourceResolutionService.destination_for("Check Parv's latest update", catalog) is None
+    # No recipient at all.
+    assert SourceResolutionService.destination_for("Read all my 1:1 chats today", catalog) is None
+
+
+def test_two_equally_good_recipients_are_never_guessed() -> None:
+    catalog = _sweep_catalog() + [
+        source("dm-sanjay2", "Sanjay Rao", "private", [("sanjay2", "Sanjay", [])])
+    ]
+
+    assert SourceResolutionService.destination_for(GOAL, catalog) is None

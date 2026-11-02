@@ -52,12 +52,15 @@ from app.schemas.agent_v21 import (
     ApprovalDecisionCreate,
     ApprovalDecisionRead,
     BulkApprovalCreate,
+    ChatReplyCreate,
+    ChatReplyRead,
     ToolExecutionRead,
 )
 from app.services.agent_preference_service import AgentPreferenceService
 from app.services.agent_recovery_service import AgentRecoveryService
 from app.services.agent_state_service import AgentStateService
 from app.services.approved_teams_execution_service import ApprovedTeamsExecutionService
+from app.services.chat_intent_service import ChatIntentService
 from app.services.conversation_review_service import ConversationReviewService
 from app.services.coordinated_action_service import CoordinatedActionService
 from app.services.errors import RuleViolationError
@@ -170,6 +173,15 @@ def update_preference(
     db: Session = Depends(get_db),
 ) -> AgentPreference:
     return AgentPreferenceService.update(db, preference_id, payload)
+
+
+@router.delete(
+    "/preferences/{preference_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_v21)],
+)
+def delete_preference(preference_id: uuid.UUID, db: Session = Depends(get_db)) -> None:
+    AgentPreferenceService.delete(db, preference_id)
 
 
 @router.post(
@@ -309,6 +321,40 @@ def create_manager_message(
                 "selection_reason": "destination",
             }
         )
+    recipient = (
+        None
+        if use_thread_as_destination
+        else SourceResolutionService.destination_for(
+            payload.content,
+            source_catalog
+            if source_catalog is not None
+            else (lambda: TeamsReadService.list_sources(db)),
+        )
+    )
+    if recipient is not None:
+        # "Read all my 1:1 chats and send a summary to Sanjay": the chats are read, only Sanjay's is
+        # a destination, and his own chat is not part of what is summarised.
+        resolved_sources = [
+            item for item in resolved_sources if item["external_id"] != recipient.external_id
+        ]
+        resolved_sources.append(
+            {
+                "kind": TeamsReadService.SOURCE_KIND,
+                "external_id": recipient.external_id,
+                "label": recipient.label,
+                "metadata": {
+                    "chat_type": recipient.chat_type,
+                    "participants": recipient.participants,
+                    "resolution_rationale": "You asked for the result to be sent to this person.",
+                    "destination_only": True,
+                },
+                "selection_reason": "destination",
+            }
+        )
+        if not any(item.get("selection_reason") != "destination" for item in resolved_sources):
+            raise RuleViolationError(
+                "No other Teams chats had activity in the requested time window"
+            )
     job = AgentStateService.create_job(
         db,
         thread_id=thread.id,
@@ -341,6 +387,43 @@ def create_manager_message(
     thread.updated_at = datetime.now(timezone.utc)
     db.commit()
     return _job(db, job.id)
+
+
+@router.post(
+    "/threads/{thread_id}/chat-reply",
+    response_model=ChatReplyRead,
+    dependencies=[Depends(require_v21)],
+)
+def chat_reply(
+    thread_id: uuid.UUID, payload: ChatReplyCreate, db: Session = Depends(get_db)
+) -> ChatReplyRead:
+    """Answer small talk like a colleague, without reading Teams or creating a review job."""
+
+    from datetime import timedelta
+
+    thread = AgentStateService.resolve_thread(db, thread_id)
+    reply = ChatIntentService.respond(
+        db, thread_id=thread.id, prism_id=thread.prism_id, text=payload.content
+    )
+    if reply is None:
+        return ChatReplyRead(handled=False)
+    now = datetime.now(timezone.utc)
+    db.add(
+        AgentThreadMessage(
+            thread_id=thread.id, role="manager", content=payload.content, created_at=now
+        )
+    )
+    db.add(
+        AgentThreadMessage(
+            thread_id=thread.id,
+            role="assistant",
+            content=reply,
+            created_at=now + timedelta(milliseconds=5),
+        )
+    )
+    thread.updated_at = now
+    db.commit()
+    return ChatReplyRead(handled=True)
 
 
 @router.get(

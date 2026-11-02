@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import time
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -29,6 +30,11 @@ class NormalizedTeamsMessage:
     metadata: dict[str, Any]
 
 
+# Listing every chat is a slow Microsoft call (several seconds) that the chat picker, the scope editor and
+# saving a choice all repeat. The catalog is kept briefly per manager so those clicks feel instant.
+_CATALOG: dict[str, tuple[float, list[TeamsChatSourceRead]]] = {}
+
+
 class TeamsReadService:
     SOURCE_KIND = "teams_chat"
     MAX_JOB_SOURCE_LIMIT = 50
@@ -37,6 +43,17 @@ class TeamsReadService:
     def list_sources(db: Session) -> list[TeamsChatSourceRead]:
         connection = MicrosoftService.get_connection(db)
         manager_id = connection.microsoft_user_id
+        ttl = get_settings().teams_catalog_cache_seconds
+        hit = _CATALOG.get(manager_id)
+        if ttl and hit and hit[0] > time.monotonic():
+            return list(hit[1])
+        sources = TeamsReadService._fetch_sources(db, connection, manager_id)
+        if ttl:
+            _CATALOG[manager_id] = (time.monotonic() + ttl, sources)
+        return list(sources)
+
+    @staticmethod
+    def _fetch_sources(db: Session, connection, manager_id: str) -> list[TeamsChatSourceRead]:
         sources = [
             source
             for chat in MicrosoftGraphClient(db, connection).list_chats()

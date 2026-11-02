@@ -110,10 +110,18 @@ class AzureOpenAIProvider:
                     {"role": "user", "content": json.dumps(context, default=str)},
                 ],
                 **({"response_format": response_format} if response_format else {}),
+                **self._reasoning(model),
             },
             timeout=httpx.Timeout(timeout_seconds, connect=min(10.0, timeout_seconds)),
         )
         return _chat_completion_result(response, fallback_model=model, provider_name=self.name)
+
+    def _reasoning(self, deployment: str) -> dict[str, str]:
+        effort = (self.settings.azure_openai_reasoning_effort or "").strip().lower()
+        name = deployment.lower()
+        if effort and name.startswith(("gpt-5", "o1", "o3", "o4")) and "chat" not in name:
+            return {"reasoning_effort": effort}
+        return {}
 
     def generate_structured(self, **kwargs) -> ProviderResult:
         return self._request(**kwargs)

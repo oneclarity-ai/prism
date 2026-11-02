@@ -12,7 +12,7 @@ def ask(page: Page, text: str) -> None:
 
 
 def test_manager_asks_without_choosing_a_chat_and_sees_disclosed_sources(page: Page) -> None:
-    expect(page.locator("#agent-source-chip-label")).to_have_text("Auto")
+    expect(page.locator("#agent-source-chip-label")).to_have_text("All chats")
     # No person or group appears as a Prism chat anywhere in primary navigation.
     assert page.locator(".thread-item").count() == 0
 
@@ -20,6 +20,7 @@ def test_manager_asks_without_choosing_a_chat_and_sees_disclosed_sources(page: P
 
     turn = page.locator(".turn.assistant", has_text="The release schema is the open dependency.")
     expect(turn).to_be_visible()
+    turn.locator(".turn-details > summary").click()
     chips = turn.locator(".source-chips")
     expect(chips).to_contain_text("Read from")
     expect(chips).to_contain_text("Auto-selected")
@@ -39,7 +40,7 @@ def test_two_coordinated_replies_are_edited_then_one_approved_and_one_rejected(
 
     cards = page.locator(".planned-action .draft-card")
     expect(cards).to_have_count(2)
-    expect(page.locator(".action-plan")).to_contain_text("Coordinated plan")
+    expect(page.locator(".action-plan")).to_contain_text("ready for you to check")
 
     # Card order follows the plan, so read each destination instead of assuming one.
     approved_to = cards.nth(0).locator(".draft-dest strong").inner_text()
@@ -74,6 +75,7 @@ def test_two_coordinated_replies_are_edited_then_one_approved_and_one_rejected(
     expect(cards).to_have_count(2)
     expect(cards.nth(0)).to_contain_text("Sent")
     expect(cards.nth(1)).to_contain_text("Rejected")
+    page.locator(".turn-details > summary").first.click()
     audit = page.locator("details.audit").first
     audit.locator("summary").click()
     expect(audit).to_contain_text("Delivered to Teams")

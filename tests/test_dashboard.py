@@ -11,35 +11,37 @@ def test_dashboard_is_served() -> None:
     assert "Today's AI cost" in response.text
     assert "/dashboard/styles.css" in response.text
     assert "fonts.googleapis.com" not in response.text
-    assert "Teams automation" in response.text
-    assert "Start automation" in response.text
     assert "Connect Microsoft account" in response.text
-    assert "Managed people" in response.text
-    assert "Add people from the organization" in response.text
-    assert "Teams activity" in response.text
-    assert "Run daily cycle" in response.text
-    assert "Send digest" in response.text
-    assert "toggle-automation-button" in response.text
-    assert "stop-automation-button" not in response.text
+    assert "Refresh from Teams" in response.text
+    assert 'id="people-me"' in response.text
+    assert 'id="person-edit-dialog"' in response.text
+    assert 'data-drawer-panel="people"' in response.text
+    # The Teams page is the connection and the people; activity and delivery lists are gone.
+    for removed in ("teams-activity-list", "Agent delivery health", "Retry failed replies"):
+        assert removed not in response.text
+    # The Teams page no longer offers the daily check-in automation.
+    for removed in ("Teams automation", "Start automation", "Run daily cycle", "Send digest"):
+        assert removed not in response.text
+    assert 'data-subtab-target="automation"' not in response.text
+    assert "toggle-automation-button" not in response.text
     assert "Daily manager review" in response.text
     assert "Blocker journeys" in response.text
     assert "Preview dummy flow" in response.text
-    assert "Agent delivery health" in response.text
-    assert "Retry failed replies" in response.text
     assert "Organisational memory" in response.text
     assert "Update memory" in response.text
     assert "Needs your attention" in response.text
     assert "Daily management brief" in response.text
     assert "Ask about the team" in response.text
-    # The sidebar holds only Today, the Prism list, and Settings (Teams lives under Settings).
+    # The sidebar holds only Home, the Prism list, and Settings (Teams is a Settings section).
     sidebar = response.text[
         response.text.index('<aside class="sidebar"') : response.text.index("</aside>")
     ]
     for legacy in ("ask", "management", "journey", "memory", "knowledge", "teams"):
         assert f'data-tab-target="{legacy}"' not in sidebar
     assert 'data-tab-target="overview"' in sidebar
-    assert 'data-tab-target="settings" data-tab-group="teams"' in sidebar
-    assert 'data-tab-target="teams"' in response.text
+    assert 'data-tab-target="settings"' in sidebar
+    assert 'data-subtab-target="teams"' in response.text
+    assert 'data-tab="teams"' not in response.text
     assert 'data-tab="management"' in response.text
     assert 'data-tab="knowledge"' in response.text
     assert 'data-tab="memory"' in response.text
@@ -64,15 +66,15 @@ def test_dashboard_is_served() -> None:
     assert "/dashboard/js/agent-chat.js" in response.text
     assert "/dashboard/js/prism-directory.js" in response.text
     assert "/dashboard/app.js" in response.text
-    assert 'data-subtabs="teams"' in response.text
+    assert 'data-subtabs="teams"' not in response.text
     assert 'data-subtabs="settings"' in response.text
     assert 'id="agent-composer"' in response.text
-    assert response.text.count("data-connect-microsoft") >= 2
+    assert response.text.count("data-connect-microsoft") >= 1
     assert '<p class="nav-label">Chats</p>' not in response.text
     assert "one conversation with Prism" in response.text
-    # Directory import lives with the people it affects, not in Settings.
-    assert response.text.index('id="sync-directory-button"') < response.text.index(
-        'data-tab="settings"'
+    # Directory import lives with the people it affects, in the Teams section of Settings.
+    assert response.text.index('data-tab="settings"') < response.text.index(
+        'id="people-sync-button"'
     )
 
 
@@ -102,14 +104,14 @@ def test_dashboard_static_assets_are_served() -> None:
     assert 'title: "Draft a follow-up"' in agent_script.text
     assert 'confirmLabel: "Create draft"' in agent_script.text
     assert "pendingSubmission" in agent_script.text
-    assert 'textElement("span", "spinner")' in agent_script.text
+    assert "typingBubble(pending.label)" in agent_script.text
     assert "Auto-selecting the relevant Teams chats" in agent_script.text
     assert "/sources/teams/resolve" not in agent_script.text
 
     prism_script = client.get("/dashboard/js/prism-directory.js")
     assert prism_script.status_code == 200
     assert "/api/v2/prisms" in prism_script.text
-    assert "Create draft" in prism_script.text
+    assert "Create prism" in prism_script.text
     assert "Archive Prism" in prism_script.text
     assert "choose up to five" in prism_script.text
     assert "requestSubmit" in prism_script.text
@@ -128,8 +130,11 @@ def test_dashboard_static_assets_are_served() -> None:
     assert "This is a different incident" in agent_script.text
     assert "Prepare a Teams draft" in agent_script.text
     assert "Was this useful?" in agent_script.text
+    people_script = client.get("/dashboard/js/people-directory.js")
+    assert people_script.status_code == 200
+    assert "/api/v1/people/sync" in people_script.text
+    assert "/api/v2/prisms/${detail.prismId}/people" in people_script.text
     health_script = client.get("/dashboard/js/prism-health.js")
     assert health_script.status_code == 200
     assert "/tuning/signals/" in health_script.text
     assert "/drafts`" in agent_script.text
-    assert "Recommendation only. Nothing was sent." in agent_script.text

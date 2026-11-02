@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from app.core.config import get_settings
 
 OPERATOR_TOKEN_HEADER = "X-Manager-Operator-Token"
+BRIDGE_PREFIX = "/api/v2/bridge/"
 PUBLIC_API_PATHS = {
     "/health",
     "/health/db",
@@ -37,7 +38,8 @@ def operator_auth_required() -> bool:
 
 async def protect_operator_api(request: Request, call_next):
     path = request.url.path
-    if not path.startswith("/api/") or path in PUBLIC_API_PATHS:
+    # The engine's calls back into Prism carry their own HMAC signature instead of the operator token.
+    if not path.startswith("/api/") or path in PUBLIC_API_PATHS or path.startswith(BRIDGE_PREFIX):
         return await call_next(request)
     if not operator_auth_required():
         return await call_next(request)
