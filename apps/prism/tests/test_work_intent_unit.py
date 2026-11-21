@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.services.work_plan_service import looks_like_task
+from app.services.engine.work_plan_service import looks_like_task
 
 BRIEF = (
     "# Task: Identify ideal customers for OneClarity\n"
@@ -33,6 +33,6 @@ def test_acting_on_teams_chats_is_not_a_web_task(text: str) -> None:
 def test_plain_replies_store_an_empty_metadata_dict_not_json_null() -> None:
     import inspect
 
-    from app.services.qa_run_service import QaRunService
+    from app.services.qa.qa_run_service import QaRunService
 
     assert "message_metadata=extra or {}" in inspect.getsource(QaRunService._reply)

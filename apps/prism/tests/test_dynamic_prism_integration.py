@@ -20,17 +20,17 @@ pytestmark = pytest.mark.skipif(os.getenv("RUN_DB_TESTS") != "1", reason="Requir
 from app.core.config import get_settings
 from app.db.session import SessionLocal
 from app.main import app
-from app.models.agent_v21 import AgentThread, AgentThreadMessage
-from app.models.prism_v22 import Prism
-from app.models.qa import QaApproval, QaRun
-from app.models.work import PrismComputer, PrismLogin
-from app.schemas.prism_v22 import PrismCreate
-from app.services import qa_run_service
-from app.services.prism_conversation_service import PrismConversationService
-from app.services.prism_lifecycle_service import PrismLifecycleService
-from app.services.prism_presets import grants_for, normalize_capabilities
-from app.services.qa_swarm_client import QaSwarmClient
-from app.services.work_bridge_service import verify
+from app.models.engine.work import PrismComputer, PrismLogin
+from app.models.prisms.agent_v21 import AgentThread, AgentThreadMessage
+from app.models.prisms.prism_v22 import Prism
+from app.models.qa.qa import QaApproval, QaRun
+from app.schemas.prisms.prism_v22 import PrismCreate
+from app.services.engine.work_bridge_service import verify
+from app.services.prisms.prism_conversation_service import PrismConversationService
+from app.services.prisms.prism_lifecycle_service import PrismLifecycleService
+from app.services.prisms.prism_presets import grants_for, normalize_capabilities
+from app.services.qa import qa_run_service
+from app.services.qa.qa_swarm_client import QaSwarmClient
 from tests.test_qa_tester_integration import SWARM_URL, FakeSwarm, _active_prism
 
 TASK = "find 5 fintech companies in Bangalore and list their websites"
@@ -231,7 +231,7 @@ def test_grants_follow_capabilities_and_outward_tools_always_ask() -> None:
 
 
 def test_a_custom_role_gets_work_questions_from_its_description(engine) -> None:
-    from app.services.prism_onboarding_service import PrismOnboardingService
+    from app.services.prisms.prism_onboarding_service import PrismOnboardingService
 
     with SessionLocal() as db:
         prism = PrismLifecycleService.create(
@@ -260,8 +260,8 @@ def test_a_custom_role_gets_work_questions_from_its_description(engine) -> None:
 
 
 def test_how_ill_work_is_written_once_and_edits_are_kept(engine) -> None:
-    from app.schemas.prism_v22 import PrismProfileUpdate
-    from app.services.prism_profile_service import PrismProfileService
+    from app.schemas.prisms.prism_v22 import PrismProfileUpdate
+    from app.services.prisms.prism_profile_service import PrismProfileService
 
     with SessionLocal() as db:
         prism = _work_prism(db)
@@ -372,7 +372,7 @@ def test_edits_are_clamped_and_a_login_policy_hides_signing_in(work, engine) -> 
         prism = db.get(Prism, prism_id)
         prism.logins_policy = "never"
         db.commit()
-        from app.services.work_plan_service import WorkPlanService
+        from app.services.engine.work_plan_service import WorkPlanService
 
         assert not any("Signing in" in a for a in WorkPlanService.asks_first(prism))
 
@@ -416,8 +416,8 @@ def test_the_prisms_agent_is_built_from_its_role_and_updated_only_when_it_change
         _started(db, thread_id)
     assert [kind for kind, _ in engine.agent_writes] == ["create"]  # unchanged role: no engine call
 
-    from app.schemas.prism_v22 import PrismProfileUpdate
-    from app.services.prism_profile_service import PrismProfileService
+    from app.schemas.prisms.prism_v22 import PrismProfileUpdate
+    from app.services.prisms.prism_profile_service import PrismProfileService
 
     with SessionLocal() as db:
         PrismProfileService.update(
@@ -930,9 +930,9 @@ def test_the_bridge_only_accepts_the_engine(engine) -> None:
 
 
 def test_teams_tools_need_the_capability_and_drafts_become_cards(work, engine, monkeypatch) -> None:
-    from app.models.employee import Employee
-    from app.schemas.agent_sources import TeamsChatSourceRead
-    from app.services.teams_read_service import TeamsReadService
+    from app.models.people.employee import Employee
+    from app.schemas.prisms.agent_sources import TeamsChatSourceRead
+    from app.services.teams.teams_read_service import TeamsReadService
 
     prism_id, thread_id = work
     client = TestClient(app)
@@ -964,7 +964,7 @@ def test_teams_tools_need_the_capability_and_drafts_become_cards(work, engine, m
     assert drafted.status_code == 200, drafted.text
     assert "Nothing was sent" in drafted.json()["result"]
     with SessionLocal() as db:
-        from app.models.agent_v21 import ActionProposal, AgentJob
+        from app.models.prisms.agent_v21 import ActionProposal, AgentJob
 
         job = db.scalar(select(AgentJob).where(AgentJob.thread_id == thread_id))
         assert job is not None and job.state.value == "waiting_for_approval"
@@ -994,8 +994,8 @@ def test_teams_tools_need_the_capability_and_drafts_become_cards(work, engine, m
 
 
 def test_computer_task_spend_is_its_own_category_in_the_dashboard(work, engine) -> None:
-    from app.models.llm_usage import LLMUsage
-    from app.services.qa_spend_service import FEATURE_WORK, QaSpendService
+    from app.models.llm.llm_usage import LLMUsage
+    from app.services.qa.qa_spend_service import FEATURE_WORK, QaSpendService
 
     _, thread_id = work
     tag = uuid.uuid4().hex[:8]
@@ -1048,10 +1048,10 @@ def test_a_draft_about_my_findings_to_a_colleague_on_teams_uses_the_findings(
 ) -> None:
     """ "...the companies you found... send to Sanjay on Teams" is my work going out, not a Teams read."""
 
-    from app.models.agent_v21 import ActionProposal, AgentJob
-    from app.schemas.agent_sources import TeamsChatSourceRead
-    from app.services import llm_service
-    from app.services.prism_teams_policy_service import PrismTeamsPolicyService
+    from app.models.prisms.agent_v21 import ActionProposal, AgentJob
+    from app.schemas.prisms.agent_sources import TeamsChatSourceRead
+    from app.services.llm import llm_service
+    from app.services.prisms.prism_teams_policy_service import PrismTeamsPolicyService
 
     prism_id, thread_id = work
     tag = uuid.uuid4().hex[:6]

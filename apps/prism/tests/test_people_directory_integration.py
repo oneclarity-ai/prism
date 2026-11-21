@@ -13,15 +13,15 @@ pytestmark = pytest.mark.skipif(os.getenv("RUN_DB_TESTS") != "1", reason="Requir
 from app.core.config import get_settings
 from app.db.session import SessionLocal
 from app.main import app
-from app.models.agent_v21 import AgentThread
-from app.models.employee import Employee
-from app.models.prism_v22 import Prism
-from app.schemas.people import PersonUpdate
-from app.schemas.prism_v22 import PrismCreate
-from app.services import people_directory_service as module
+from app.models.people.employee import Employee
+from app.models.prisms.agent_v21 import AgentThread
+from app.models.prisms.prism_v22 import Prism
+from app.schemas.people.people import PersonUpdate
+from app.schemas.prisms.prism_v22 import PrismCreate
 from app.services.errors import RuleViolationError
-from app.services.people_directory_service import PeopleDirectoryService
-from app.services.prism_lifecycle_service import PrismLifecycleService
+from app.services.people import people_directory_service as module
+from app.services.people.people_directory_service import PeopleDirectoryService
+from app.services.prisms.prism_lifecycle_service import PrismLifecycleService
 
 
 @pytest.fixture

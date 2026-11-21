@@ -40,16 +40,20 @@ from app.models.enums import (
     SenderType,
     TaskStatus,
 )
-from app.models.memory import ActivityEvent
-from app.models.response_state import ConversationQuestion
-from app.schemas.blocker import BlockerCreate
-from app.schemas.response_decision import IssueDecision, OutgoingDecision, ResponseDecision
-from app.services.automation_service import DailyAutomationService
-from app.services.blocker_service import BlockerService
+from app.models.management.response_state import ConversationQuestion
+from app.models.memory.memory import ActivityEvent
+from app.schemas.management.blocker import BlockerCreate
+from app.schemas.management.response_decision import (
+    IssueDecision,
+    OutgoingDecision,
+    ResponseDecision,
+)
 from app.services.errors import ExternalServiceError
-from app.services.microsoft_service import MicrosoftService
-from app.services.response_recovery_service import ResponseRecoveryService
-from app.services.response_service import ResponseService
+from app.services.management.automation_service import DailyAutomationService
+from app.services.management.blocker_service import BlockerService
+from app.services.management.response_recovery_service import ResponseRecoveryService
+from app.services.management.response_service import ResponseService
+from app.services.teams.microsoft_service import MicrosoftService
 
 pytestmark = pytest.mark.skipif(os.getenv("RUN_DB_TESTS") != "1", reason="Requires PostgreSQL")
 

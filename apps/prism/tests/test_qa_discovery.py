@@ -6,14 +6,14 @@ from unittest.mock import Mock
 import pytest
 
 from app.services.errors import RuleViolationError
-from app.services.qa_plan_service import QaPlanDraft, QaPlanService
-from app.services.qa_run_service import QaRunService
+from app.services.qa.qa_plan_service import QaPlanDraft, QaPlanService
+from app.services.qa.qa_run_service import QaRunService
 
 
 def test_url_alone_discovers_pages_despite_model_requesting_routes(monkeypatch):
     monkeypatch.setattr(QaPlanService, "house_rules", lambda *a: ([], False))
     monkeypatch.setattr(
-        "app.services.llm_service.LLMService.complete",
+        "app.services.llm.llm_service.LLMService.complete",
         lambda **kw: QaPlanDraft(
             pages=["/invented-dashboard"], needs_clarification=True, question="Which routes?"
         ),

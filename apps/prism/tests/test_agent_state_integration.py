@@ -9,16 +9,16 @@ from sqlalchemy import delete, func, select
 pytestmark = pytest.mark.skipif(os.getenv("RUN_DB_TESTS") != "1", reason="Requires PostgreSQL")
 
 from app.db.session import SessionLocal
-from app.models.agent_v21 import AgentThread, ApprovalDecision, ToolExecution
 from app.models.enums import (
     ActionProposalState,
     AgentJobState,
     ApprovalDecisionType,
     ToolExecutionState,
 )
-from app.services.agent_recovery_service import AgentRecoveryService
-from app.services.agent_state_service import AgentStateService
+from app.models.prisms.agent_v21 import AgentThread, ApprovalDecision, ToolExecution
 from app.services.errors import ConflictError, RuleViolationError
+from app.services.prisms.agent_recovery_service import AgentRecoveryService
+from app.services.prisms.agent_state_service import AgentStateService
 
 
 def test_revision_approval_and_execution_are_exact_and_idempotent() -> None:

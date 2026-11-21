@@ -8,10 +8,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.api.routes import operations
-from app.api.routes.prism_v22 import require_v22
-from app.api.routes.work import require_v24
-from app.services.qa_swarm_client import QaSwarmClient
+from app.api.routes.engine.work import require_v24
+from app.api.routes.prisms import operations
+from app.api.routes.prisms.prism_v22 import require_v22
+from app.services.qa.qa_swarm_client import QaSwarmClient
 
 
 def test_workspace_data_uses_allowlist_and_hides_sensitive_fields():
@@ -186,7 +186,7 @@ def test_workspace_setup_forms_are_validated_and_do_not_launch_runs(monkeypatch)
     assert calls[-1] == ("analytics", {"days": 7, "agent_id": agent_id}, None)
     assert client.get("/api/v2/operations/analytics?days=0").status_code == 422
     # The same feature gates apply to every new write endpoint.
-    from app.api.routes import work
+    from app.api.routes.engine import work
 
     monkeypatch.setattr(work, "get_settings", lambda: SimpleNamespace(prism_v24_enabled=False))
     del app.dependency_overrides[require_v24]

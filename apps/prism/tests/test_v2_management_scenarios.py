@@ -2,8 +2,8 @@
 
 import pytest
 
-from app.services.management_decision_service import ManagementDecisionService
-from app.services.management_policy import ManagementPolicy
+from app.services.management.management_decision_service import ManagementDecisionService
+from app.services.management.management_policy import ManagementPolicy
 
 SCENARIOS = [
     ("ordinary update stays quiet", {"ordinary_update": True}, "NO_ACTION"),

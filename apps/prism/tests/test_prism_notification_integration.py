@@ -11,10 +11,10 @@ pytestmark = pytest.mark.skipif(os.getenv("RUN_DB_TESTS") != "1", reason="Requir
 
 from app.db.session import SessionLocal
 from app.models.enums import PrismLifecycleState
-from app.models.prism_v22 import Prism, PrismNotification, PrismObservation, PrismPresence
-from app.schemas.prism_v22 import PrismCreate, PrismNotificationSettingUpdate
-from app.services.prism_lifecycle_service import PrismLifecycleService
-from app.services.prism_notification_service import PrismNotificationService
+from app.models.prisms.prism_v22 import Prism, PrismNotification, PrismObservation, PrismPresence
+from app.schemas.prisms.prism_v22 import PrismCreate, PrismNotificationSettingUpdate
+from app.services.prisms.prism_lifecycle_service import PrismLifecycleService
+from app.services.prisms.prism_notification_service import PrismNotificationService
 
 
 def _active_prism(db, name: str) -> Prism:

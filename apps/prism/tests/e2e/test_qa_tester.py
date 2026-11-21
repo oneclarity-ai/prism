@@ -13,8 +13,8 @@ from tests.e2e.test_prism_directory import open_sidebar_if_narrow
 def seed_qa_prism(name: str) -> None:
     from app.db.session import SessionLocal
     from app.models.enums import PrismLifecycleState
-    from app.schemas.prism_v22 import PrismCreate
-    from app.services.prism_lifecycle_service import PrismLifecycleService
+    from app.schemas.prisms.prism_v22 import PrismCreate
+    from app.services.prisms.prism_lifecycle_service import PrismLifecycleService
 
     with SessionLocal() as db:
         prism = PrismLifecycleService.create(
@@ -41,9 +41,9 @@ def test_qa_tester_plans_runs_shows_its_screen_and_reports(
     page: Page, e2e_app, monkeypatch
 ) -> None:
     from app.core.config import get_settings
-    from app.models.qa import QaRun
-    from app.services import qa_run_service
-    from app.services.qa_swarm_client import QaSwarmClient
+    from app.models.qa.qa import QaRun
+    from app.services.qa import qa_run_service
+    from app.services.qa.qa_swarm_client import QaSwarmClient
     from tests.test_qa_tester_integration import FakeSwarm
 
     monkeypatch.setenv("QA_SWARM_URL", "http://swarm.invalid")

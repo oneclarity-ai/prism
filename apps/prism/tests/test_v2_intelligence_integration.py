@@ -13,28 +13,28 @@ pytestmark = pytest.mark.skipif(
 )
 
 from app.db.session import SessionLocal
-from app.models.blocker import Blocker
-from app.models.commitment import Commitment
-from app.models.employee import Employee
 from app.models.enums import BlockerSeverity, CommitmentStatus, MemoryPredicate
-from app.models.intelligence import (
+from app.models.management.blocker import Blocker
+from app.models.management.commitment import Commitment
+from app.models.management.intelligence import (
     DependencyEdge,
     ManagementDecision,
     ManagementRisk,
     ManagerFeedback,
 )
-from app.models.memory import MemoryFact
-from app.schemas.blocker import BlockerCreate
-from app.schemas.commitment import CommitmentCreate, CommitmentRevisionCreate
-from app.schemas.intelligence import DependencyEdgeCreate, ManagerFeedbackCreate
-from app.schemas.memory import MemoryFactCreate
-from app.services.blocker_service import BlockerService
-from app.services.commitment_service import CommitmentService
-from app.services.dependency_graph_service import DependencyGraphService
-from app.services.management_state_service import ManagementStateService
-from app.services.manager_feedback_service import ManagerFeedbackService
-from app.services.memory_service import MemoryService
-from app.services.temporal_memory_service import TemporalMemoryService
+from app.models.memory.memory import MemoryFact
+from app.models.people.employee import Employee
+from app.schemas.management.blocker import BlockerCreate
+from app.schemas.management.commitment import CommitmentCreate, CommitmentRevisionCreate
+from app.schemas.management.intelligence import DependencyEdgeCreate, ManagerFeedbackCreate
+from app.schemas.memory.memory import MemoryFactCreate
+from app.services.management.blocker_service import BlockerService
+from app.services.management.commitment_service import CommitmentService
+from app.services.management.dependency_graph_service import DependencyGraphService
+from app.services.management.management_state_service import ManagementStateService
+from app.services.management.manager_feedback_service import ManagerFeedbackService
+from app.services.memory.memory_service import MemoryService
+from app.services.memory.temporal_memory_service import TemporalMemoryService
 
 
 def test_v2_current_state_graph_and_temporal_history_work_together():

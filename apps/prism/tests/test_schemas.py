@@ -3,15 +3,15 @@ from datetime import datetime
 import pytest
 from pydantic import ValidationError
 
-from app.schemas.blocker import BlockerCreate
-from app.schemas.commitment import CommitmentCreate, CommitmentRevisionCreate
-from app.schemas.conversation import MessageIntentCreate
-from app.schemas.daily_update import DailyUpdateCreate
-from app.schemas.employee import EmployeeCreate
-from app.schemas.escalation import EscalationCreate
-from app.schemas.management_context import ManagementContextCreate
-from app.schemas.project import ProjectCreate
-from app.schemas.task import TaskCreate
+from app.schemas.management.blocker import BlockerCreate
+from app.schemas.management.commitment import CommitmentCreate, CommitmentRevisionCreate
+from app.schemas.management.conversation import MessageIntentCreate
+from app.schemas.management.daily_update import DailyUpdateCreate
+from app.schemas.management.escalation import EscalationCreate
+from app.schemas.management.project import ProjectCreate
+from app.schemas.management.task import TaskCreate
+from app.schemas.memory.management_context import ManagementContextCreate
+from app.schemas.people.employee import EmployeeCreate
 
 
 def test_employee_email_is_normalized() -> None:

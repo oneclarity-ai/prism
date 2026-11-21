@@ -14,8 +14,8 @@ pytestmark = pytest.mark.skipif(
 
 from app.db.session import SessionLocal
 from app.main import app
-from app.models.management_context import ManagementContext
-from app.services.management_context_service import ManagementContextService
+from app.models.memory.management_context import ManagementContext
+from app.services.memory.management_context_service import ManagementContextService
 
 
 def test_management_context_can_be_saved_and_listed() -> None:

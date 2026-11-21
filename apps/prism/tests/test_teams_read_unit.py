@@ -3,8 +3,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
-from app.services.microsoft_service import MicrosoftGraphClient
-from app.services.teams_read_service import TeamsReadService
+from app.services.teams.microsoft_service import MicrosoftGraphClient
+from app.services.teams.teams_read_service import TeamsReadService
 
 
 def test_normalize_message_sanitizes_html_mentions_and_quote() -> None:

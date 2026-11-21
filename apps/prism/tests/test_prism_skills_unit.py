@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from app.schemas.prism_skill import SkillApproval, SkillContent, SkillInterviewAnswer
+from app.schemas.prisms.prism_skill import SkillApproval, SkillContent, SkillInterviewAnswer
 
 
 def test_skill_contract_is_instruction_only_bounded_and_normalized():

@@ -3,8 +3,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
-from app.schemas.agent_sources import TeamsChatSourceRead
-from app.services.prism_teams_policy_service import PrismTeamsPolicyService
+from app.schemas.prisms.agent_sources import TeamsChatSourceRead
+from app.services.prisms.prism_teams_policy_service import PrismTeamsPolicyService
 
 
 def _source(external_id: str) -> TeamsChatSourceRead:
@@ -19,7 +19,7 @@ def _source(external_id: str) -> TeamsChatSourceRead:
 
 def test_incremental_scan_rotates_after_the_durable_discovery_cursor(monkeypatch) -> None:
     monkeypatch.setattr(
-        "app.services.prism_teams_policy_service.get_settings",
+        "app.services.prisms.prism_teams_policy_service.get_settings",
         lambda: SimpleNamespace(v22_teams_poll_source_limit=2),
     )
 

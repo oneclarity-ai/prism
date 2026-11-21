@@ -1,10 +1,10 @@
 import uuid
 from types import SimpleNamespace
 
-from app.schemas.response_decision import OutgoingDecision, ResponseDecision
-from app.services.development_service import DevelopmentService
-from app.services.message_intent_service import MessageIntentService
-from app.services.response_service import ResponseService
+from app.schemas.management.response_decision import OutgoingDecision, ResponseDecision
+from app.services.management.development_service import DevelopmentService
+from app.services.management.message_intent_service import MessageIntentService
+from app.services.management.response_service import ResponseService
 
 
 def test_finished_then_testing_is_a_normal_progress_update() -> None:
@@ -70,7 +70,7 @@ def test_ordinary_question_does_not_need_an_issue_operation() -> None:
 
 def test_dummy_journey_preview_does_not_touch_the_database(monkeypatch) -> None:
     monkeypatch.setattr(
-        "app.services.development_service.get_settings",
+        "app.services.management.development_service.get_settings",
         lambda: SimpleNamespace(app_env="development"),
     )
 

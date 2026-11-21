@@ -15,17 +15,17 @@ pytestmark = pytest.mark.skipif(os.getenv("RUN_DB_TESTS") != "1", reason="Requir
 from app.core.config import get_settings
 from app.db.session import SessionLocal
 from app.main import app
-from app.models.agent_v21 import AgentThread, AgentThreadMessage
 from app.models.enums import PrismLifecycleState
-from app.models.llm_usage import LLMUsage
-from app.models.prism_v22 import Prism
-from app.models.qa import QaApproval, QaRun
-from app.schemas.prism_v22 import PrismCreate
-from app.services import qa_run_service
-from app.services.prism_conversation_service import PrismConversationService
-from app.services.prism_lifecycle_service import PrismLifecycleService
-from app.services.qa_plan_service import environment_for, find_site, looks_like_test_request
-from app.services.qa_swarm_client import QaSwarmClient
+from app.models.llm.llm_usage import LLMUsage
+from app.models.prisms.agent_v21 import AgentThread, AgentThreadMessage
+from app.models.prisms.prism_v22 import Prism
+from app.models.qa.qa import QaApproval, QaRun
+from app.schemas.prisms.prism_v22 import PrismCreate
+from app.services.prisms.prism_conversation_service import PrismConversationService
+from app.services.prisms.prism_lifecycle_service import PrismLifecycleService
+from app.services.qa import qa_run_service
+from app.services.qa.qa_plan_service import environment_for, find_site, looks_like_test_request
+from app.services.qa.qa_swarm_client import QaSwarmClient
 
 SWARM_URL = "http://swarm.invalid:8080"
 
@@ -529,7 +529,7 @@ def test_unreachable_workspace_stays_reconcilable_with_a_friendly_status(
 
 
 def test_qa_tester_onboarding_asks_testing_questions_and_agreement_allows_bug_filing(swarm) -> None:
-    from app.services.prism_onboarding_service import PrismOnboardingService
+    from app.services.prisms.prism_onboarding_service import PrismOnboardingService
 
     with SessionLocal() as db:
         prism = PrismLifecycleService.create(
@@ -587,7 +587,7 @@ def _finished_run(db, prism_id, thread_id) -> QaRun:
 
 
 def test_follow_up_questions_are_answered_from_test_results_never_from_teams(qa_prism) -> None:
-    from app.models.agent_v21 import AgentJob
+    from app.models.prisms.agent_v21 import AgentJob
 
     prism_id, thread_id = qa_prism
     with SessionLocal() as db:
@@ -618,8 +618,8 @@ def test_a_qa_prism_with_no_results_says_so_and_teams_questions_still_go_to_team
 
 
 def test_the_model_answer_is_used_when_available_and_can_hand_off(qa_prism) -> None:
-    from app.services.llm_provider import FakeLLMProvider, ProviderResult
-    from app.services.llm_service import LLMService
+    from app.services.llm.llm_provider import FakeLLMProvider, ProviderResult
+    from app.services.llm.llm_service import LLMService
 
     prism_id, thread_id = qa_prism
 
@@ -656,10 +656,10 @@ def test_a_draft_for_a_colleague_is_an_editable_draft_card_that_can_be_sent(
 ) -> None:
     from types import SimpleNamespace
 
-    from app.models.agent_v21 import ActionProposal, AgentJob
-    from app.models.employee import Employee
-    from app.schemas.agent_sources import TeamsChatSourceRead
-    from app.services.teams_read_service import TeamsReadService
+    from app.models.people.employee import Employee
+    from app.models.prisms.agent_v21 import ActionProposal, AgentJob
+    from app.schemas.prisms.agent_sources import TeamsChatSourceRead
+    from app.services.teams.teams_read_service import TeamsReadService
 
     prism_id, thread_id = qa_prism
     tag = uuid.uuid4().hex[:6]
@@ -689,7 +689,7 @@ def test_a_draft_for_a_colleague_is_an_editable_draft_card_that_can_be_sent(
             ]
         ),
     )
-    for module in ("approved_teams_execution_service",):
+    for module in ("teams.approved_teams_execution_service",):
         monkeypatch.setattr(
             f"app.services.{module}.MicrosoftService.get_connection",
             lambda _db: SimpleNamespace(microsoft_user_id="manager"),
@@ -759,7 +759,7 @@ def test_a_draft_for_a_colleague_is_an_editable_draft_card_that_can_be_sent(
 
 
 def test_without_a_teams_chat_the_draft_text_is_still_shown(qa_prism, monkeypatch) -> None:
-    from app.services.teams_read_service import TeamsReadService
+    from app.services.teams.teams_read_service import TeamsReadService
 
     prism_id, thread_id = qa_prism
     monkeypatch.setattr(TeamsReadService, "list_sources", staticmethod(lambda db: []))
@@ -788,7 +788,7 @@ def test_cost_shows_live_while_running_not_only_at_the_end(qa_prism, swarm) -> N
 
 
 def test_workspace_spend_is_copied_into_usage_once_and_categorised(qa_prism, swarm) -> None:
-    from app.services.qa_spend_service import (
+    from app.services.qa.qa_spend_service import (
         FEATURE_OTHER,
         FEATURE_PRISM,
         PROVIDER,
@@ -842,10 +842,10 @@ def test_workspace_spend_is_copied_into_usage_once_and_categorised(qa_prism, swa
 def test_a_draft_for_several_people_in_a_group_is_a_card_not_text(qa_prism, monkeypatch) -> None:
     from types import SimpleNamespace
 
-    from app.models.agent_v21 import ActionProposal, AgentJob
-    from app.schemas.agent_sources import TeamsChatSourceRead
-    from app.services import llm_service
-    from app.services.prism_teams_policy_service import PrismTeamsPolicyService
+    from app.models.prisms.agent_v21 import ActionProposal, AgentJob
+    from app.schemas.prisms.agent_sources import TeamsChatSourceRead
+    from app.services.llm import llm_service
+    from app.services.prisms.prism_teams_policy_service import PrismTeamsPolicyService
 
     prism_id, thread_id = qa_prism
     tag = uuid.uuid4().hex[:6]

@@ -15,11 +15,6 @@ pytestmark = pytest.mark.skipif(
 
 from app.agents.management_agent import ManagementAgent
 from app.db.session import SessionLocal
-from app.models.agent_run import AgentRun
-from app.models.automation_action import AutomationAction
-from app.models.blocker import Blocker
-from app.models.conversation import Conversation
-from app.models.employee import Employee
 from app.models.enums import (
     AgentRunStatus,
     ConversationChannel,
@@ -28,11 +23,20 @@ from app.models.enums import (
     MessageDirection,
     SenderType,
 )
-from app.models.message import Message
-from app.models.response_state import ConversationQuestion
-from app.schemas.response_decision import IssueDecision, OutgoingDecision, ResponseDecision
-from app.services.microsoft_service import MicrosoftService
-from app.services.response_service import ResponseService
+from app.models.management.automation_action import AutomationAction
+from app.models.management.blocker import Blocker
+from app.models.management.conversation import Conversation
+from app.models.management.message import Message
+from app.models.management.response_state import ConversationQuestion
+from app.models.people.employee import Employee
+from app.models.prisms.agent_run import AgentRun
+from app.schemas.management.response_decision import (
+    IssueDecision,
+    OutgoingDecision,
+    ResponseDecision,
+)
+from app.services.management.response_service import ResponseService
+from app.services.teams.microsoft_service import MicrosoftService
 
 
 def test_named_owner_handoff_acknowledges_source_and_contacts_owner(monkeypatch) -> None:

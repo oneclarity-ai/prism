@@ -9,40 +9,40 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 import app.models  # noqa: F401 - register all ORM relationship targets at startup
-from app.api.routes.agent_v21 import router as agent_v21_router
-from app.api.routes.blockers import router as blockers_router
-from app.api.routes.brain import router as brain_router
-from app.api.routes.commitments import router as commitments_router
-from app.api.routes.conversations import router as conversations_router
-from app.api.routes.daily_updates import router as daily_updates_router
-from app.api.routes.employees import router as employees_router
-from app.api.routes.escalations import router as escalations_router
+from app.api.routes.engine.work import bridge as work_bridge_router
+from app.api.routes.engine.work import router as work_router
 from app.api.routes.health import router as health_router
-from app.api.routes.intelligence import router as intelligence_router
-from app.api.routes.llm_usage import router as llm_usage_router
-from app.api.routes.management import router as management_router
-from app.api.routes.management_context import router as management_context_router
-from app.api.routes.memory import router as memory_router
-from app.api.routes.microsoft import router as microsoft_router
-from app.api.routes.operations import router as operations_router
-from app.api.routes.people import router as people_router
-from app.api.routes.prism_v22 import router as prism_v22_router
-from app.api.routes.projects import router as projects_router
-from app.api.routes.provider import router as provider_router
-from app.api.routes.qa import router as qa_router
-from app.api.routes.tasks import router as tasks_router
-from app.api.routes.work import bridge as work_bridge_router
-from app.api.routes.work import router as work_router
+from app.api.routes.llm.llm_usage import router as llm_usage_router
+from app.api.routes.llm.provider import router as provider_router
+from app.api.routes.management.blockers import router as blockers_router
+from app.api.routes.management.commitments import router as commitments_router
+from app.api.routes.management.conversations import router as conversations_router
+from app.api.routes.management.daily_updates import router as daily_updates_router
+from app.api.routes.management.escalations import router as escalations_router
+from app.api.routes.management.intelligence import router as intelligence_router
+from app.api.routes.management.management import router as management_router
+from app.api.routes.management.projects import router as projects_router
+from app.api.routes.management.tasks import router as tasks_router
+from app.api.routes.memory.brain import router as brain_router
+from app.api.routes.memory.management_context import router as management_context_router
+from app.api.routes.memory.memory import router as memory_router
+from app.api.routes.people.employees import router as employees_router
+from app.api.routes.people.people import router as people_router
+from app.api.routes.prisms.agent_v21 import router as agent_v21_router
+from app.api.routes.prisms.operations import router as operations_router
+from app.api.routes.prisms.prism_v22 import router as prism_v22_router
+from app.api.routes.qa.qa import router as qa_router
+from app.api.routes.teams.microsoft import router as microsoft_router
 from app.core.config import get_settings
 from app.core.dashboard_routes import is_dashboard_path
 from app.core.security import protect_operator_api
 from app.db.session import SessionLocal
-from app.services.automation_service import DailyAutomationService
 from app.services.errors import DomainError
-from app.services.prism_run_service import PrismRunService
-from app.services.provider_credential_service import ProviderCredentialService
-from app.services.qa_run_service import QaRunService, make_client
-from app.services.qa_spend_service import QaSpendService
+from app.services.llm.provider_credential_service import ProviderCredentialService
+from app.services.management.automation_service import DailyAutomationService
+from app.services.prisms.prism_run_service import PrismRunService
+from app.services.qa.qa_run_service import QaRunService, make_client
+from app.services.qa.qa_spend_service import QaSpendService
 
 logger = logging.getLogger(__name__)
 QA_SPEND_SYNC_SECONDS = 60

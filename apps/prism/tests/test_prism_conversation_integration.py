@@ -9,13 +9,13 @@ from sqlalchemy import delete
 pytestmark = pytest.mark.skipif(os.getenv("RUN_DB_TESTS") != "1", reason="Requires PostgreSQL")
 
 from app.db.session import SessionLocal
-from app.models.agent_v21 import AgentPreference, AgentThread, AgentThreadMessage
 from app.models.enums import PrismLifecycleState
-from app.models.prism_v22 import Prism
-from app.schemas.prism_v22 import PrismCreate
-from app.services.agent_preference_service import AgentPreferenceService
-from app.services.prism_conversation_service import PrismConversationService
-from app.services.prism_lifecycle_service import PrismLifecycleService
+from app.models.prisms.agent_v21 import AgentPreference, AgentThread, AgentThreadMessage
+from app.models.prisms.prism_v22 import Prism
+from app.schemas.prisms.prism_v22 import PrismCreate
+from app.services.prisms.agent_preference_service import AgentPreferenceService
+from app.services.prisms.prism_conversation_service import PrismConversationService
+from app.services.prisms.prism_lifecycle_service import PrismLifecycleService
 
 
 def _activate(db, prism: Prism) -> Prism:

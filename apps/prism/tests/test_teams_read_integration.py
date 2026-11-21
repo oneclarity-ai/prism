@@ -13,15 +13,15 @@ pytestmark = pytest.mark.skipif(os.getenv("RUN_DB_TESTS") != "1", reason="Requir
 from app.core.config import get_settings
 from app.db.session import SessionLocal
 from app.main import app
-from app.models.agent_v21 import (
+from app.models.prisms.agent_v21 import (
     AgentFeedbackEvent,
     AgentJob,
     AgentPreference,
     AgentThread,
     AgentThreadMessage,
 )
-from app.services.llm_provider import FakeLLMProvider, ProviderResult
-from app.services.llm_service import LLMService
+from app.services.llm.llm_provider import FakeLLMProvider, ProviderResult
+from app.services.llm.llm_service import LLMService
 
 
 class _FrozenDatetime(datetime):
@@ -34,7 +34,7 @@ class _FrozenDatetime(datetime):
 
 @pytest.fixture(autouse=True)
 def frozen_teams_clock(monkeypatch):
-    for module in ("source_resolution_service", "teams_read_service"):
+    for module in ("management.source_resolution_service", "teams.teams_read_service"):
         monkeypatch.setattr(f"app.services.{module}.datetime", _FrozenDatetime)
 
 
@@ -189,10 +189,10 @@ def test_auto_source_resolution_persists_disclosed_job_plan(monkeypatch) -> None
     monkeypatch.setenv("PRISM_V21_ENABLED", "true")
     get_settings.cache_clear()
     monkeypatch.setattr(
-        "app.services.teams_read_service.MicrosoftService.get_connection",
+        "app.services.teams.teams_read_service.MicrosoftService.get_connection",
         lambda _db: SimpleNamespace(microsoft_user_id="manager"),
     )
-    monkeypatch.setattr("app.services.teams_read_service.MicrosoftGraphClient", FakeReadGraph)
+    monkeypatch.setattr("app.services.teams.teams_read_service.MicrosoftGraphClient", FakeReadGraph)
     original_source = None
     job_id = None
     try:
@@ -250,11 +250,11 @@ def test_multisource_review_keeps_provenance_and_conflicts_visible(monkeypatch) 
     monkeypatch.setenv("PRISM_V21_ENABLED", "true")
     get_settings.cache_clear()
     monkeypatch.setattr(
-        "app.services.teams_read_service.MicrosoftService.get_connection",
+        "app.services.teams.teams_read_service.MicrosoftService.get_connection",
         lambda _db: SimpleNamespace(microsoft_user_id="manager"),
     )
     monkeypatch.setattr(
-        "app.services.teams_read_service.MicrosoftGraphClient", FakeMultiSourceGraph
+        "app.services.teams.teams_read_service.MicrosoftGraphClient", FakeMultiSourceGraph
     )
     original_source = None
     job_id = None
@@ -344,11 +344,11 @@ def test_multisource_draft_creates_independent_action_cards(monkeypatch) -> None
     monkeypatch.setenv("PRISM_V21_ENABLED", "true")
     get_settings.cache_clear()
     monkeypatch.setattr(
-        "app.services.teams_read_service.MicrosoftService.get_connection",
+        "app.services.teams.teams_read_service.MicrosoftService.get_connection",
         lambda _db: SimpleNamespace(microsoft_user_id="manager"),
     )
     monkeypatch.setattr(
-        "app.services.teams_read_service.MicrosoftGraphClient", FakeMultiSourceGraph
+        "app.services.teams.teams_read_service.MicrosoftGraphClient", FakeMultiSourceGraph
     )
     original_source = None
     job_id = None
@@ -436,11 +436,12 @@ def test_multisource_draft_creates_independent_action_cards(monkeypatch) -> None
         assert all(item["proposal"]["state"] == "approved" for item in bulk.json()["actions"])
         FakeSendGraph.calls = []
         monkeypatch.setattr(
-            "app.services.approved_teams_execution_service.MicrosoftService.get_connection",
+            "app.services.teams.approved_teams_execution_service.MicrosoftService.get_connection",
             lambda _db: SimpleNamespace(microsoft_user_id="manager"),
         )
         monkeypatch.setattr(
-            "app.services.approved_teams_execution_service.MicrosoftGraphClient", FakeSendGraph
+            "app.services.teams.approved_teams_execution_service.MicrosoftGraphClient",
+            FakeSendGraph,
         )
         assert client.post(f"/api/v2/agent/proposals/{first['id']}/execution").status_code == 201
         intermediate = client.get(f"/api/v2/agent/jobs/{job_id}").json()
@@ -478,11 +479,11 @@ def test_group_destination_is_not_read_when_named_chats_are_the_sources(monkeypa
     get_settings.cache_clear()
     FakeReadSourcesAndGroupDestinationGraph.message_calls = []
     monkeypatch.setattr(
-        "app.services.teams_read_service.MicrosoftService.get_connection",
+        "app.services.teams.teams_read_service.MicrosoftService.get_connection",
         lambda _db: SimpleNamespace(microsoft_user_id="manager"),
     )
     monkeypatch.setattr(
-        "app.services.teams_read_service.MicrosoftGraphClient",
+        "app.services.teams.teams_read_service.MicrosoftGraphClient",
         FakeReadSourcesAndGroupDestinationGraph,
     )
     original_source = None
@@ -577,10 +578,10 @@ def test_selected_chat_is_snapshotted_and_evidence_is_deduplicated(monkeypatch) 
     monkeypatch.setenv("PRISM_V21_ENABLED", "true")
     get_settings.cache_clear()
     monkeypatch.setattr(
-        "app.services.teams_read_service.MicrosoftService.get_connection",
+        "app.services.teams.teams_read_service.MicrosoftService.get_connection",
         lambda _db: SimpleNamespace(microsoft_user_id="manager"),
     )
-    monkeypatch.setattr("app.services.teams_read_service.MicrosoftGraphClient", FakeReadGraph)
+    monkeypatch.setattr("app.services.teams.teams_read_service.MicrosoftGraphClient", FakeReadGraph)
     thread_id = None
     original_source = None
     try:
@@ -734,11 +735,12 @@ def test_selected_chat_is_snapshotted_and_evidence_is_deduplicated(monkeypatch) 
 
         FakeSendGraph.calls = []
         monkeypatch.setattr(
-            "app.services.approved_teams_execution_service.MicrosoftService.get_connection",
+            "app.services.teams.approved_teams_execution_service.MicrosoftService.get_connection",
             lambda _db: SimpleNamespace(microsoft_user_id="manager"),
         )
         monkeypatch.setattr(
-            "app.services.approved_teams_execution_service.MicrosoftGraphClient", FakeSendGraph
+            "app.services.teams.approved_teams_execution_service.MicrosoftGraphClient",
+            FakeSendGraph,
         )
         first_send = client.post(f"/api/v2/agent/proposals/{current['id']}/execution")
         repeated_send = client.post(f"/api/v2/agent/proposals/{current['id']}/execution")
@@ -839,10 +841,12 @@ def test_read_all_one_on_ones_from_the_last_day_and_send_the_summary_to_one_pers
     monkeypatch.setenv("PRISM_V21_ENABLED", "true")
     get_settings.cache_clear()
     monkeypatch.setattr(
-        "app.services.teams_read_service.MicrosoftService.get_connection",
+        "app.services.teams.teams_read_service.MicrosoftService.get_connection",
         lambda _db: SimpleNamespace(microsoft_user_id="manager"),
     )
-    monkeypatch.setattr("app.services.teams_read_service.MicrosoftGraphClient", FakeRecentOneOnOnes)
+    monkeypatch.setattr(
+        "app.services.teams.teams_read_service.MicrosoftGraphClient", FakeRecentOneOnOnes
+    )
     FakeRecentOneOnOnes.read = []
     original_source = None
     try:

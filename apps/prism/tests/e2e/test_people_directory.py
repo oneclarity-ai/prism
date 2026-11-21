@@ -11,8 +11,8 @@ from tests.e2e.test_prism_directory import open_sidebar_if_narrow
 
 def seed_org() -> None:
     from app.db.session import SessionLocal
-    from app.models.employee import Employee
-    from app.models.microsoft_connection import MicrosoftConnection
+    from app.models.people.employee import Employee
+    from app.models.teams.microsoft_connection import MicrosoftConnection
 
     now = datetime.now(timezone.utc)
     with SessionLocal() as db:

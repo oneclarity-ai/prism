@@ -15,10 +15,9 @@ pytestmark = pytest.mark.skipif(
 
 from app.db.session import SessionLocal
 from app.main import app
-from app.models.blocker import Blocker
-from app.models.employee import Employee
 from app.models.enums import ActivityEventType, BlockerSeverity, MemoryFactStatus
-from app.models.memory import (
+from app.models.management.blocker import Blocker
+from app.models.memory.memory import (
     ActivityEvent,
     MemoryEpisode,
     MemoryEvidenceLink,
@@ -27,8 +26,9 @@ from app.models.memory import (
     MemoryRelation,
     MemorySource,
 )
-from app.services.memory_consolidation_service import MemoryConsolidationService
-from app.services.memory_service import MemoryService
+from app.models.people.employee import Employee
+from app.services.memory.memory_consolidation_service import MemoryConsolidationService
+from app.services.memory.memory_service import MemoryService
 
 
 def test_blocker_event_becomes_provenance_linked_memory_once() -> None:

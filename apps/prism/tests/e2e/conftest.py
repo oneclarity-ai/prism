@@ -248,8 +248,8 @@ def e2e_app():
 
     from app.core.config import get_settings
     from app.main import app
-    from app.services.llm_provider import FakeLLMProvider, ProviderResult
-    from app.services.llm_service import LLMService
+    from app.services.llm.llm_provider import FakeLLMProvider, ProviderResult
+    from app.services.llm.llm_service import LLMService
 
     get_settings.cache_clear()
     from app.db.session import SessionLocal
@@ -261,7 +261,7 @@ def e2e_app():
 
     patcher = pytest.MonkeyPatch()
     connection = lambda _db: SimpleNamespace(microsoft_user_id="manager")  # noqa: E731
-    for module in ("teams_read_service", "approved_teams_execution_service"):
+    for module in ("teams.teams_read_service", "teams.approved_teams_execution_service"):
         patcher.setattr(f"app.services.{module}.MicrosoftService.get_connection", connection)
         patcher.setattr(f"app.services.{module}.MicrosoftGraphClient", FakeGraph)
 

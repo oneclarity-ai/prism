@@ -2,7 +2,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from app.core.config import get_settings
-from app.services.automation_service import DailyAutomationService
+from app.services.management.automation_service import DailyAutomationService
 
 
 def test_daily_automation_time_check_is_deterministic() -> None:

@@ -15,10 +15,10 @@ pytestmark = pytest.mark.skipif(
 
 from app.db.session import SessionLocal
 from app.main import app
-from app.models.blocker import Blocker
-from app.models.commitment import Commitment
-from app.models.employee import Employee
-from app.models.task import Task
+from app.models.management.blocker import Blocker
+from app.models.management.commitment import Commitment
+from app.models.management.task import Task
+from app.models.people.employee import Employee
 
 
 def test_missed_commitment_creates_immutable_revision_history() -> None:

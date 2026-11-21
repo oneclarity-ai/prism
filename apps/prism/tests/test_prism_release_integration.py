@@ -16,9 +16,9 @@ pytestmark = pytest.mark.skipif(os.getenv("RUN_DB_TESTS") != "1", reason="Requir
 from app.core.config import get_settings
 from app.db.session import SessionLocal, engine
 from app.main import app
-from app.models.agent_v21 import AgentThread
 from app.models.enums import PrismLifecycleState, PrismOnboardingStatus
-from app.models.prism_v22 import (
+from app.models.prisms.agent_v21 import AgentThread
+from app.models.prisms.prism_v22 import (
     Prism,
     PrismExternalEvent,
     PrismIncident,
@@ -28,15 +28,15 @@ from app.models.prism_v22 import (
     PrismRun,
     PrismWorkingAgreement,
 )
-from app.schemas.prism_v22 import PrismCreate
-from app.services.agent_state_service import AgentStateService
-from app.services.prism_health_service import PrismHealthService
-from app.services.prism_lifecycle_service import PrismLifecycleService
-from app.services.prism_migration_service import PrismMigrationService
-from app.services.prism_notification_service import PrismNotificationService
-from app.services.prism_observation_service import PrismObservationService
-from app.services.prism_recovery_service import PrismRecoveryService
-from app.services.prism_run_service import PrismRunService
+from app.schemas.prisms.prism_v22 import PrismCreate
+from app.services.prisms.agent_state_service import AgentStateService
+from app.services.prisms.prism_health_service import PrismHealthService
+from app.services.prisms.prism_lifecycle_service import PrismLifecycleService
+from app.services.prisms.prism_migration_service import PrismMigrationService
+from app.services.prisms.prism_notification_service import PrismNotificationService
+from app.services.prisms.prism_observation_service import PrismObservationService
+from app.services.prisms.prism_recovery_service import PrismRecoveryService
+from app.services.prisms.prism_run_service import PrismRunService
 
 SIGNALS = ["Production incidents"]
 

@@ -12,19 +12,19 @@ pytestmark = pytest.mark.skipif(os.getenv("RUN_DB_TESTS") != "1", reason="Requir
 
 from app.db.session import SessionLocal
 from app.models.enums import PrismLifecycleState
-from app.models.prism_v22 import (
+from app.models.prisms.prism_v22 import (
     Prism,
     PrismExternalEvent,
     PrismObservation,
     PrismRun,
 )
-from app.schemas.prism_v22 import PrismCreate
+from app.schemas.prisms.prism_v22 import PrismCreate
 from app.services.errors import RuleViolationError
-from app.services.prism_health_service import PrismHealthService
-from app.services.prism_lifecycle_service import PrismLifecycleService
-from app.services.prism_retention_service import PrismRetentionService
-from app.services.prism_run_service import PrismRunService
-from app.services.prism_tuning_service import PrismTuningService
+from app.services.prisms.prism_health_service import PrismHealthService
+from app.services.prisms.prism_lifecycle_service import PrismLifecycleService
+from app.services.prisms.prism_retention_service import PrismRetentionService
+from app.services.prisms.prism_run_service import PrismRunService
+from app.services.prisms.prism_tuning_service import PrismTuningService
 
 NOW = datetime.now(timezone.utc)
 

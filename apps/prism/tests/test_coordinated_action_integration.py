@@ -7,13 +7,13 @@ import pytest
 pytestmark = pytest.mark.skipif(os.getenv("RUN_DB_TESTS") != "1", reason="Requires PostgreSQL")
 
 from app.db.session import SessionLocal
-from app.models.agent_v21 import ActionProposal, AgentThread
 from app.models.enums import ToolExecutionState
-from app.schemas.agent_review import ReviewProposedAction
-from app.schemas.agent_v21 import BulkApprovalCreate, BulkApprovalItem
-from app.services.agent_state_service import AgentStateService
-from app.services.coordinated_action_service import CoordinatedActionService
+from app.models.prisms.agent_v21 import ActionProposal, AgentThread
+from app.schemas.prisms.agent_review import ReviewProposedAction
+from app.schemas.prisms.agent_v21 import BulkApprovalCreate, BulkApprovalItem
 from app.services.errors import RuleViolationError
+from app.services.prisms.agent_state_service import AgentStateService
+from app.services.prisms.coordinated_action_service import CoordinatedActionService
 
 
 def action(destination: str, sequence: int, *, dependencies: list[str] | None = None):

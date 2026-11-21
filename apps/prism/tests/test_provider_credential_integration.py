@@ -10,8 +10,8 @@ pytestmark = pytest.mark.skipif(os.getenv("RUN_DB_TESTS") != "1", reason="Requir
 
 from app.core.config import Settings
 from app.db.session import SessionLocal
-from app.models.provider_credential import ProviderCredential
-from app.services.provider_credential_service import ProviderCredentialService
+from app.models.llm.provider_credential import ProviderCredential
+from app.services.llm.provider_credential_service import ProviderCredentialService
 
 
 def test_openai_byok_is_encrypted_masked_activated_and_removed() -> None:

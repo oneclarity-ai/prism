@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.services.chat_intent_service import ChatIntentService
+from app.services.prisms.chat_intent_service import ChatIntentService
 
 
 def _reply(text: str) -> str | None:
@@ -43,7 +43,7 @@ def test_the_same_message_gets_the_same_reply() -> None:
 
 
 def test_review_prompt_asks_for_a_real_summary_not_pasted_chat() -> None:
-    from app.services.conversation_review_service import REVIEW_PROMPT
+    from app.services.management.conversation_review_service import REVIEW_PROMPT
 
     assert "Never paste, quote, or string together raw" in REVIEW_PROMPT
     assert "the message is the summary itself" in REVIEW_PROMPT

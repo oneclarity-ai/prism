@@ -3,8 +3,8 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from app.models.prism_v22 import PrismExternalEvent
-from app.services.prism_observation_service import PrismObservationService
+from app.models.prisms.prism_v22 import PrismExternalEvent
+from app.services.prisms.prism_observation_service import PrismObservationService
 
 
 def _event(

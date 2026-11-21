@@ -15,10 +15,6 @@ pytestmark = pytest.mark.skipif(
 
 from app.db.session import SessionLocal
 from app.main import app
-from app.models.agent_run import AgentRun
-from app.models.blocker import Blocker
-from app.models.conversation import Conversation
-from app.models.employee import Employee
 from app.models.enums import (
     AgentAnalysisType,
     AgentRunStatus,
@@ -28,7 +24,11 @@ from app.models.enums import (
     MessageDirection,
     SenderType,
 )
-from app.models.message import Message
+from app.models.management.blocker import Blocker
+from app.models.management.conversation import Conversation
+from app.models.management.message import Message
+from app.models.people.employee import Employee
+from app.models.prisms.agent_run import AgentRun
 
 
 def test_journey_shows_the_stored_blocker_message_chain() -> None:

@@ -1,5 +1,5 @@
 from app.models.enums import PrismLifecycleState
-from app.services.prism_lifecycle_service import LIFECYCLE_TRANSITIONS, PrismLifecycleService
+from app.services.prisms.prism_lifecycle_service import LIFECYCLE_TRANSITIONS, PrismLifecycleService
 
 
 def test_prism_name_normalization_is_unicode_and_whitespace_stable() -> None:

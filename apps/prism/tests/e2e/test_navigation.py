@@ -214,7 +214,7 @@ def test_deep_links_respect_disabled_feature_flags(page: Page):
 
 def test_old_codes_and_uuids_open_the_new_case_sensitive_code(page: Page):
     from app.db.session import SessionLocal
-    from app.models.prism_v22 import Prism
+    from app.models.prisms.prism_v22 import Prism
 
     prism = create_prism(page)
     with SessionLocal() as db:
@@ -232,7 +232,7 @@ def test_old_codes_and_uuids_open_the_new_case_sensitive_code(page: Page):
 
 def test_random_codes_are_unique_during_concurrent_creation(e2e_app):
     from app.db.session import SessionLocal
-    from app.models.prism_v22 import Prism
+    from app.models.prisms.prism_v22 import Prism
 
     def create(index):
         name = f"Concurrent {index} {uuid.uuid4().hex}"

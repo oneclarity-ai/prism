@@ -2,8 +2,8 @@ import uuid
 
 import httpx
 
-from app.schemas.microsoft import AutomationStart
-from app.services.microsoft_service import SIGNATURE, MicrosoftGraphClient, MicrosoftService
+from app.schemas.teams.microsoft import AutomationStart
+from app.services.teams.microsoft_service import SIGNATURE, MicrosoftGraphClient, MicrosoftService
 
 
 def test_initial_teams_message_uses_required_signature() -> None:

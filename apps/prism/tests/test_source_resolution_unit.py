@@ -4,10 +4,10 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from app.schemas.agent_sources import TeamsChatSourceRead, TeamsParticipantRead
+from app.schemas.prisms.agent_sources import TeamsChatSourceRead, TeamsParticipantRead
 from app.services.errors import RuleViolationError
-from app.services.source_resolution_service import SourceResolutionService
-from app.services.teams_read_service import TeamsReadService
+from app.services.management.source_resolution_service import SourceResolutionService
+from app.services.teams.teams_read_service import TeamsReadService
 
 
 def source(

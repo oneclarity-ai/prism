@@ -8,9 +8,9 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy.dialects import postgresql
 
-from app.api.routes import prism_v22
+from app.api.routes.prisms import prism_v22
 from app.db.session import get_db
-from app.services.prism_search_service import PrismSearchService
+from app.services.prisms.prism_search_service import PrismSearchService
 
 
 def test_prism_search_scopes_messages_and_escapes_wildcards():

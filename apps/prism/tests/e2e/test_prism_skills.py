@@ -108,10 +108,10 @@ def assign(page, prism, skill, enabled=True, revision=0):
 
 def test_skills_are_isolated_versioned_and_do_not_grant_tools(page: Page):
     from app.db.session import SessionLocal
-    from app.models.prism_v22 import Prism
-    from app.services.prism_agent_service import PrismAgentService
-    from app.services.prism_presets import effective_grants
-    from app.services.prism_skill_service import PrismSkillService
+    from app.models.prisms.prism_v22 import Prism
+    from app.services.prisms.prism_agent_service import PrismAgentService
+    from app.services.prisms.prism_presets import effective_grants
+    from app.services.prisms.prism_skill_service import PrismSkillService
 
     first = create_prism(page)
     other = create_prism(page, "Customer service")
@@ -238,8 +238,8 @@ def test_interview_resumes_keeps_answers_private_and_requires_explicit_approval(
 def test_missing_connections_limits_archived_prisms_and_library_restore(page: Page):
     from app.db.session import SessionLocal
     from app.models.enums import PrismLifecycleState
-    from app.models.prism_v22 import Prism
-    from app.services.prism_skill_service import PrismSkillService
+    from app.models.prisms.prism_v22 import Prism
+    from app.services.prisms.prism_skill_service import PrismSkillService
 
     prism = create_prism(page)
     skill = create_skill(
@@ -371,8 +371,8 @@ def test_skills_and_tools_are_separate_and_onboarding_skills_are_editable(page: 
 
 def test_automatic_skills_are_private_idempotent_and_do_not_reenable_disabled_skills(page: Page):
     from app.db.session import SessionLocal
-    from app.models.prism_v22 import Prism
-    from app.services.prism_presets import effective_grants, grants_for
+    from app.models.prisms.prism_v22 import Prism
+    from app.services.prisms.prism_presets import effective_grants, grants_for
 
     prism = onboard_prism(page)
     url = f"/api/v2/prisms/{prism['id']}"
@@ -427,7 +427,7 @@ def test_automatic_skills_are_private_idempotent_and_do_not_reenable_disabled_sk
 
 
 def test_generation_reuses_chat_answers_without_an_extra_interview(page: Page, monkeypatch):
-    from app.services.llm_service import LLMService
+    from app.services.llm.llm_service import LLMService
 
     original = LLMService.complete
     calls = []
@@ -479,7 +479,7 @@ def test_generation_reuses_chat_answers_without_an_extra_interview(page: Page, m
 
 
 def test_model_tailors_questions_then_suggests_only_after_answers(page: Page, monkeypatch):
-    from app.services.llm_service import LLMService
+    from app.services.llm.llm_service import LLMService
 
     requests = []
     original = LLMService.complete

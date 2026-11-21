@@ -13,11 +13,11 @@ pytestmark = pytest.mark.skipif(
 )
 
 from app.db.session import SessionLocal
-from app.models.employee import Employee
 from app.models.enums import ActivityEventType, MemoryFactStatus, MemoryPredicate, VisibilityScope
-from app.models.memory import ActivityEvent, MemoryFact
-from app.schemas.memory import MemoryFactCreate
-from app.services.memory_service import MemoryService
+from app.models.memory.memory import ActivityEvent, MemoryFact
+from app.models.people.employee import Employee
+from app.schemas.memory.memory import MemoryFactCreate
+from app.services.memory.memory_service import MemoryService
 
 
 def test_memory_is_temporal_idempotent_and_private() -> None:

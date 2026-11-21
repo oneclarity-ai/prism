@@ -10,12 +10,12 @@ from sqlalchemy import delete
 pytestmark = pytest.mark.skipif(os.getenv("RUN_DB_TESTS") != "1", reason="Requires PostgreSQL")
 
 from app.db.session import SessionLocal
-from app.models.agent_v21 import AgentThread, AgentThreadMessage
 from app.models.enums import PrismLifecycleState
-from app.models.prism_v22 import Prism
-from app.schemas.prism_v22 import PrismCreate
-from app.services.prism_conversation_service import PrismConversationService
-from app.services.prism_lifecycle_service import PrismLifecycleService
+from app.models.prisms.agent_v21 import AgentThread, AgentThreadMessage
+from app.models.prisms.prism_v22 import Prism
+from app.schemas.prisms.prism_v22 import PrismCreate
+from app.services.prisms.prism_conversation_service import PrismConversationService
+from app.services.prisms.prism_lifecycle_service import PrismLifecycleService
 
 
 def _activate(db, prism: Prism) -> Prism:
@@ -81,7 +81,7 @@ def test_prism_list_carries_the_latest_message_and_who_sent_it():
 def test_prism_colour_is_saved_validated_and_changeable():
     import pydantic
 
-    from app.schemas.prism_v22 import PrismUpdate
+    from app.schemas.prisms.prism_v22 import PrismUpdate
 
     created: list[uuid.UUID] = []
     with SessionLocal() as db:

@@ -14,8 +14,8 @@ pytestmark = pytest.mark.skipif(os.getenv("RUN_DB_TESTS") != "1", reason="Requir
 from app.core.config import get_settings
 from app.db.session import SessionLocal
 from app.main import app
-from app.models.llm_usage import LLMUsage
-from app.services import azure_billing_service
+from app.models.llm.llm_usage import LLMUsage
+from app.services.llm import azure_billing_service
 
 
 def _row(provider, feature, model, cost, request_id):

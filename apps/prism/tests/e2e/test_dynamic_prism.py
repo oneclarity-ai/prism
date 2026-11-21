@@ -17,8 +17,8 @@ from tests.e2e.test_prism_directory import open_sidebar_if_narrow
 def seed_work_prism(name: str) -> None:
     from app.db.session import SessionLocal
     from app.models.enums import PrismLifecycleState
-    from app.schemas.prism_v22 import PrismCreate
-    from app.services.prism_lifecycle_service import PrismLifecycleService
+    from app.schemas.prisms.prism_v22 import PrismCreate
+    from app.services.prisms.prism_lifecycle_service import PrismLifecycleService
 
     with SessionLocal() as db:
         prism = PrismLifecycleService.create(
@@ -50,9 +50,9 @@ def seed_work_prism(name: str) -> None:
 def test_a_custom_prism_plans_works_asks_and_reports(page: Page, e2e_app, monkeypatch) -> None:
     from app.core.config import get_settings
     from app.db.session import SessionLocal
-    from app.models.qa import QaRun
-    from app.services import qa_run_service
-    from app.services.qa_swarm_client import QaSwarmClient
+    from app.models.qa.qa import QaRun
+    from app.services.qa import qa_run_service
+    from app.services.qa.qa_swarm_client import QaSwarmClient
     from tests.test_dynamic_prism_integration import FakeEngine
 
     monkeypatch.setenv("PRISM_V24_ENABLED", "true")

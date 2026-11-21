@@ -15,17 +15,17 @@ pytestmark = pytest.mark.skipif(os.getenv("RUN_DB_TESTS") != "1", reason="Requir
 from app.core.config import get_settings
 from app.db.session import SessionLocal
 from app.main import app
-from app.models.agent_v21 import AgentThread
 from app.models.enums import PrismLifecycleState
-from app.models.prism_v22 import Prism
-from app.schemas.prism_v22 import PrismCreate, PrismProfileUpdate
-from app.services.llm_provider import FakeLLMProvider, ProviderResult
-from app.services.llm_service import LLMService
-from app.services.prism_adoption_service import PrismAdoptionService
-from app.services.prism_agent_service import PrismAgentService
-from app.services.prism_lifecycle_service import PrismLifecycleService
-from app.services.prism_presets import tools_for
-from app.services.prism_profile_service import PrismProfileService
+from app.models.prisms.agent_v21 import AgentThread
+from app.models.prisms.prism_v22 import Prism
+from app.schemas.prisms.prism_v22 import PrismCreate, PrismProfileUpdate
+from app.services.llm.llm_provider import FakeLLMProvider, ProviderResult
+from app.services.llm.llm_service import LLMService
+from app.services.prisms.prism_adoption_service import PrismAdoptionService
+from app.services.prisms.prism_agent_service import PrismAgentService
+from app.services.prisms.prism_lifecycle_service import PrismLifecycleService
+from app.services.prisms.prism_presets import tools_for
+from app.services.prisms.prism_profile_service import PrismProfileService
 
 
 def _drop(ids: list[uuid.UUID]) -> None:

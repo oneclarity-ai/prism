@@ -6,9 +6,9 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from app.models.prism_v22 import PrismTriggerPolicy
+from app.models.prisms.prism_v22 import PrismTriggerPolicy
 from app.services.errors import RuleViolationError
-from app.services.prism_run_service import PrismRunService
+from app.services.prisms.prism_run_service import PrismRunService
 
 
 def _scheduled_policy(**updates) -> PrismTriggerPolicy:

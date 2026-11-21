@@ -1,7 +1,7 @@
 import itertools
 
 from app.models.enums import AgentJobState, AgentStepState
-from app.services.agent_state_service import (
+from app.services.prisms.agent_state_service import (
     JOB_TRANSITIONS,
     STEP_TRANSITIONS,
     canonical_payload_hash,

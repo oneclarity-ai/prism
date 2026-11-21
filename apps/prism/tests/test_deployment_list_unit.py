@@ -5,9 +5,9 @@ from types import SimpleNamespace
 import pytest
 
 from app.models.enums import TaskStatus
-from app.services.deployment_list_service import DeploymentListService
 from app.services.errors import ExternalServiceError, RuleViolationError
-from app.services.microsoft_service import MicrosoftService
+from app.services.management.deployment_list_service import DeploymentListService
+from app.services.teams.microsoft_service import MicrosoftService
 
 
 def test_deployment_list_parser_groups_tasks_and_normalizes_statuses() -> None:

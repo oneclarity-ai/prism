@@ -10,18 +10,18 @@ from sqlalchemy import delete, select
 pytestmark = pytest.mark.skipif(os.getenv("RUN_DB_TESTS") != "1", reason="Requires PostgreSQL")
 
 from app.db.session import SessionLocal
-from app.models.prism_v22 import (
+from app.models.prisms.prism_v22 import (
     Prism,
     PrismExternalEvent,
     PrismIncident,
     PrismNotification,
     PrismObservation,
 )
-from app.schemas.prism_v22 import PrismCreate
+from app.schemas.prisms.prism_v22 import PrismCreate
 from app.services.errors import RuleViolationError
-from app.services.prism_incident_service import PrismIncidentService
-from app.services.prism_lifecycle_service import PrismLifecycleService
-from app.services.prism_notification_service import PrismNotificationService
+from app.services.prisms.prism_incident_service import PrismIncidentService
+from app.services.prisms.prism_lifecycle_service import PrismLifecycleService
+from app.services.prisms.prism_notification_service import PrismNotificationService
 
 T0 = datetime(2026, 10, 30, 9, 0, tzinfo=timezone.utc)
 

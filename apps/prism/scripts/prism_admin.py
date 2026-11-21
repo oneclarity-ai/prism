@@ -24,16 +24,16 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.db.session import SessionLocal  # noqa: E402
-from app.services.prism_migration_service import PrismMigrationService  # noqa: E402
-from app.services.prism_recovery_service import PrismRecoveryService  # noqa: E402
-from app.services.prism_retention_service import PrismRetentionService  # noqa: E402
+from app.services.prisms.prism_migration_service import PrismMigrationService  # noqa: E402
+from app.services.prisms.prism_recovery_service import PrismRecoveryService  # noqa: E402
+from app.services.prisms.prism_retention_service import PrismRetentionService  # noqa: E402
 
 
 def _qa_check() -> dict:
     """Confirm Prism can sign in to the testing workspace and that a tester is online."""
 
     from app.core.config import get_settings
-    from app.services.qa_swarm_client import QaSwarmClient, SwarmError
+    from app.services.qa.qa_swarm_client import QaSwarmClient, SwarmError
 
     if not get_settings().qa_swarm_configured:
         return {"ok": False, "problem": "Set QA_SWARM_URL, QA_SWARM_EMAIL and QA_SWARM_PASSWORD"}
@@ -54,7 +54,7 @@ def _work_check() -> dict:
     """v2.4: the engine is reachable, Docker answers on its machine, and the Teams bridge is signed."""
 
     from app.core.config import get_settings
-    from app.services.qa_swarm_client import QaSwarmClient, SwarmError
+    from app.services.qa.qa_swarm_client import QaSwarmClient, SwarmError
 
     settings = get_settings()
     result: dict = {"v24_enabled": settings.prism_v24_enabled}
@@ -87,8 +87,8 @@ def _work_check() -> dict:
 
 
 def _computers(action: str, key: str | None) -> dict:
-    from app.models.work import PrismComputer
-    from app.services.qa_swarm_client import QaSwarmClient, SwarmError
+    from app.models.engine.work import PrismComputer
+    from app.services.qa.qa_swarm_client import QaSwarmClient, SwarmError
 
     with SessionLocal() as db:
         keys = [

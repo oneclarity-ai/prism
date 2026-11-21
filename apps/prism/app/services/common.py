@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 
-from app.models.employee import Employee
-from app.models.project import Project
+from app.models.management.project import Project
+from app.models.people.employee import Employee
 from app.services.errors import NotFoundError, RuleViolationError
 
 

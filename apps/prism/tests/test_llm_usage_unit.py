@@ -7,11 +7,15 @@ import httpx
 import pytest
 
 from app.core.config import ModelPricing, Settings
-from app.schemas.response_decision import IssueDecision, OutgoingDecision, ResponseDecision
+from app.schemas.management.response_decision import (
+    IssueDecision,
+    OutgoingDecision,
+    ResponseDecision,
+)
 from app.services.errors import ExternalServiceError
-from app.services.llm_service import LLMService, calculate_cost, strict_schema
-from app.services.microsoft_service import MicrosoftService
-from app.services.response_service import ResponseService
+from app.services.llm.llm_service import LLMService, calculate_cost, strict_schema
+from app.services.management.response_service import ResponseService
+from app.services.teams.microsoft_service import MicrosoftService
 
 
 def test_cached_tokens_are_not_charged_twice():
@@ -88,8 +92,8 @@ def test_usage_is_saved_even_when_model_output_is_invalid(monkeypatch, valid):
         AZURE_OPENAI_DEPLOYMENT="small",
         LLM_MODEL_PRICING={"model-version": {"input": 2, "cached_input": 0.5, "output": 8}},
     )
-    monkeypatch.setattr("app.services.llm_service.get_settings", lambda: settings)
-    monkeypatch.setattr("app.services.llm_service.SessionLocal", UsageSession)
+    monkeypatch.setattr("app.services.llm.llm_service.get_settings", lambda: settings)
+    monkeypatch.setattr("app.services.llm.llm_service.SessionLocal", UsageSession)
     result = {
         "should_respond": False,
         "response_type": "no_response",
@@ -114,7 +118,7 @@ def test_usage_is_saved_even_when_model_output_is_invalid(monkeypatch, valid):
             },
         )
 
-    monkeypatch.setattr("app.services.llm_service.httpx.post", post)
+    monkeypatch.setattr("app.services.llm.llm_service.httpx.post", post)
     if valid:
         LLMService.complete(
             prompt="test", context={}, output_model=ResponseDecision, feature="test"
@@ -155,9 +159,9 @@ def test_llm_retries_a_timeout_then_returns_the_structured_decision(monkeypatch)
         AZURE_OPENAI_TIMEOUT_SECONDS=25,
         AZURE_OPENAI_MAX_ATTEMPTS=2,
     )
-    monkeypatch.setattr("app.services.llm_service.get_settings", lambda: settings)
-    monkeypatch.setattr("app.services.llm_service.SessionLocal", UsageSession)
-    monkeypatch.setattr("app.services.llm_service.time.sleep", lambda _: None)
+    monkeypatch.setattr("app.services.llm.llm_service.get_settings", lambda: settings)
+    monkeypatch.setattr("app.services.llm.llm_service.SessionLocal", UsageSession)
+    monkeypatch.setattr("app.services.llm.llm_service.time.sleep", lambda _: None)
     calls = []
     output = {
         "should_respond": False,
@@ -175,7 +179,7 @@ def test_llm_retries_a_timeout_then_returns_the_structured_decision(monkeypatch)
             200, json={"model": "small", "choices": [{"message": {"content": json.dumps(output)}}]}
         )
 
-    monkeypatch.setattr("app.services.llm_service.httpx.post", post)
+    monkeypatch.setattr("app.services.llm.llm_service.httpx.post", post)
     result = LLMService.complete(
         prompt="test", context={}, output_model=ResponseDecision, feature="test"
     )
@@ -207,10 +211,10 @@ def test_llm_reports_provider_timeout_separately_from_invalid_output(monkeypatch
         AZURE_OPENAI_DEPLOYMENT="small",
         AZURE_OPENAI_MAX_ATTEMPTS=1,
     )
-    monkeypatch.setattr("app.services.llm_service.get_settings", lambda: settings)
-    monkeypatch.setattr("app.services.llm_service.SessionLocal", UsageSession)
+    monkeypatch.setattr("app.services.llm.llm_service.get_settings", lambda: settings)
+    monkeypatch.setattr("app.services.llm.llm_service.SessionLocal", UsageSession)
     monkeypatch.setattr(
-        "app.services.llm_provider.httpx.post",
+        "app.services.llm.llm_provider.httpx.post",
         lambda *args, **kwargs: (_ for _ in ()).throw(httpx.ReadTimeout("slow Azure response")),
     )
 
@@ -463,7 +467,7 @@ def test_multi_person_context_routes_to_configured_reasoning_deployment(monkeypa
         AZURE_OPENAI_DEPLOYMENT="small",
         AZURE_OPENAI_REASONING_DEPLOYMENT="strong",
     )
-    monkeypatch.setattr("app.services.response_service.get_settings", lambda: settings)
+    monkeypatch.setattr("app.services.management.response_service.get_settings", lambda: settings)
     deployments = []
     output = ResponseDecision(
         should_respond=False,
@@ -473,7 +477,7 @@ def test_multi_person_context_routes_to_configured_reasoning_deployment(monkeypa
         needs_clarification=False,
     )
     monkeypatch.setattr(
-        "app.services.response_service.LLMService.complete",
+        "app.services.management.response_service.LLMService.complete",
         lambda **kwargs: deployments.append(kwargs["deployment"]) or output,
     )
     message = SimpleNamespace(

@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from app.core.config import Settings
 from app.services.errors import ExternalServiceError
-from app.services.llm_provider import (
+from app.services.llm.llm_provider import (
     AzureOpenAIProvider,
     CodexLocalProvider,
     FakeLLMProvider,
@@ -31,7 +31,7 @@ class OutputWithTitleField(BaseModel):
 
 
 def test_strict_schema_preserves_fields_named_like_schema_keywords() -> None:
-    from app.services.llm_service import strict_schema
+    from app.services.llm.llm_service import strict_schema
 
     schema = strict_schema(OutputWithTitleField)
 
@@ -112,7 +112,7 @@ def test_codex_local_provider_uses_cli_auth_directory_without_reading_auth(
         output_path.write_text('{"answer":"local"}', encoding="utf-8")
         return subprocess.CompletedProcess(command, 0, "", "")
 
-    monkeypatch.setattr("app.services.llm_provider.subprocess.run", run)
+    monkeypatch.setattr("app.services.llm.llm_provider.subprocess.run", run)
     result = provider.generate_structured(
         prompt="Return an answer",
         context={"item": 1},
@@ -172,7 +172,7 @@ def test_codex_local_reports_timeout_precisely(monkeypatch, tmp_path) -> None:
     def timeout(*_args, **_kwargs):
         raise subprocess.TimeoutExpired("codex", 120)
 
-    monkeypatch.setattr("app.services.llm_provider.subprocess.run", timeout)
+    monkeypatch.setattr("app.services.llm.llm_provider.subprocess.run", timeout)
 
     with pytest.raises(ExternalServiceError, match="timed out after 120 seconds"):
         provider.generate_text(
@@ -205,7 +205,7 @@ def test_openai_adapter_uses_bearer_auth_and_structured_output(monkeypatch) -> N
             },
         )
 
-    monkeypatch.setattr("app.services.llm_provider.httpx.post", post)
+    monkeypatch.setattr("app.services.llm.llm_provider.httpx.post", post)
     result = provider.generate_structured(
         prompt="Return an answer",
         context={"item": 1},

@@ -13,12 +13,6 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.models.agent_run import AgentRun
-from app.models.automation_action import AutomationAction
-from app.models.blocker import Blocker
-from app.models.commitment import Commitment
-from app.models.daily_update import DailyUpdate
-from app.models.employee import Employee
 from app.models.enums import (
     ActivityEventType,
     AgentAnalysisType,
@@ -29,15 +23,21 @@ from app.models.enums import (
     BlockerStatus,
     CommitmentStatus,
 )
-from app.models.message import Message
-from app.schemas.blocker import BlockerCreate, BlockerUpdate
-from app.schemas.commitment import CommitmentCreate, CommitmentRevisionCreate
-from app.services.blocker_service import BlockerService
-from app.services.commitment_service import CommitmentService
+from app.models.management.automation_action import AutomationAction
+from app.models.management.blocker import Blocker
+from app.models.management.commitment import Commitment
+from app.models.management.daily_update import DailyUpdate
+from app.models.management.message import Message
+from app.models.people.employee import Employee
+from app.models.prisms.agent_run import AgentRun
+from app.schemas.management.blocker import BlockerCreate, BlockerUpdate
+from app.schemas.management.commitment import CommitmentCreate, CommitmentRevisionCreate
 from app.services.errors import ExternalServiceError, RuleViolationError
-from app.services.management_context_service import ManagementContextService
-from app.services.memory_service import MemoryService
-from app.services.microsoft_service import MicrosoftService
+from app.services.management.blocker_service import BlockerService
+from app.services.management.commitment_service import CommitmentService
+from app.services.memory.management_context_service import ManagementContextService
+from app.services.memory.memory_service import MemoryService
+from app.services.teams.microsoft_service import MicrosoftService
 
 
 class ReplyAnalysis(BaseModel):
@@ -61,7 +61,7 @@ class ManagementAgent:
     def process_message(
         db: Session, message_id: str, *, retry_skipped: bool = False, retry_completed: bool = False
     ) -> Optional[AgentRun]:
-        from app.services.response_service import ResponseService
+        from app.services.management.response_service import ResponseService
 
         return ResponseService.process(
             db, message_id, retry_skipped=retry_skipped, retry_completed=retry_completed

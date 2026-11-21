@@ -5,18 +5,18 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.schemas.agent_review import (
+from app.schemas.prisms.agent_review import (
     ConversationReviewOutput,
     ReviewAttentionItem,
     ReviewProposedAction,
     ReviewProposedReply,
 )
-from app.services.conversation_review_service import (
+from app.services.errors import RuleViolationError
+from app.services.management.conversation_review_service import (
     REVIEW_PROMPT,
     REVIEW_REPAIR_PROMPT,
     ConversationReviewService,
 )
-from app.services.errors import RuleViolationError
 
 
 def review(evidence_id: str) -> ConversationReviewOutput:
@@ -113,7 +113,7 @@ def test_review_repair_receives_only_exact_authorized_boundary_values(monkeypatc
     captured = {}
 
     monkeypatch.setattr(
-        "app.services.conversation_review_service.AgentPreferenceService.active",
+        "app.services.management.conversation_review_service.AgentPreferenceService.active",
         lambda db, thread_id: [SimpleNamespace(id=preference_id)],
     )
 
@@ -122,7 +122,7 @@ def test_review_repair_receives_only_exact_authorized_boundary_values(monkeypatc
         return review(str(evidence_id))
 
     monkeypatch.setattr(
-        "app.services.conversation_review_service.LLMService.complete", fake_complete
+        "app.services.management.conversation_review_service.LLMService.complete", fake_complete
     )
     repaired = ConversationReviewService._repair_grounded_result(
         SimpleNamespace(),
@@ -287,9 +287,9 @@ def test_duplicate_external_message_id_is_not_an_ambiguous_citation_alias() -> N
 def test_grounded_review_still_rejects_uncited_drafts_and_summaries() -> None:
     import pytest
 
-    from app.schemas.agent_review import ConversationReviewOutput
-    from app.services.conversation_review_service import ConversationReviewService
+    from app.schemas.prisms.agent_review import ConversationReviewOutput
     from app.services.errors import RuleViolationError
+    from app.services.management.conversation_review_service import ConversationReviewService
 
     uncited_reply = ConversationReviewOutput(
         summary="Summary",
@@ -307,7 +307,7 @@ def test_grounded_review_still_rejects_uncited_drafts_and_summaries() -> None:
 
 
 def test_every_drafting_prompt_carries_the_assistant_voice_and_no_manager_questions() -> None:
-    from app.services import conversation_review_service as review
+    from app.services.management import conversation_review_service as review
 
     voice = review.MESSAGE_VOICE
     flat = " ".join(voice.split())
@@ -348,7 +348,7 @@ def test_a_cut_short_citation_is_dropped_when_real_ones_remain_and_resolved_when
 
 
 def test_tidy_message_drops_offers_the_recipients_own_line_repeats_and_sign_offs() -> None:
-    from app.services.conversation_review_service import tidy_message
+    from app.services.management.conversation_review_service import tidy_message
 
     body = (
         "Hi Sanjay, I'm Yash's chief of staff. He asked me to share an update.\n\n"
@@ -369,8 +369,8 @@ def test_tidy_message_drops_offers_the_recipients_own_line_repeats_and_sign_offs
 
 
 def test_the_prisms_own_instructions_reach_the_message_wording_step(monkeypatch) -> None:
-    from app.schemas.agent_review import ReviewProposedReply
-    from app.services import conversation_review_service as module
+    from app.schemas.prisms.agent_review import ReviewProposedReply
+    from app.services.management import conversation_review_service as module
 
     seen: dict = {}
 

@@ -15,11 +15,11 @@ pytestmark = pytest.mark.skipif(
 
 from app.db.session import SessionLocal
 from app.main import app
-from app.models.blocker import Blocker
-from app.models.daily_update import DailyUpdate
-from app.models.employee import Employee
-from app.models.project import Project
-from app.models.task import Task
+from app.models.management.blocker import Blocker
+from app.models.management.daily_update import DailyUpdate
+from app.models.management.project import Project
+from app.models.management.task import Task
+from app.models.people.employee import Employee
 
 
 def test_employee_project_task_workflow() -> None:

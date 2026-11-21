@@ -10,19 +10,19 @@ from sqlalchemy import delete
 pytestmark = pytest.mark.skipif(os.getenv("RUN_DB_TESTS") != "1", reason="Requires PostgreSQL")
 
 from app.db.session import SessionLocal
-from app.models.agent_v21 import ActionProposal, AgentJob, AgentThread
 from app.models.enums import ActionProposalState, PrismLifecycleState
-from app.models.prism_v22 import (
+from app.models.prisms.agent_v21 import ActionProposal, AgentJob, AgentThread
+from app.models.prisms.prism_v22 import (
     Prism,
     PrismExternalEvent,
     PrismObservation,
     PrismObservationDraft,
 )
-from app.schemas.prism_v22 import PrismCreate
+from app.schemas.prisms.prism_v22 import PrismCreate
 from app.services.errors import NotFoundError, RuleViolationError
-from app.services.prism_conversation_service import PrismConversationService
-from app.services.prism_draft_service import PrismDraftService
-from app.services.prism_lifecycle_service import PrismLifecycleService
+from app.services.prisms.prism_conversation_service import PrismConversationService
+from app.services.prisms.prism_draft_service import PrismDraftService
+from app.services.prisms.prism_lifecycle_service import PrismLifecycleService
 
 
 def _activate(db, name: str) -> Prism:

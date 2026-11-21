@@ -15,9 +15,9 @@ pytestmark = pytest.mark.skipif(
 
 from app.db.session import SessionLocal
 from app.main import app
-from app.models.conversation import Conversation
-from app.models.employee import Employee
-from app.models.message import Message
+from app.models.management.conversation import Conversation
+from app.models.management.message import Message
+from app.models.people.employee import Employee
 
 
 def test_teams_message_intent_is_recorded_without_delivery() -> None:

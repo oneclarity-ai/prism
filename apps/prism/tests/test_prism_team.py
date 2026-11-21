@@ -4,9 +4,9 @@ from types import SimpleNamespace
 import pytest
 from pydantic import ValidationError
 
-from app.schemas.prism_v22 import PrismCreate, PrismUpdate
+from app.schemas.prisms.prism_v22 import PrismCreate, PrismUpdate
 from app.services.errors import ConflictError, RuleViolationError
-from app.services.prism_organization_service import (
+from app.services.prisms.prism_organization_service import (
     PrismOrganizationService,
     infer_role,
     validate_reporting_line,

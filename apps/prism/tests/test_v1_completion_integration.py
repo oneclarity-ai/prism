@@ -17,13 +17,6 @@ pytestmark = pytest.mark.skipif(
 from app.core.config import get_settings
 from app.db.session import SessionLocal
 from app.main import app
-from app.models.agent_run import AgentRun
-from app.models.automation_action import AutomationAction
-from app.models.blocker import Blocker
-from app.models.commitment import Commitment
-from app.models.conversation import Conversation
-from app.models.daily_update import DailyUpdate
-from app.models.employee import Employee
 from app.models.enums import (
     ActivityEventType,
     AgentAnalysisType,
@@ -41,22 +34,29 @@ from app.models.enums import (
     MessageDirection,
     SenderType,
 )
-from app.models.escalation import Escalation
-from app.models.memory import ActivityEvent
-from app.models.message import Message
-from app.models.project import Project
-from app.models.task import Task
-from app.schemas.blocker import BlockerCreate, BlockerUpdate
-from app.schemas.daily_update import DailyUpdateCreate, DailyUpdateUpdate
-from app.schemas.employee import EmployeeUpdate
-from app.schemas.project import ProjectCreate, ProjectUpdate
-from app.schemas.task import TaskCreate, TaskUpdate
-from app.services.automation_service import DailyAutomationService
-from app.services.blocker_service import BlockerService
-from app.services.daily_update_service import DailyUpdateService
-from app.services.employee_service import EmployeeService
-from app.services.project_service import ProjectService
-from app.services.task_service import TaskService
+from app.models.management.automation_action import AutomationAction
+from app.models.management.blocker import Blocker
+from app.models.management.commitment import Commitment
+from app.models.management.conversation import Conversation
+from app.models.management.daily_update import DailyUpdate
+from app.models.management.escalation import Escalation
+from app.models.management.message import Message
+from app.models.management.project import Project
+from app.models.management.task import Task
+from app.models.memory.memory import ActivityEvent
+from app.models.people.employee import Employee
+from app.models.prisms.agent_run import AgentRun
+from app.schemas.management.blocker import BlockerCreate, BlockerUpdate
+from app.schemas.management.daily_update import DailyUpdateCreate, DailyUpdateUpdate
+from app.schemas.management.project import ProjectCreate, ProjectUpdate
+from app.schemas.management.task import TaskCreate, TaskUpdate
+from app.schemas.people.employee import EmployeeUpdate
+from app.services.management.automation_service import DailyAutomationService
+from app.services.management.blocker_service import BlockerService
+from app.services.management.daily_update_service import DailyUpdateService
+from app.services.management.project_service import ProjectService
+from app.services.management.task_service import TaskService
+from app.services.people.employee_service import EmployeeService
 
 
 def test_management_relevant_mutations_keep_before_after_events() -> None:

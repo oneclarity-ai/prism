@@ -13,9 +13,6 @@ pytestmark = pytest.mark.skipif(os.getenv("RUN_DB_TESTS") != "1", reason="Requir
 
 from app.db.session import SessionLocal
 from app.main import app
-from app.models.agent_run import AgentRun
-from app.models.conversation import Conversation
-from app.models.employee import Employee
 from app.models.enums import (
     AgentRunStatus,
     ConversationChannel,
@@ -24,8 +21,11 @@ from app.models.enums import (
     MessageDirection,
     SenderType,
 )
-from app.models.llm_usage import LLMUsage
-from app.models.message import Message
+from app.models.llm.llm_usage import LLMUsage
+from app.models.management.conversation import Conversation
+from app.models.management.message import Message
+from app.models.people.employee import Employee
+from app.models.prisms.agent_run import AgentRun
 
 
 def test_llm_usage_and_decision_debug_apis_report_actual_rows():

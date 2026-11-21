@@ -2,8 +2,8 @@ import uuid
 from types import SimpleNamespace
 
 from app.agents.management_agent import ManagementAgent, ReplyAnalysis
-from app.models.employee import Employee
-from app.services.response_service import ResponseService
+from app.models.people.employee import Employee
+from app.services.management.response_service import ResponseService
 
 
 def test_reply_analysis_rejects_unexpected_model_fields() -> None:
@@ -39,7 +39,7 @@ def test_short_acknowledgements_are_not_sent_to_azure() -> None:
 
 
 def test_natural_named_help_request_is_a_blocker_signal() -> None:
-    from app.services.message_intent_service import MessageIntentService
+    from app.services.management.message_intent_service import MessageIntentService
 
     signals = MessageIntentService.analyze(
         "I need some help of Morgan for this, as we also need the backend deployment."

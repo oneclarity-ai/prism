@@ -11,11 +11,11 @@ from sqlalchemy import delete
 pytestmark = pytest.mark.skipif(os.getenv("RUN_DB_TESTS") != "1", reason="Requires PostgreSQL")
 
 from app.db.session import SessionLocal
-from app.models.agent_v21 import AgentThread
-from app.models.brain import BrainEntry
-from app.services import llm_service
-from app.services.brain_service import BrainService, _Fact, _Learned
-from app.services.prism_agent_service import PrismAgentService
+from app.models.memory.brain import BrainEntry
+from app.models.prisms.agent_v21 import AgentThread
+from app.services.llm import llm_service
+from app.services.memory.brain_service import BrainService, _Fact, _Learned
+from app.services.prisms.prism_agent_service import PrismAgentService
 from tests.test_qa_tester_integration import _active_prism
 
 
@@ -122,9 +122,9 @@ def test_only_an_archived_prism_can_be_deleted(clean_brain):
 
     from app.main import app
     from app.models.enums import PrismLifecycleState
-    from app.models.prism_v22 import Prism
-    from app.services.prism_conversation_service import PrismConversationService
-    from app.services.prism_lifecycle_service import PrismLifecycleService
+    from app.models.prisms.prism_v22 import Prism
+    from app.services.prisms.prism_conversation_service import PrismConversationService
+    from app.services.prisms.prism_lifecycle_service import PrismLifecycleService
 
     client = TestClient(app)
     with SessionLocal() as db:

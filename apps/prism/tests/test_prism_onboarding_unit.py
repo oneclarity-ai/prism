@@ -1,5 +1,5 @@
-from app.models.prism_v22 import Prism
-from app.services.prism_onboarding_service import PrismOnboardingService
+from app.models.prisms.prism_v22 import Prism
+from app.services.prisms.prism_onboarding_service import PrismOnboardingService
 
 
 def test_role_aware_fallback_questions_cover_required_policy_topics() -> None:
@@ -43,7 +43,7 @@ def _prism() -> Prism:
 
 
 def test_tailored_questions_keep_server_owned_structure(monkeypatch) -> None:
-    from app.services import prism_onboarding_service as module
+    from app.services.prisms import prism_onboarding_service as module
 
     class Result:
         mission_prompt = "Which deployment outcomes matter most to you?"
@@ -66,7 +66,7 @@ def test_tailored_questions_keep_server_owned_structure(monkeypatch) -> None:
 
 
 def test_tailoring_failure_falls_back_to_template(monkeypatch) -> None:
-    from app.services import prism_onboarding_service as module
+    from app.services.prisms import prism_onboarding_service as module
 
     def boom(**_):
         raise RuntimeError("provider down")

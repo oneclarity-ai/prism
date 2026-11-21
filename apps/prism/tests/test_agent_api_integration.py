@@ -12,7 +12,7 @@ pytestmark = pytest.mark.skipif(os.getenv("RUN_DB_TESTS") != "1", reason="Requir
 from app.core.config import get_settings
 from app.db.session import SessionLocal
 from app.main import app
-from app.models.agent_v21 import AgentJob, AgentThread, AgentThreadAlias, AgentThreadMessage
+from app.models.prisms.agent_v21 import AgentJob, AgentThread, AgentThreadAlias, AgentThreadMessage
 
 
 def test_agent_foundation_api_persists_a_renderable_job(monkeypatch) -> None:

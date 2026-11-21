@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
-from app.services.followup_intelligence_service import FollowUpIntelligenceService
-from app.services.proactive_action_service import ProactiveActionService
+from app.services.management.followup_intelligence_service import FollowUpIntelligenceService
+from app.services.prisms.proactive_action_service import ProactiveActionService
 
 
 def test_question_followup_is_fresh_text_not_a_nested_teams_message() -> None:
