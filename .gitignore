@@ -1,0 +1,26 @@
+# Secrets and local state
+.env
+backend/.env
+backend/var/
+**/.venv/
+**/__pycache__/
+**/.pytest_cache/
+**/.ruff_cache/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Playwright MCP output when run outside a run folder
+.playwright-mcp/
+
+# Runtime data
+/var/
+.env.*
+!.env.example
