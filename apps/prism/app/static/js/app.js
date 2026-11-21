@@ -204,7 +204,7 @@ function setSubtab(group, name) {
   });
   try { localStorage.setItem(subtabKey(group), name); } catch (_) { /* private mode */ }
   if (group === "settings" && name === "skills") {
-    import("./js/prism-skills.js").then(({ skillLibrary }) => skillLibrary($("#settings-skills-library"))).catch((error) => setStatus(error.message, true));
+    import("./prism-skills.js").then(({ skillLibrary }) => skillLibrary($("#settings-skills-library"))).catch((error) => setStatus(error.message, true));
   }
   if (group === "settings" && $("#settings-dialog").open) window.prismRoutes?.settings(name);
 }

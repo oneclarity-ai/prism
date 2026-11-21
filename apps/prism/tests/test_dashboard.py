@@ -9,7 +9,7 @@ def test_dashboard_is_served() -> None:
     assert response.status_code == 200
     assert "Prism" in response.text
     assert "Today's AI cost" in response.text
-    assert "/dashboard/styles.css" in response.text
+    assert "/dashboard/css/styles.css" in response.text
     assert "fonts.googleapis.com" not in response.text
     assert "Connect Microsoft account" in response.text
     assert "Refresh from Teams" in response.text
@@ -65,7 +65,7 @@ def test_dashboard_is_served() -> None:
     assert "/dashboard/js/prism-updates.js" in response.text
     assert "/dashboard/js/agent-chat.js" in response.text
     assert "/dashboard/js/prism-directory.js" in response.text
-    assert "/dashboard/app.js" in response.text
+    assert "/dashboard/js/app.js" in response.text
     assert 'data-subtabs="teams"' not in response.text
     assert 'data-subtabs="settings"' in response.text
     assert 'id="agent-composer"' in response.text
@@ -81,8 +81,8 @@ def test_dashboard_is_served() -> None:
 def test_dashboard_static_assets_are_served() -> None:
     client = TestClient(app)
 
-    assert client.get("/dashboard/styles.css").status_code == 200
-    script = client.get("/dashboard/app.js")
+    assert client.get("/dashboard/css/styles.css").status_code == 200
+    script = client.get("/dashboard/js/app.js")
     assert script.status_code == 200
     assert "distribute-deployment-list" in script.text
     assert "Distribute list" in script.text

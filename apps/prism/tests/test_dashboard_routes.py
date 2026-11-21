@@ -23,7 +23,7 @@ def test_deep_links_serve_the_dashboard_document(path):
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/html")
     assert "/dashboard/js/navigation.js" in response.text
-    assert "/dashboard/styles.css" in response.text
+    assert "/dashboard/css/styles.css" in response.text
 
 
 @pytest.mark.parametrize(
