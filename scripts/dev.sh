@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
-# Launch Prism and the swarm API/worker with one browser UI: Prism on port 8000.
+# Launch Prism and the swarm API/worker from this monorepo. Prism is the only user-facing UI (port 8000).
 set -euo pipefail
 
-prism_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-swarm_root="${SWARM_ROOT:-}"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+prism_root="$repo_root/apps/prism"
+swarm_root="${SWARM_ROOT:-$repo_root/apps/swarm}"
 
 if [[ -z "$swarm_root" || ! -f "$swarm_root/backend/app/main.py" ]]; then
-  printf 'Set SWARM_ROOT to the agentic swarm project directory.\n' >&2
+  printf 'Swarm backend not found at %s (set SWARM_ROOT to override).\n' "$swarm_root" >&2
   exit 2
 fi
 if [[ ! -x "$prism_root/.venv/bin/uvicorn" ]]; then
-  printf 'Prism virtual environment is missing. Run make setup first.\n' >&2
+  printf 'Prism virtual environment is missing. Run make setup first (from the repo root).\n' >&2
   exit 2
 fi
 if ! command -v uv >/dev/null 2>&1; then

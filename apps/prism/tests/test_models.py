@@ -5,6 +5,9 @@ from app.db.base import Base
 def test_model_metadata_loads_all_domain_tables() -> None:
     assert set(Base.metadata.tables) == {
         "employees",
+        "prism_skills",
+        "prism_skill_assignments",
+        "prism_skill_setups",
         "brain_entries",
         "employee_aliases",
         "blocker_dependencies",

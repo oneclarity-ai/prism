@@ -13,6 +13,10 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+defaults:
+  run:
+    working-directory: apps/prism
+
 jobs:
   quality:
     runs-on: ubuntu-latest
@@ -23,14 +27,14 @@ jobs:
           python-version: "3.11"
           cache: pip
           cache-dependency-path: |
-            requirements.txt
-            requirements-dev.txt
+            apps/prism/requirements.txt
+            apps/prism/requirements-dev.txt
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -r requirements-dev.txt
       - run: ruff check .
       - run: ruff format --check app tests
       - run: mypy
-      - run: python scripts/check_secrets.py
+      - run: python ../../scripts/check_secrets.py
 
   unit-tests:
     runs-on: ubuntu-latest
@@ -44,7 +48,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
-          cache-dependency-path: requirements.txt
+          cache-dependency-path: apps/prism/requirements.txt
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -r requirements-dev.txt
       - run: pytest -q
@@ -77,7 +81,7 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-          cache-dependency-path: requirements.txt
+          cache-dependency-path: apps/prism/requirements.txt
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -r requirements-dev.txt
       - run: alembic upgrade head
