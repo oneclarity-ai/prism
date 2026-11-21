@@ -139,8 +139,8 @@ Commands assume existing `.venv` dependencies; see `Makefile` for setup prerequi
 - [README](README.md): setup, Microsoft integration and local operation;
   [architecture](ARCHITECTURE.md): core flows/storage; [contributing](CONTRIBUTING.md): quality/migrations;
   [security](SECURITY.md): reporting and deployment guidance. API docs: running app `/docs`.
-- [ADRs](docs/adr/): accepted boundaries, especially multi-Prism ADR 0003.
-- [v2.1 runbook](docs/v2.1-release-runbook.md), [v2.2 runbook](docs/v2.2-release-runbook.md),
-  [v2.2 security review](docs/v2.2-security-review.md): approvals, monitoring, recovery and proof.
-- [v2.4 runbook](docs/v2.4-release-runbook.md): external engine/computers, approvals and known limits;
-  [v2.4 plan](docs/v2.4-dynamic-prisms-and-computers-plan.md): design context, not implementation proof.
+- [ADRs](docs/adr): accepted boundaries, especially multi-Prism ADR 0003.
+- [v2.1 runbook](docs/releases/v2.1-release-runbook.md), [v2.2 runbook](docs/releases/v2.2-release-runbook.md),
+  [v2.2 security review](docs/releases/v2.2-security-review.md): approvals, monitoring, recovery and proof.
+- [v2.4 runbook](docs/releases/v2.4-release-runbook.md): external engine/computers, approvals and known limits;
+  [v2.4 plan](docs/releases/v2.4-dynamic-prisms-and-computers-plan.md): design context, not implementation proof.

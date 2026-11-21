@@ -14,17 +14,17 @@ release. Dates use ISO 8601.
   as `pA7xQ2` (lowercase `p` and five random mixed-case letters/digits) during creation, shown
   during onboarding and active chats. Migrations `20261122_0049` and `20261122_0050` backfill
   existing Prisms while preserving UUIDs, history and old sequential links as aliases.
-  See `docs/dashboard-navigation.md`.
+  See `docs/guides/dashboard-navigation.md`.
 - Shared workspace skill library for any business department and three private skills generated
   automatically from confirmed chat onboarding, with a saved chat notification and no repeated
   questionnaire. Separate Skills and Tools tabs provide editable cards and independent permissions.
   Skills never grant tool access. Migrations `20261121_0047` and `20261122_0048` preserve existing
   Prisms, history, shared skills and permissions. See
-  `docs/prism-skills.md`.
+  `docs/guides/prism-skills.md`.
 - Prism v2.2: multiple private Prisms with onboarding, working agreements, Teams monitoring,
   evidence-backed proactive updates, browser notifications, incident grouping, approval-gated
   drafts, feedback and tuning, budgets, health status, retention, v2.1 migration, and
-  operator recovery commands. See `docs/v2.2-release-runbook.md` and `docs/v2.2-security-review.md`.
+  operator recovery commands. See `docs/releases/v2.2-release-runbook.md` and `docs/releases/v2.2-security-review.md`.
 - Open-source repository documentation, contributor guidance, security policy, and support policy.
 - Docker and Compose development path.
 - Ruff, mypy, dependency auditing, and tracked-file secret scanning commands.
@@ -56,7 +56,7 @@ release. Dates use ISO 8601.
 - Unified the dashboard's neutral surfaces, controls, typography, and focus styles across light
   and dark themes. Preserved the existing theme preference, added keyboard navigation and viewport
   placement for profile/theme menus, and aligned Workspace numeric columns. Manager approvals,
-  source scopes, and delivery behavior are unchanged. See `docs/prism-design-system.md`.
+  source scopes, and delivery behavior are unchanged. See `docs/guides/prism-design-system.md`.
 - Generalized organization- and manager-specific runtime names under the Prism identity.
 - Production and publicly exposed API configurations now fail closed without an operator token.
 

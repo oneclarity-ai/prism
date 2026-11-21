@@ -48,6 +48,6 @@ and a QA Prism. These roles must not mix their instructions, memory, updates, or
 ## Release gate
 
 The v2.2 flag can default to enabled only after the release criteria in
-[Prism v2.2 development phases](../v2.2-development-phases.md) are met. Enabling the flag during
+[Prism v2.2 development phases](../releases/v2.2-development-phases.md) are met. Enabling the flag during
 development is not evidence that monitoring, notifications, or autonomous behavior are production
 ready.

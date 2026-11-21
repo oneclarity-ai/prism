@@ -316,7 +316,7 @@ computers entirely from Prism. The next phases add orchestration depth, not basi
 
 ## 9. Implementation references
 
-- Prism [current-stage audit](current-stage-audit.md), [v2.4 runbook](v2.4-release-runbook.md),
+- Prism [current-stage audit](current-stage-audit.md), [v2.4 runbook](../releases/v2.4-release-runbook.md),
   `app/services/qa_run_service.py`, `app/services/qa_swarm_client.py`,
   `app/services/work_bridge_service.py`, `app/services/approved_teams_execution_service.py`,
   `app/static/index.html`, `app/static/js/qa-tester.js`.

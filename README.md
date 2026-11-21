@@ -102,8 +102,8 @@ are sources and destinations, never separate Prism chats, and Prism is not a sec
 
 ![Coordinated approval cards on a narrow screen](docs/screenshots/v2.1-coordinated-approvals-narrow.png)
 
-See the [v2.2 runbook](docs/v2.2-release-runbook.md) for multiple Prisms, monitoring, upgrade, and
-recovery, and the [v2.1 release runbook](docs/v2.1-release-runbook.md) for setup, safe live testing, recovery, and
+See the [v2.2 runbook](docs/releases/v2.2-release-runbook.md) for multiple Prisms, monitoring, upgrade, and
+recovery, and the [v2.1 release runbook](docs/releases/v2.1-release-runbook.md) for setup, safe live testing, recovery, and
 the release gate.
 
 ## Product screenshots
@@ -158,7 +158,7 @@ the webhook listener.
 ## Local setup guide
 
 For the manager-only Agent Chat release workflow, recovery behavior, safe live-send checklist, and
-backup guidance, see [the Prism v2.1 local release runbook](docs/v2.1-release-runbook.md).
+backup guidance, see [the Prism v2.1 local release runbook](docs/releases/v2.1-release-runbook.md).
 
 This section takes you from a fresh checkout to a local Prism instance connected to
 Microsoft Teams. Start with automation disabled, verify the dashboard, and only then expose
@@ -268,7 +268,7 @@ QA Prisms now discover internal website pages automatically. Say “Test https:/
 you do not need to list routes. New plans show **Discover pages automatically**, request
 separate approvals for new sites and secure logins, and ask before extending testing limits.
 Reports distinguish tested pages from discovered pages left untested. See the
-[website testing runbook](docs/v2.4-release-runbook.md#website-testing-automatic-page-discovery)
+[website testing runbook](docs/releases/v2.4-release-runbook.md#website-testing-automatic-page-discovery)
 for dummy-data rules, limits and restart instructions.
 
 Prism needs `PRISM_V22_ENABLED=true`, `PRISM_V24_ENABLED=true`, and the `QA_SWARM_*` connection
@@ -304,21 +304,21 @@ the Prisms page (cards or org chart view) live under Workspace. There is no Home
 sidebar offers Settings, Theme, System status and Log out; Settings is a modal with Account,
 Preferences, Notifications, Workspace, Connections and Developer sections and a settings search.
 Menus support keyboard navigation and the theme menu fits to the viewport. The app opens on Chats. Search (or Ctrl/Cmd+K) opens a universal search across Prisms, chats, pages, settings and actions.
-See [the design system guide](docs/prism-design-system.md) for tokens, components, and verification.
+See [the design system guide](docs/guides/prism-design-system.md) for tokens, components, and verification.
 
 Prisms can have role-specific, instruction-only skills for any department. Manage reusable
 definitions in **Workspace → Skills** or **Settings → Workspace → Skills**. Confirming chat
 onboarding automatically creates three private skills and posts a notification in the chat.
 Edit them on the Prism's **Skills** tab; manage permissions separately on **Tools**.
 There is no second questionnaire, and generated skills never change tool access.
-See [Prism skills](docs/prism-skills.md) for setup, permissions, revisions and migration notes.
+See [Prism skills](docs/guides/prism-skills.md) for setup, permissions, revisions and migration notes.
 
 Dashboard pages now have direct URLs, including `/spending`, `/run-analytics` and `/tasks`.
 Each Prism receives a permanent code during creation, visible in its onboarding/chat header
 and its URL, such as `/prisms/pA7xQ2` (lowercase `p` plus five random letters/digits).
 Codes are case-sensitive; old `PR-` links still work. Refresh and Back/Forward restore the selected page.
 Run `make migrate` before restarting with this update to assign codes to existing Prisms.
-See [dashboard navigation](docs/dashboard-navigation.md) for the route map and migration notes.
+See [dashboard navigation](docs/guides/dashboard-navigation.md) for the route map and migration notes.
 
 Workspace Tasks supports search, agent/target filters, status counts, and list/board layouts.
 Runs groups sessions by date; Approvals includes pending decisions and decision history. Login
@@ -349,7 +349,7 @@ Migration `20261120_0045` preserves Prism identities and histories, assigns depa
 existing Prisms from their roles, reuses the existing Chief of Staff (or Executive Assistant),
 and places the other existing team members beneath it. Apply pending migrations with
 `.venv/bin/alembic upgrade head` before using this release. See
-[Prism team organization](docs/prism-team-organization.md) for the local assignments and checks.
+[Prism team organization](docs/guides/prism-team-organization.md) for the local assignments and checks.
 
 The server rejects reporting cycles, self-reporting, archived managers, and a second Chief of
 Staff. Archiving a manager moves its reports to Chief of Staff; Chief of Staff cannot be archived

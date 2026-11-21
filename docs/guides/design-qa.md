@@ -119,7 +119,7 @@ This supersedes the earlier owner-free organization membership projection.
   Prisms, one reused Chief of Staff, and the existing ten members assigned under it. The saved
   owner display name is Yash Mandi.
 - Full default suite: 238 passed, 161 skipped. Ruff, JavaScript syntax, and targeted model/schema
-  mypy passed. See `docs/prism-team-organization.md` for applied assignments and manual UI checks.
+  mypy passed. See `docs/guides/prism-team-organization.md` for applied assignments and manual UI checks.
 
 final result: passed
 

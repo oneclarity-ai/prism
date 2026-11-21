@@ -418,15 +418,15 @@ Only after those gates are green should work be labelled **v2.4 complete** and v
 
 ## Source-of-truth references
 
-- [README](../README.md): setup, Microsoft delegated permissions, providers, and local operation.
-- [Architecture](../ARCHITECTURE.md): core domain and storage boundaries.
-- [v2.1 release runbook](v2.1-release-runbook.md): grounded Teams conversation and exact approval.
-- [v2.2 release runbook](v2.2-release-runbook.md): multi-Prism monitoring and recovery.
-- [v2.3 plan](v2.3-qa-tester-prism-plan.md): external QA/browser execution.
-- [v2.4 plan](v2.4-dynamic-prisms-and-computers-plan.md): design context; known to contain stale
+- [README](../../README.md): setup, Microsoft delegated permissions, providers, and local operation.
+- [Architecture](../../ARCHITECTURE.md): core domain and storage boundaries.
+- [v2.1 release runbook](../releases/v2.1-release-runbook.md): grounded Teams conversation and exact approval.
+- [v2.2 release runbook](../releases/v2.2-release-runbook.md): multi-Prism monitoring and recovery.
+- [v2.3 plan](../releases/v2.3-qa-tester-prism-plan.md): external QA/browser execution.
+- [v2.4 plan](../releases/v2.4-dynamic-prisms-and-computers-plan.md): design context; known to contain stale
   verification notes.
-- [v2.4 generic-execution audit](v2.4-generic-execution-audit.md): reliability implementation and
+- [v2.4 generic-execution audit](../releases/v2.4-generic-execution-audit.md): reliability implementation and
   earlier validation record.
-- [v2.4 release runbook](v2.4-release-runbook.md): current operating, safety, recovery, spend, and
+- [v2.4 release runbook](../releases/v2.4-release-runbook.md): current operating, safety, recovery, spend, and
   live-screen guidance.
-- [Security](../SECURITY.md): deployment and reporting boundaries.
+- [Security](../../SECURITY.md): deployment and reporting boundaries.

@@ -21,7 +21,7 @@ delegated Microsoft Graph connection.
 job, migration-dependent operation, or Graph call may be activated. Existing dashboard and
 automation behavior remains unchanged.
 
-The release includes only the capabilities listed in `docs/v2.1-development-phases.md`. Teams
+The release includes only the capabilities listed in `docs/releases/v2.1-development-phases.md`. Teams
 channels, Outlook, scheduling, autonomous writes, multi-user tenancy, and a Teams-resident bot are
 separate releases.
 

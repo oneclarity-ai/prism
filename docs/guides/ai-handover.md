@@ -281,8 +281,8 @@ inventing attribution.
   implement them.
 - The UI is static JavaScript with no frontend build pipeline; keep modules browser-compatible.
 - The current user is single-user/local; this is not tenant-isolated SaaS or an RBAC system.
-- Review `docs/v2.4-release-runbook.md`, `docs/v2.4-generic-execution-audit.md`, and
-  `docs/prism-swarm-unification-plan.md` before declaring v2.4 complete.
+- Review `docs/releases/v2.4-release-runbook.md`, `docs/releases/v2.4-generic-execution-audit.md`, and
+  `docs/guides/prism-swarm-unification-plan.md` before declaring v2.4 complete.
 
 Recommended next sequence:
 
@@ -297,11 +297,11 @@ Recommended next sequence:
 
 - `README.md`: setup, Graph configuration, automation, troubleshooting, and test commands.
 - `ARCHITECTURE.md`: data flow, storage, Microsoft Graph, provider, and security boundaries.
-- `docs/current-stage-audit.md`: current stabilization audit and remaining release concerns.
-- `docs/v2.4-release-runbook.md`: v2.4 operational gates and recovery procedures.
-- `docs/v2.4-generic-execution-audit.md`: generic computer execution audit.
-- `docs/prism-swarm-unification-plan.md`: merged UI/backend ownership and phased plan.
-- `docs/prism-team-organization.md`: organization model and migration details.
+- `docs/guides/current-stage-audit.md`: current stabilization audit and remaining release concerns.
+- `docs/releases/v2.4-release-runbook.md`: v2.4 operational gates and recovery procedures.
+- `docs/releases/v2.4-generic-execution-audit.md`: generic computer execution audit.
+- `docs/guides/prism-swarm-unification-plan.md`: merged UI/backend ownership and phased plan.
+- `docs/guides/prism-team-organization.md`: organization model and migration details.
 - `docs/adr/0001-prism-v21-vertical-slice.md`: v2.1 product boundary.
 - `docs/adr/0002-one-manager-conversation.md`: one manager conversation decision.
 - `docs/adr/0003-prism-v22-multi-prism-boundary.md`: private multi-Prism boundary.
