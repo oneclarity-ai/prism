@@ -190,13 +190,17 @@ Docker](#run-with-docker).
 
 ```bash
 git clone https://github.com/oneclarity-ai/prism.git
-cd prism
+cd prism/apps/prism
 cp .env.example .env
 python3.11 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -r requirements-dev.txt
 ```
+
+This repository is a monorepo: Prism lives in `apps/prism` and the swarm execution engine in
+`apps/swarm`. Prism commands run from `apps/prism` (or from the repository root through the root
+`Makefile`, for example `make dev`). See [docs/architecture/monorepo.md](docs/architecture/monorepo.md).
 
 If your shell does not support `source`, activate the environment using the equivalent
 command for your platform. Every later command using `python`, `alembic`, or `uvicorn`
@@ -273,11 +277,15 @@ for dummy-data rules, limits and restart instructions.
 
 Prism needs `PRISM_V22_ENABLED=true`, `PRISM_V24_ENABLED=true`, and the `QA_SWARM_*` connection
 settings from `.env.example` for Operations to appear and load data. After both projects are
-configured and migrated, start the Prism UI, the swarm API, and its worker together with:
+configured and migrated, start the Prism UI, the swarm API, and its worker together from the
+repository root with:
 
 ```bash
-make dev-unified SWARM_ROOT="/path/to/agentic swarm"
+make dev-all
 ```
+
+The swarm now lives in this repository at `apps/swarm`; set `SWARM_ROOT` only to run a swarm checkout
+from another location.
 
 Stop any earlier swarm `scripts/dev.sh` session first; that older launcher also starts its
 separate frontend and occupies the swarm API port. The unified command checks ports 8000, 8080,
@@ -604,15 +612,18 @@ correct, and migrations have been applied with `make migrate`.
 ## Run with Docker
 
 ```bash
-cp .env.example .env
-# Set a unique local-only database password in .env before continuing.
+cp apps/prism/.env.example apps/prism/.env
+cp apps/swarm/backend/.env.example apps/swarm/backend/.env
+# Set a unique local-only database password in a root .env (read by Compose) before continuing.
 # For example: PRISM_DATABASE_PASSWORD=choose-a-long-local-password
 docker compose up --build
 ```
 
-Compose starts PostgreSQL, applies Alembic migrations, and starts Prism on port `8000`.
-Compose deliberately refuses to start until `PRISM_DATABASE_PASSWORD` is set in `.env`.
-Choose a unique local password; do not use a default value or commit `.env`.
+Run these from the repository root. Compose starts Prism's PostgreSQL, applies Alembic migrations and
+starts Prism on port `8000`, then starts the swarm database, API (port `8080`) and worker. Prism reaches
+the swarm at `http://swarm-api:8000` inside Compose. Compose deliberately refuses to start until
+`PRISM_DATABASE_PASSWORD` is set. Choose a unique local password; do not use a default value or commit
+any `.env` file.
 
 Stop the services with `docker compose down`. Add `--volumes` only when you intentionally
 want to delete the local PostgreSQL data volume.
@@ -620,7 +631,7 @@ want to delete the local PostgreSQL data volume.
 ## Configuration
 
 All configuration is read from environment variables or an ignored `.env` file. The
-complete, commented list is in [.env.example](.env.example).
+complete, commented list is in [apps/prism/.env.example](apps/prism/.env.example).
 
 | Variable | Purpose | Default/safe state |
 | --- | --- | --- |

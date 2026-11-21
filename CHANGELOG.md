@@ -7,6 +7,19 @@ release. Dates use ISO 8601.
 
 ## [Unreleased]
 
+### Changed (repository)
+
+- **Monorepo.** Prism moved to `apps/prism`; the agentic swarm is imported at `apps/swarm` with history.
+  Root `Makefile` (`make dev-all`, `make swarm-setup`), `compose.yaml` for the whole platform, repo-level
+  `scripts/dev.sh` (replaces `scripts/dev_unified.sh`), updated CI and Dependabot paths. `.env.example` is now
+  `apps/prism/.env.example`.
+- Prism services, models, schemas and routes are grouped into domain packages (`prisms`, `management`,
+  `people`, `memory`, `llm`, `teams`, `qa`, `engine`); dashboard styles moved to `css/` and `app.js` to `js/`
+  (`/dashboard/css/*.css`, `/dashboard/js/app.js`). Docs split into `docs/guides` and `docs/releases`. No API,
+  table or migration changed. See `docs/architecture/monorepo.md` and `docs/releases/post-v2.4-changes.md`.
+- Dashboard: Brain moved from Settings to Workspace > Knowledge with a redesigned page; a Notifications tab sits
+  next to Workspace in the sidebar; the theme picker is a three-icon control in the profile menu.
+
 ### Added
 
 - Direct dashboard page/subpage URLs with refresh and Back/Forward support, including Spending,

@@ -19,18 +19,26 @@ work is delegated to an external swarm engine. This is pre-release software.
 
 ## 3. Repository structure
 
+This is a monorepo (see `docs/architecture/monorepo.md`). Prism commands run in `apps/prism`
+(the root `Makefile` forwards `make dev`, `make check`, ... there); paths below are relative to it.
+
+- `apps/prism/`: Prism backend and dashboard. `apps/swarm/`: external swarm engine (own backend,
+  React console, demo shop, docs); Prism talks to it only through `qa_swarm_client.py` over HTTP.
 - `app/main.py`: `create_app()`, exported `app`, middleware, routers, static mount and lifespan loops.
 - `app/core/`: cached environment settings and operator-token middleware.
-- `app/api/routes/`: HTTP adapters; legacy `/api/v1`, agent/Prism `/api/v2`, engine bridge.
-- `app/services/`: domain workflows, integration adapters, validation, recovery and scheduling.
+- `app/api/routes/<domain>/`: HTTP adapters; legacy `/api/v1`, agent/Prism `/api/v2`, engine bridge.
+- `app/services/<domain>/`: domain workflows, integration adapters, validation, recovery and scheduling.
+- `app/models/<domain>/`, `app/schemas/<domain>/`: ORM persistence and Pydantic API/decision contracts.
+  Domains: `prisms`, `management`, `people`, `memory`, `llm`, `teams`, `qa`, `engine`. Shared kernel files
+  stay at the layer root (`services/common.py`, `services/errors.py`, `models/enums.py`, `schemas/common.py`,
+  `routes/health.py`).
 - `app/agents/`: management-agent logic and response prompts.
-- `app/models/`, `app/schemas/`: ORM persistence and Pydantic API/decision contracts.
 - `app/db/`: declarative base, naming conventions, synchronous engine and request sessions.
-- `app/static/`: dashboard served at `/dashboard/`; `app.js` plus feature modules in `js/`.
+- `app/static/`: dashboard served at `/dashboard/`; `index.html`, `css/` and `js/` (`js/app.js` plus feature modules).
 - `alembic/versions/`: schema history; `alembic/env.py` wires settings and ORM metadata.
 - `tests/`: unit/API/PostgreSQL suites; `tests/e2e/`: real browser journeys with integration fakes.
-- `scripts/`: administrative CLI (`prism_admin.py`) and secret scanner.
-- `docs/`, `.github/workflows/`: runbooks/ADRs and CI/security checks.
+- `scripts/` (here): administrative CLI (`prism_admin.py`). Repo-level `scripts/`: `check_secrets.py`, `dev.sh`.
+- `docs/` (repo root): `guides/`, `releases/`, `adr/`, `architecture/`; `.github/workflows/`: CI/security checks.
 
 ## 4. Architecture and conventions
 
@@ -98,20 +106,21 @@ work is delegated to an external swarm engine. This is pre-release software.
 
 ## 7. Testing and verification
 
-Commands assume existing `.venv` dependencies; see `Makefile` for setup prerequisites.
+Commands assume existing `apps/prism/.venv` dependencies; see `apps/prism/Makefile` for setup prerequisites.
 
 | Purpose | Command |
 | --- | --- |
 | Development server | `make dev` (`app.main:app`, reload, port 8000) |
 | Unit/offline suite | `make test` (DB/E2E suites skip unless opted in) |
-| Targeted test | `.venv/bin/pytest -q tests/test_security.py` (substitute relevant file/node) |
+| Targeted test | `.venv/bin/pytest -q tests/test_security.py` (in `apps/prism`) (substitute relevant file/node) |
 | PostgreSQL integration | `make test-integration` (`RUN_DB_TESTS=1`) |
 | Browser journeys | `make test-e2e` (`RUN_E2E=1`, Google Chrome by default) |
 | Lint / format check | `make lint` / `make format-check` |
 | Type check | `make typecheck` (only `app/core`, `app/models`, `app/schemas`) |
 | Offline PR checks | `make check` (lint, format, mypy, tests, secret scan) |
 | Dependency audit | `make audit` (network required) |
-| Container build | `docker build --tag prism:ci .` (CI build command) |
+| Container build | `docker build --tag prism:ci .` from `apps/prism` (CI build command) |
+| Whole platform | `make dev-all` (repo root; Prism 8000 + swarm API 8080 + worker) or `docker compose up --build` |
 
 - Prefer targeted regression tests; run broader checks for shared contracts or cross-cutting changes.
 - Integration tests must use disposable PostgreSQL. With no shell `DATABASE_URL`, the test harness

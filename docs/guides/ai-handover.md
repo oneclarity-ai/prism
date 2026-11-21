@@ -91,8 +91,11 @@ Important ownership boundaries:
 - `alembic/versions/`: migration history. The current organization migration is
   `20261120_0045_prism_organization.py`.
 - `tests/`: unit/API/PostgreSQL tests. `tests/e2e/` contains Chrome journeys with fake Graph/LLM.
-- `scripts/dev_unified.sh`: starts Prism plus the swarm API/worker; Prism is the only user UI.
-- `docs/`: plans, ADRs, release runbooks, audits, organization notes, and unification plan.
+- `scripts/dev.sh`: starts Prism plus the swarm API/worker (`make dev-all`); Prism is the only user UI.
+- `docs/`: `guides/` (handover, audits, design, skills), `releases/` (per-version plans and runbooks),
+  `adr/`, and `architecture/monorepo.md` (repository layout). Paths in older text below that start with
+  `app/`, `tests/`, `alembic/` now live under `apps/prism/`, and services/models/schemas/routes are grouped
+  by domain package (see the monorepo document).
 
 ## 5. Local setup
 
@@ -100,7 +103,7 @@ Use Python 3.11 and PostgreSQL. Do not commit `.env`, auth files, Graph tokens, 
 database credentials.
 
 ```bash
-cd /Users/yashmandi/code/prism
+cd /Users/yashmandi/code/prism/apps/prism
 make setup
 cp .env.example .env
 # edit .env with a local PostgreSQL DATABASE_URL and required local settings
@@ -121,7 +124,7 @@ Never print or copy the real password into documentation.
 For the unified Prism + swarm stack:
 
 ```bash
-make dev-unified SWARM_ROOT="/absolute/path/to/agentic swarm"
+make dev-all   # from the repository root; the swarm lives in apps/swarm
 ```
 
 This expects the swarm's API/worker and Docker setup. Stop any older swarm launcher first because
