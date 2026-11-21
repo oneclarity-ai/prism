@@ -5,7 +5,7 @@ import hashlib
 import json
 import uuid
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request
 from fastapi.responses import Response, StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -13,10 +13,12 @@ from sqlalchemy.orm import Session
 from app.api.routes.prism_v22 import require_v22
 from app.core.config import get_settings
 from app.db.session import SessionLocal, get_db
-from app.models.qa import QaRun
+from app.models.prism_v22 import Prism
+from app.models.qa import QaApproval, QaRun
 from app.schemas.qa import QaDecision, QaPlanCreate, QaPlanResult, QaStart, QaStatusRead
 from app.services.brain_service import BrainService
 from app.services.qa_run_service import QaRunService
+from app.services.qa_swarm_client import QaSwarmClient, SwarmError
 
 router = APIRouter(tags=["QA tester"], dependencies=[Depends(require_v22)])
 
@@ -27,6 +29,17 @@ def qa_status() -> QaStatusRead:
     return QaStatusRead(
         available=available, reason=reason, computers=get_settings().prism_v24_enabled
     )
+
+
+@router.get("/api/v2/work/status")
+def work_status() -> dict:
+    """Report a safe connectivity result for the private execution service."""
+    try:
+        with QaSwarmClient() as client:
+            client.status()
+        return {"available": True, "message": "Prism is connected to its computer service."}
+    except SwarmError as exc:
+        return {"available": False, "message": str(exc)}
 
 
 @router.post("/api/v2/prisms/{prism_id}/qa/plan", response_model=QaPlanResult)
@@ -52,6 +65,88 @@ def list_runs(prism_id: uuid.UUID, db: Session = Depends(get_db)) -> list[dict]:
         .limit(30)
     )
     return [QaRunService.snapshot(db, run) for run in runs]
+
+
+@router.get("/api/v2/work/runs")
+def list_work_runs(
+    db: Session = Depends(get_db),
+    prism_id: uuid.UUID | None = None,
+    limit: int = Query(default=100, ge=1, le=200),
+) -> list[dict]:
+    """Unified, Prism-owned work list backed by the existing QA/general run records."""
+    query = (
+        select(QaRun, Prism.name)
+        .join(Prism, Prism.id == QaRun.prism_id)
+        .where(QaRun.state != "planned")
+        .order_by(QaRun.created_at.desc())
+        .limit(limit)
+    )
+    if prism_id is not None:
+        query = query.where(QaRun.prism_id == prism_id)
+    items = []
+    for run, prism_name in db.execute(query):
+        snapshot = QaRunService.snapshot(db, run)
+        snapshot["prism_name"] = prism_name
+        snapshot["title"] = (run.plan or {}).get("title") or "Untitled work"
+        snapshot["created_at"] = run.created_at.isoformat() if run.created_at else None
+        items.append(snapshot)
+    return items
+
+
+@router.get("/api/v2/work/approvals")
+def list_work_approvals(
+    db: Session = Depends(get_db), limit: int = Query(default=100, ge=1, le=200)
+) -> list[dict]:
+    """One inbox for computer decisions; login and question decisions remain in their chat cards."""
+    query = (
+        select(QaApproval, QaRun, Prism.name)
+        .join(QaRun, QaRun.id == QaApproval.qa_run_id)
+        .join(Prism, Prism.id == QaRun.prism_id)
+        .where(QaApproval.status == "pending")
+        .order_by(QaApproval.created_at.asc())
+        .limit(limit)
+    )
+    items = []
+    for approval, run, prism_name in db.execute(query):
+        payload = approval.payload or {}
+        safe_payload = {
+            key: payload[key]
+            for key in (
+                "title",
+                "severity",
+                "steps",
+                "expected",
+                "actual",
+                "question",
+                "site",
+                "reason",
+                "summary",
+                "details",
+                "frame",
+                "budget_usd",
+                "max_turns",
+            )
+            if key in payload
+        }
+        items.append(
+            {
+                "id": str(approval.id),
+                "engine_approval_id": approval.swarm_approval_id,
+                "kind": approval.kind,
+                "action": approval.action,
+                "payload": safe_payload,
+                "status": approval.status,
+                "created_at": approval.created_at.isoformat() if approval.created_at else None,
+                "run_id": str(run.id),
+                "run_title": (run.plan or {}).get("title") or "Untitled work",
+                "run_state": run.state,
+                "prism_id": str(run.prism_id),
+                "prism_name": prism_name,
+                "thread_id": str(run.thread_id),
+                "can_decide_here": approval.kind in ("bug_filing", "outward_action"),
+            }
+        )
+    return items
 
 
 @router.get("/api/v2/qa/runs/{qa_run_id}")

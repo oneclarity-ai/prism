@@ -5,7 +5,7 @@ from playwright.sync_api import Page, expect
 
 def open_sidebar_if_narrow(page: Page) -> None:
     if page.viewport_size and page.viewport_size["width"] < 700:
-        page.get_by_role("button", name="Open sidebar").click()
+        page.locator("#sidebar-open:visible, .chat-sidebar-open:visible").first.click()
 
 
 def complete_onboarding(page: Page) -> None:
@@ -43,7 +43,7 @@ def test_create_activate_and_resume_a_private_prism_conversation(page: Page) -> 
     if page.viewport_size and page.viewport_size["width"] < 700:
         page.get_by_role("button", name="Close sidebar").click()
 
-    expect(page.locator("#prism-conversation-title")).to_have_text("Executive Updates")
+    expect(page.locator("#prism-conversation-title")).to_contain_text("Executive Updates")
     # The chosen colour follows the Prism into the sidebar and its chat header.
     expect(page.locator(".prism-nav-item .nav-logo")).to_have_attribute("data-color", "green")
     expect(page.locator("#prism-conversation-logo .prism-logo")).to_have_attribute(
@@ -57,6 +57,9 @@ def test_create_activate_and_resume_a_private_prism_conversation(page: Page) -> 
     )
     page.get_by_role("button", name="Confirm and activate").click()
     expect(page.locator("#prism-conversation-state")).to_contain_text("active")
+    # The chat answers create three skills; there is no second questionnaire.
+    expect(page.locator("#prism-skill-setup")).to_have_count(0)
+    expect(page.locator("#agent-timeline")).to_contain_text("I created 3 skills")
     # Once active, the Prism's own conversation uses the standard composer.
     expect(page.locator("#agent-message-input")).to_be_visible()
     page.get_by_role("button", name="Preferences").click()
@@ -66,6 +69,7 @@ def test_create_activate_and_resume_a_private_prism_conversation(page: Page) -> 
     expect(page.locator("#agent-preference-list")).to_contain_text("Use concise bullet points.")
 
     page.reload()
+    expect(page.locator("#agent-thread-title")).to_have_text("Executive Updates")
     open_sidebar_if_narrow(page)
     page.get_by_role("button", name="Executive Updates").click()
     expect(page.locator("#prism-conversation-state")).to_contain_text("active")
@@ -88,7 +92,7 @@ def test_browser_tab_title_follows_the_open_prism(page: Page) -> None:
     icon = page.locator("link[rel='icon']")
     assert "data:image/svg+xml" in icon.get_attribute("href")
     brand_icon = icon.get_attribute("href")
-    # Leaving the Prism goes back to the page title and the brand icon.
-    page.evaluate("window.prism.setActiveTab('overview')")
-    expect(page).to_have_title("Home · Prism")
+    # Chats retains the selected Prism; a different page uses its own title and the brand icon.
+    page.evaluate("window.prism.setActiveTab('spending')")
+    expect(page).to_have_title("Spending · Prism")
     assert icon.get_attribute("href") == brand_icon

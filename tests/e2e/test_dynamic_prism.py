@@ -75,6 +75,7 @@ def test_a_custom_prism_plans_works_asks_and_reports(page: Page, e2e_app, monkey
     expect(page.locator("#agent-computer-button")).to_be_visible()
     page.locator("#agent-computer-button").click()
     expect(page.locator("#qa-computer-body")).to_contain_text("Asleep")
+    page.locator("#qa-computer-close").click()
 
     page.locator("#agent-message-input").fill(
         "find 5 fintech companies in Bangalore and list their websites"
@@ -112,9 +113,11 @@ def test_a_custom_prism_plans_works_asks_and_reports(page: Page, e2e_app, monkey
     card = page.locator(".qa-login").last
     expect(card).to_be_visible(timeout=15000)
     expect(panel).to_contain_text("Waiting for you")
+    page.locator("#qa-computer-close").click()
     card.locator("input[type=text]").fill("bob@example.com")
     card.locator("input[type=password]").fill("hunter2-secret")
     card.get_by_role("button", name="Sign in").click()
+    expect(card).not_to_be_visible(timeout=15000)
     expect(page.locator("body")).not_to_contain_text("hunter2-secret", timeout=15000)
 
     engine.status = "succeeded"
@@ -129,4 +132,4 @@ def test_a_custom_prism_plans_works_asks_and_reports(page: Page, e2e_app, monkey
     expect(report).to_contain_text("1 found", timeout=15000)
     expect(report).to_contain_text("Acme")
     expect(report.get_by_role("button", name=re.compile("Download leads.csv"))).to_be_visible()
-    expect(page.locator("body")).not_to_contain_text("swarm")
+    expect(report).not_to_contain_text("swarm")

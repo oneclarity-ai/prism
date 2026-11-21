@@ -4,8 +4,8 @@ import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 import app.models  # noqa: F401 - register all ORM relationship targets at startup
@@ -24,6 +24,7 @@ from app.api.routes.management import router as management_router
 from app.api.routes.management_context import router as management_context_router
 from app.api.routes.memory import router as memory_router
 from app.api.routes.microsoft import router as microsoft_router
+from app.api.routes.operations import router as operations_router
 from app.api.routes.people import router as people_router
 from app.api.routes.prism_v22 import router as prism_v22_router
 from app.api.routes.projects import router as projects_router
@@ -33,6 +34,7 @@ from app.api.routes.tasks import router as tasks_router
 from app.api.routes.work import bridge as work_bridge_router
 from app.api.routes.work import router as work_router
 from app.core.config import get_settings
+from app.core.dashboard_routes import is_dashboard_path
 from app.core.security import protect_operator_api
 from app.db.session import SessionLocal
 from app.services.automation_service import DailyAutomationService
@@ -176,6 +178,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(work_router)
     app.include_router(work_bridge_router)
+    app.include_router(operations_router)
     app.include_router(agent_v21_router)
     app.include_router(employees_router)
     app.include_router(projects_router)
@@ -201,6 +204,13 @@ def create_app() -> FastAPI:
         StaticFiles(directory=Path(__file__).parent / "static", html=True),
         name="dashboard",
     )
+
+    @app.get("/{client_path:path}", include_in_schema=False)
+    def dashboard_document(client_path: str):
+        if not is_dashboard_path(client_path):
+            raise HTTPException(status_code=404, detail="Not Found")
+        return FileResponse(Path(__file__).parent / "static" / "index.html")
+
     return app
 
 

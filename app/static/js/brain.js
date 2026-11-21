@@ -1,87 +1,103 @@
 import { agentApi } from "./api.js";
+import { prismLogo } from "./prism-logo.js";
+import { el, icon, button, empty, chip, panel, searchInput, formDialog, plainSummary } from "./workspace-ui.js";
 
-const $ = (selector) => document.querySelector(selector);
-let entries = [];
+// The Brain: what every Prism knows. Rendered as a Workspace page.
+export const brainApi = {
+  list: () => agentApi("/api/v2/brain"),
+  decide: (entry, action) => agentApi(`/api/v2/brain/${entry.id}/${action}`, { method: "POST" }),
+  remove: (entry) => agentApi(`/api/v2/brain/${entry.id}`, { method: "DELETE" }),
+};
+export const brainProposedCount = (entries) => entries.filter((entry) => entry.status === "proposed").length;
 
-const setStatus = (message, isError = false) => (window.prism || {}).setStatus?.(message, isError);
-function el(tag, className, text) {
-  const node = document.createElement(tag);
-  if (className) node.className = className;
-  if (text !== undefined) node.textContent = text;
-  return node;
-}
-function button(label, onClick, className = "mini-button") {
-  const node = el("button", className, label);
-  node.type = "button";
-  node.addEventListener("click", onClick);
-  return node;
-}
-const showError = (message) => { const node = $("#brain-error"); node.hidden = !message; node.textContent = message; };
+const fail = (error) => window.prism?.setStatus?.(error.message, true);
+const sourceLabel = (entry) => (entry.source === "chat" ? "Learned from a chat" : entry.source === "prism" ? "Prism work note" : "Added by you");
 
-function card(entry, actions) {
-  const node = el("article", "brain-entry");
-  const text = el("div", "brain-entry-text");
-  text.append(el("strong", "", entry.title), el("p", "", entry.body));
-  const meta = entry.source === "chat" ? "Learned from a chat" : entry.source === "prism" ? "Prism work note" : "";
-  if (meta) text.append(el("span", "brain-entry-meta", meta));
-  node.append(text, el("div", "brain-entry-actions"));
-  node.lastChild.append(...actions);
-  return node;
-}
-
-function render() {
+export function brain(ctx) {
+  const { entries, reload } = ctx.brain;
   const proposed = entries.filter((entry) => entry.status === "proposed");
-  const facts = entries.filter((entry) => entry.status === "approved" && entry.source !== "prism");
-  const work = entries.filter((entry) => entry.status === "approved" && entry.source === "prism");
-  $("#brain-proposed-section").hidden = !proposed.length;
-  $("#brain-work-section").hidden = !work.length;
-  const count = $("#nav-brain-count");
-  count.hidden = !proposed.length; count.textContent = String(proposed.length);
-  $("#brain-proposed").replaceChildren(...proposed.map((entry) => card(entry, [
-    button("Add", () => decide(entry, "approve"), "mini-button primary"), button("Dismiss", () => decide(entry, "reject")), button("Edit", () => edit(entry)),
-  ])));
-  const list = $("#brain-facts");
-  list.classList.toggle("empty-state", !facts.length);
-  if (facts.length) list.replaceChildren(...facts.map((entry) => card(entry, [button("Edit", () => edit(entry)), button("Delete", () => remove(entry))])));
-  else list.textContent = "Nothing yet. Add what Prisms should know about your organisation.";
-  $("#brain-work").replaceChildren(...work.map((entry) => { const item = card(entry, [button("Clear", () => remove(entry))]); item.querySelector("strong").textContent = entry.prism_name || entry.title; return item; }));
+  const approved = entries.filter((entry) => entry.status === "approved");
+  const facts = approved.filter((entry) => entry.source !== "prism");
+  const work = approved.filter((entry) => entry.source === "prism");
+
+  ctx.actions.replaceChildren(button("Add to Brain", () => editEntry(null), { glyph: "plus", className: "button" }));
+
+  function editEntry(entry) {
+    formDialog(entry ? "Edit knowledge" : "Add to the Brain", [
+      { name: "title", label: "Title", required: true, maxLength: 200, value: entry?.title, placeholder: "For example: What OneClarity does" },
+      { name: "body", label: "What every Prism should know", type: "textarea", required: true, maxLength: 2000, value: entry?.body },
+    ], async (values) => {
+      const saved = await agentApi(entry ? `/api/v2/brain/${entry.id}` : "/api/v2/brain", { method: entry ? "PATCH" : "POST", body: JSON.stringify(values) });
+      // Editing a suggestion is approving it.
+      if (entry?.status === "proposed") await brainApi.decide(saved, "approve");
+      await reload();
+    }, { submit: entry ? "Save" : "Add", description: "Every Prism reads approved entries before it works. Keep it factual and short." });
+  }
+  async function act(task) { try { await task(); await reload(); } catch (error) { fail(error); } }
+  async function remove(entry) {
+    const confirmed = await window.prism?.askDialog?.({ title: "Remove from the Brain?", message: "Prisms will no longer know this.", confirmLabel: "Remove", danger: true });
+    if (confirmed) act(() => brainApi.remove(entry));
+  }
+
+  const page = el("div", "bn-page");
+
+  // Overview tiles.
+  const stats = el("div", "bn-stats");
+  for (const [glyph, value, label] of [["brain", facts.length, "Facts every Prism knows"], ["circle-dashed", proposed.length, "Waiting for approval"], ["bot", work.length, "Prism work notes"]]) {
+    const tile = el("div", "bn-stat"); tile.append(icon(glyph)); const text = el("div"); text.append(el("strong", "", value), el("span", "", label)); tile.append(text); stats.append(tile);
+  }
+  page.append(stats);
+
+  // Suggestions learned from chats wait for approval.
+  if (proposed.length) {
+    const section = panel("Waiting for your approval", "Prisms picked these up from your chats. They are not used until you add them.");
+    section.classList.add("bn-pending");
+    const list = el("div", "bn-list");
+    for (const entry of proposed) list.append(entryCard(entry, [
+      button("Add", () => act(() => brainApi.decide(entry, "approve")), { className: "mini-button primary", glyph: "circle-check" }),
+      button("Edit", () => editEntry(entry), { glyph: "pencil" }),
+      button("Dismiss", () => act(() => brainApi.decide(entry, "reject")), { glyph: "x" }),
+    ]));
+    section.append(list); page.append(section);
+  }
+
+  // What every Prism knows, with search.
+  const known = panel("What every Prism knows", "Shared context: your organisation, tone, products, rules.");
+  const list = el("div", "bn-list");
+  let query = "";
+  function draw() {
+    const needle = query.trim().toLowerCase();
+    const shown = facts.filter((entry) => !needle || `${entry.title} ${entry.body}`.toLowerCase().includes(needle));
+    if (!facts.length) list.replaceChildren(empty("Nothing yet", "Add what every Prism should know about your organisation.", "brain"));
+    else if (!shown.length) list.replaceChildren(empty("No matches", "Try a different search.", "search"));
+    else list.replaceChildren(...shown.map((entry) => entryCard(entry, [
+      button("", () => editEntry(entry), { className: "icon-button", glyph: "pencil", title: "Edit" }),
+      button("", () => remove(entry), { className: "icon-button", glyph: "trash", title: "Delete" }),
+    ])));
+  }
+  if (facts.length > 4) known.querySelector(".workspace-panel-heading").append(searchInput("Search the Brain", "", (value) => { query = value; draw(); }));
+  draw();
+  known.append(list); page.append(known);
+
+  // Prisms share what they are working on.
+  if (work.length) {
+    const section = panel("What Prisms are working on", "Each Prism leaves a short note so the others stay in step.");
+    const grid = el("div", "bn-list");
+    for (const entry of work) grid.append(entryCard(entry, [button("", () => remove(entry), { className: "icon-button", glyph: "x", title: "Clear note" })], true));
+    section.append(grid); page.append(section);
+  }
+  ctx.root.replaceChildren(page);
 }
 
-async function load() {
-  try { entries = await agentApi("/api/v2/brain"); render(); } catch (error) { setStatus(error.message, true); }
+function entryCard(entry, actions, byPrism = false) {
+  const card = el("article", "bn-entry");
+  if (byPrism) card.append(prismLogo(entry.prism_name || entry.title, "prism-logo"));
+  const text = el("div", "bn-entry-text");
+  text.append(el("strong", "", (byPrism && entry.prism_name) || entry.title), el("p", "", byPrism ? plainSummary(entry.body, 400) : entry.body));
+  const meta = el("div", "bn-entry-meta");
+  meta.append(chip(sourceLabel(entry), entry.source === "chat" ? "blue" : entry.source === "prism" ? "gray" : "green"));
+  text.append(meta);
+  const bar = el("div", "bn-entry-actions"); bar.append(...actions);
+  card.append(text, bar);
+  return card;
 }
-function edit(entry) {
-  $("#brain-id").value = entry.id; $("#brain-title").value = entry.title; $("#brain-body").value = entry.body;
-  $("#brain-save").textContent = "Save"; $("#brain-cancel").hidden = false; $("#brain-title").focus();
-}
-function reset() {
-  $("#brain-id").value = ""; $("#brain-title").value = ""; $("#brain-body").value = "";
-  $("#brain-save").textContent = "Add to Brain"; $("#brain-cancel").hidden = true; showError("");
-}
-async function decide(entry, action) {
-  try { await agentApi(`/api/v2/brain/${entry.id}/${action}`, { method: "POST" }); await load(); } catch (error) { setStatus(error.message, true); }
-}
-async function remove(entry) {
-  const confirmed = await window.prism?.askDialog?.({ title: "Remove from the Brain?", message: "Prisms will no longer know this.", confirmLabel: "Remove", danger: true });
-  if (!confirmed) return;
-  try { await agentApi(`/api/v2/brain/${entry.id}`, { method: "DELETE" }); await load(); } catch (error) { setStatus(error.message, true); }
-}
-async function submit(event) {
-  event.preventDefault();
-  const id = $("#brain-id").value;
-  const payload = { title: $("#brain-title").value, body: $("#brain-body").value };
-  const save = $("#brain-save");
-  save.disabled = true; showError("");
-  try {
-    const saved = await agentApi(id ? `/api/v2/brain/${id}` : "/api/v2/brain", { method: id ? "PATCH" : "POST", body: JSON.stringify(payload) });
-    // Editing a suggestion is approving it.
-    if (id && entries.find((entry) => entry.id === id)?.status === "proposed") await agentApi(`/api/v2/brain/${saved.id}/approve`, { method: "POST" });
-    reset(); await load();
-  } catch (error) { showError(error.message); } finally { save.disabled = false; }
-}
-
-$("#brain-form").addEventListener("submit", submit);
-$("#brain-cancel").addEventListener("click", reset);
-document.addEventListener("prism:tab", (event) => { if (event.detail.tab === "settings") load(); });
-$("[data-subtab-target=\"brain\"]").addEventListener("click", load);
-document.addEventListener("prism:v22-mode", (event) => { if (event.detail.enabled) load(); });

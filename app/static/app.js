@@ -1,12 +1,16 @@
 const savedTab = localStorage.getItem("manager-agent-tab");
-const state = { employees: [], projects: [], tasks: [], blockers: [], commitments: [], escalations: [], journeys: [], knowledge: [], memoryFacts: [], memoryEpisodes: [], attention: [], brief: null, microsoft: null, provider: null, foundation: null, activeTab: savedTab === "records" ? "knowledge" : (savedTab || "overview") };
+const state = { employees: [], projects: [], tasks: [], blockers: [], commitments: [], escalations: [], journeys: [], knowledge: [], memoryFacts: [], memoryEpisodes: [], attention: [], brief: null, microsoft: null, provider: null, foundation: null, activeTab: window.prismRoutes?.initialTab || (savedTab === "records" ? "knowledge" : (savedTab && savedTab !== "settings" ? savedTab : "prisms")) };
 let selectedCommitmentId = null;
 let editingKnowledgeId = null;
 const operatorTokenKey = "manager-agent-operator-token";
 const legacyV21Tabs = new Set(["ask", "management", "journey", "knowledge", "memory", "records"]);
+const workspaceTabs = new Set(["work", "approvals", "operations", "spending"]);
 let v21Mode = null; // null until /api/v2/agent/foundation answers
 let v22Mode = null; // null until /api/v2/prisms/foundation answers
+let v24Mode = null; // null until the computer capability check answers
 let singleExecutiveMode = false;
+const sectionFor = (tab) => (workspaceTabs.has(tab) ? "workspace" : "chat");
+let sidebarSection = sectionFor(state.activeTab);
 const subtabKey = (group) => `manager-agent-subtab-${group}`;
 
 const $ = (selector) => document.querySelector(selector);
@@ -50,24 +54,22 @@ function askDialog({ title, message = "", confirmLabel = "Confirm", danger = fal
 }
 
 const pageTitles = {
-  overview: ["Home", "Your Prisms, and what they cost.", ""],
+  overview: ["Home", "Your Prisms and what needs you.", ""],
+  spending: ["Spending", "What Prisms and the agentic swarm cost, in one place.", "💳"],
   prisms: ["Prisms", "Create private specialist assistants for the work you want covered.", "✦"],
+  work: ["Work", "One place to follow every Prism task and computer run.", "💼"],
+  approvals: ["Approvals", "Review computer actions before a Prism proceeds.", "✅"],
+  operations: ["Operations", "See the connected Prisms, tasks, runs, and setup in one workspace.", "⚙️"],
   ask: ["Ask", "Ask about team state. Answers cite their evidence.", "💡"],
   management: ["Work", "Escalations, blockers, commitments, and today's updates.", "✅"],
-  journey: ["Journeys", "How the agent followed each blocker between people.", "🧭"],
+  journey: ["Journeys", "How Prism followed each blocker between people.", "🧭"],
   agent: ["Assistant Prism", "Ask what matters across your team, then approve each exact message.", "✦"],
-  knowledge: ["My knowledge", "Context and preferences the agent should keep in mind.", "📚"],
-  memory: ["Memory", "Evidence-backed facts and history the agent relies on.", "🧠"],
-  settings: ["Settings", "Account, AI provider, appearance, and access.", "⚙️"],
+  knowledge: ["My knowledge", "Context and preferences Prism should keep in mind.", "📚"],
+  memory: ["Memory", "Evidence-backed facts and history Prism relies on.", "🧠"],
+  settings: ["Settings", "Account, preferences, connections, and access.", "⚙️"],
 };
 
-function setActiveTab(tab) {
-  if (!pageTitles[tab]) tab = "overview";
-  if (v21Mode === false && tab === "agent") tab = "overview";
-  if (v22Mode === false && tab === "prisms") tab = "overview";
-  if (v21Mode === true && legacyV21Tabs.has(tab)) tab = "overview";
-  state.activeTab = tab;
-  const [title, subtitle, icon] = pageTitles[tab];
+function setPageHeading(title, subtitle, icon) {
   $("#page-title").textContent = title;
   $("#page-subtitle").textContent = subtitle;
   $("#page-icon").textContent = icon;
@@ -78,25 +80,72 @@ function setActiveTab(tab) {
   $("#crumb-icon").hidden = !icon;
   $("#crumb-logo").hidden = Boolean(icon);
   document.title = `${title} · Prism`;
-  $("#app").dataset.view = tab;
-  document.dispatchEvent(new CustomEvent("prism:tab", { detail: { tab } }));
-  $(".workspace").scrollTo({ top: 0, behavior: "instant" });
-  localStorage.setItem("manager-agent-tab", tab);
-  document.querySelectorAll("[data-tab]").forEach((panel) => {
-    panel.hidden = panel.dataset.tab !== tab
-      || (v21Mode === true && panel.hasAttribute("data-v21-legacy"))
-      || (v22Mode !== true && panel.hasAttribute("data-v22-only"));
-  });
-  document.querySelectorAll("[data-tab-target]").forEach((button) => {
-    if (button.hasAttribute("data-v21-legacy")) button.hidden = v21Mode === true;
-    if (button.hasAttribute("data-v21-only")) button.hidden = v21Mode !== true;
-    if (button.hasAttribute("data-hide-v22") && v22Mode === true) button.hidden = true;
-    if (button.hasAttribute("data-v22-only")) button.hidden = v22Mode !== true;
-    // A sidebar entry can also own pages opened from it (Settings -> Teams).
-    const active = button.dataset.tabTarget === tab || (button.dataset.tabGroup || "").split(" ").includes(tab);
+}
+
+function setActiveTab(tab) {
+  closeProfileMenu();
+  if (tab === "settings") { openSettings(); return; }
+  if (!pageTitles[tab]) tab = "overview";
+  if (v21Mode === false && tab === "agent") tab = "overview";
+  if (v22Mode === false && (tab === "prisms" || tab === "spending" || workspaceTabs.has(tab))) tab = "overview";
+  if (v24Mode === false && tab === "operations") tab = "overview";
+  if (v22Mode === true && tab === "overview") tab = "prisms"; // Home is retired once Prisms are on.
+  if (v21Mode === true && legacyV21Tabs.has(tab)) tab = "overview";
+  const previousTab = state.activeTab;
+  const commit = () => {
+    if (previousTab !== tab) {
+      if (workspaceTabs.has(tab)) setSidebarSection(sectionFor(tab));
+      else if (tab === "agent" || tab === "prisms") setSidebarSection("chat");
+    }
+    state.activeTab = tab;
+    const [title, subtitle, icon] = pageTitles[tab];
+    setPageHeading(title, subtitle, icon);
+    $("#app").dataset.view = tab;
+    window.prismRoutes?.tab(tab);
+    document.dispatchEvent(new CustomEvent("prism:tab", { detail: { tab } }));
+    $(".workspace").scrollTo({ top: 0, behavior: "instant" });
+    localStorage.setItem("manager-agent-tab", tab);
+    document.querySelectorAll("[data-tab]").forEach((panel) => {
+      panel.hidden = panel.dataset.tab !== tab
+        || (v21Mode === true && panel.hasAttribute("data-v21-legacy"))
+        || (v22Mode !== true && panel.hasAttribute("data-v22-only"));
+      if (panel.hasAttribute("data-v24-only") && v24Mode !== true) panel.hidden = true;
+    });
+    document.querySelectorAll("[data-tab-target]").forEach((button) => {
+      if (button.hasAttribute("data-v21-legacy")) button.hidden = v21Mode === true;
+      if (button.hasAttribute("data-v21-only")) button.hidden = v21Mode !== true;
+      if (button.hasAttribute("data-hide-v22") && v22Mode === true) button.hidden = true;
+      if (button.hasAttribute("data-v22-only")) button.hidden = v22Mode !== true;
+      if (button.hasAttribute("data-v24-only")) button.hidden = v24Mode !== true || (button.hasAttribute("data-v22-only") && v22Mode !== true);
+      // A sidebar entry can also own pages opened from it (Settings -> Teams).
+      const active = button.dataset.tabTarget === tab || (button.dataset.tabGroup || "").split(" ").includes(tab);
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-selected", active ? "true" : "false");
+    });
+  };
+  if (previousTab !== tab && !window.prismRoutes?.restoring && typeof document.startViewTransition === "function" && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    const transition = document.startViewTransition(commit);
+    window.prism.transition = transition.updateCallbackDone;
+    return transition.updateCallbackDone;
+  } else {
+    commit();
+  }
+}
+
+function setSidebarSection(section) {
+  if (!["chat", "workspace", "notifications"].includes(section)) section = "chat";
+  sidebarSection = section;
+  document.querySelectorAll("[data-sidebar-target]").forEach((button) => {
+    const active = button.dataset.sidebarTarget === section;
     button.classList.toggle("active", active);
-    button.setAttribute("aria-selected", active ? "true" : "false");
+    button.setAttribute("aria-selected", String(active));
+    button.tabIndex = active ? 0 : -1;
   });
+  const visiblePanel = `sidebar-${section}-panel`;
+  document.querySelectorAll(".sidebar-section").forEach((panel) => {
+    panel.hidden = panel.id !== visiblePanel;
+  });
+  document.dispatchEvent(new CustomEvent("prism:sidebar", { detail: { section } }));
 }
 
 function applyV21Mode(enabled) {
@@ -109,13 +158,15 @@ function applyV21Mode(enabled) {
   });
   setActiveTab(enabled && legacyV21Tabs.has(state.activeTab) ? "overview" : state.activeTab);
   renderSetup();
+  document.dispatchEvent(new CustomEvent("prism:v21-mode", { detail: { enabled } }));
 }
 
 function applyV22Mode(enabled, executiveOnly = false) {
   v22Mode = enabled;
   singleExecutiveMode = enabled && executiveOnly;
+  if (!enabled) setSidebarSection("chat");
   document.querySelectorAll("[data-v22-only]").forEach((element) => {
-    if (!element.hasAttribute("data-tab")) element.hidden = !enabled;
+    if (!element.hasAttribute("data-tab")) element.hidden = !enabled || (element.hasAttribute("data-v24-only") && v24Mode !== true);
   });
   document.querySelectorAll("[data-hide-v22]").forEach((element) => {
     element.hidden = enabled;
@@ -128,6 +179,15 @@ function applyV22Mode(enabled, executiveOnly = false) {
   document.dispatchEvent(new CustomEvent("prism:v22-mode", { detail: { enabled, singleExecutiveMode } }));
 }
 
+function applyV24Mode(enabled) {
+  v24Mode = enabled;
+  document.querySelectorAll(".workspace-navigation[data-v24-only], .workspace-navigation [data-workspace-page][data-v24-only]").forEach((node) => { node.hidden = !enabled; });
+  document.querySelector("#workspace-legacy-links").hidden = enabled;
+  updateProfileStatus();
+  setActiveTab(state.activeTab);
+  document.dispatchEvent(new CustomEvent("prism:v24-mode", { detail: { enabled } }));
+}
+
 // Switchable views inside a page (Teams tabs, Settings sections). The last choice is remembered.
 function setSubtab(group, name) {
   const root = document.querySelector(`[data-subtabs="${group}"]`);
@@ -137,15 +197,20 @@ function setSubtab(group, name) {
     const active = button.dataset.subtabTarget === name;
     button.classList.toggle("active", active);
     button.setAttribute("aria-selected", active ? "true" : "false");
+    button.tabIndex = active ? 0 : -1;
   });
   document.querySelectorAll(`[data-subtab-group="${group}"]`).forEach((panel) => {
     panel.hidden = panel.dataset.subtab !== name;
   });
   try { localStorage.setItem(subtabKey(group), name); } catch (_) { /* private mode */ }
+  if (group === "settings" && name === "skills") {
+    import("./js/prism-skills.js").then(({ skillLibrary }) => skillLibrary($("#settings-skills-library"))).catch((error) => setStatus(error.message, true));
+  }
+  if (group === "settings" && $("#settings-dialog").open) window.prismRoutes?.settings(name);
 }
 
 // Lets the Agent module (agent-chat.js) reuse the shared toast, dialog, and tab helpers.
-window.prism = { setActiveTab, setSubtab, setStatus, askDialog, isV22Enabled: () => v22Mode };
+window.prism = { setPageHeading, setActiveTab, setSubtab, setStatus, askDialog, isV22Enabled: () => v22Mode, isV24Enabled: () => v24Mode, applyV24Mode, setSidebarSection };
 
 async function api(path, options = {}) {
   const operatorToken = localStorage.getItem(operatorTokenKey);
@@ -236,12 +301,12 @@ function renderAttention(entries) {
   container.innerHTML = entries.map((entry) => {
     const risk = entry.risk;
     const people = entry.people.length ? entry.people.join(", ") : "No person linked";
-    const actions = entry.agent_actions.length ? entry.agent_actions.join(" · ") : "No agent action recorded yet";
+    const actions = entry.agent_actions.length ? entry.agent_actions.join(" · ") : "No Prism action recorded yet";
     return `<article class="attention-card ${escapeHtml(risk.severity)}">
       <div class="attention-card-heading"><span class="risk-level">${escapeHtml(humanize(risk.severity))}</span><span>${escapeHtml(people)}</span></div>
       <h3>${escapeHtml(risk.summary)}</h3>
       <p>${escapeHtml(entry.impact)}</p>
-      <dl><div><dt>Agent action</dt><dd>${escapeHtml(actions)}</dd></div><div><dt>Expected now</dt><dd>${escapeHtml(entry.current_expectation)}</dd></div><div><dt>Why you see this</dt><dd>${escapeHtml(entry.why_visible)}</dd></div></dl>
+      <dl><div><dt>Prism action</dt><dd>${escapeHtml(actions)}</dd></div><div><dt>Expected now</dt><dd>${escapeHtml(entry.current_expectation)}</dd></div><div><dt>Why you see this</dt><dd>${escapeHtml(entry.why_visible)}</dd></div></dl>
       ${entry.manager_options.length ? `<div class="manager-options">${entry.manager_options.map((option) => `<span>${escapeHtml(option)}</span>`).join("")}</div>` : ""}
     </article>`;
   }).join("");
@@ -298,7 +363,7 @@ function renderKnowledge(entries) {
   $("#knowledge-count").textContent = entries.length;
   if (!entries.length) {
     container.className = "knowledge-list empty-state";
-    container.textContent = "No context saved yet. Add something the agent should remember.";
+    container.textContent = "No context saved yet. Add something Prism should remember.";
     return;
   }
   container.className = "knowledge-list";
@@ -429,6 +494,7 @@ function renderTeamsConnection() {
   $("#settings-account-name").textContent = name;
   $("#settings-account-avatar").textContent = letters;
   $("#account-menu-email").textContent = connected ? microsoft.connection.user_principal_name : "No Microsoft account connected";
+  updateProfileStatus();
 
   document.querySelectorAll("[data-connect-microsoft]").forEach((button) => {
     button.disabled = !microsoft.is_auth_configured;
@@ -461,6 +527,7 @@ function renderSetup() {
 
 function renderProviderStatus(provider) {
   state.provider = provider;
+  updateProfileStatus();
   const label = provider.provider === "azure_openai" ? "Azure OpenAI" : provider.provider === "openai" ? "OpenAI" : provider.provider === "codex_local" ? "Local Codex" : humanize(provider.provider);
   $("#provider-status-name").textContent = provider.model ? `${label} · ${provider.model}` : label;
   $("#provider-status-detail").textContent = provider.detail;
@@ -530,7 +597,7 @@ function renderAgentFoundation(foundation) {
   setNavCount("#nav-agent-count", pending);
   $("#approval-banner-title").textContent = pending ? `${pending} draft${pending === 1 ? "" : "s"} waiting for your approval` : "No drafts waiting";
   $("#approval-banner-text").textContent = pending
-    ? "Open the Agent to review each draft, edit it if needed, then approve to send."
+    ? "Open Prism to review each draft, edit it if needed, then approve to send."
     : "Choose a Teams chat and ask Prism what needs your attention.";
   $("#approval-banner-button").textContent = pending ? "Review drafts" : "Start a review";
   $("#approval-banner-button").classList.toggle("secondary", !pending);
@@ -557,6 +624,9 @@ async function loadDashboard() {
   api("/api/v2/prisms/foundation")
     .then((foundation) => applyV22Mode(true, foundation.single_executive_mode))
     .catch(() => applyV22Mode(false));
+  api("/api/v2/qa/status")
+    .then((status) => applyV24Mode(Boolean(status.computers)))
+    .catch(() => applyV24Mode(false));
   try {
     const [employees, projects, tasks, updates, blockers, commitments, escalations, findings, journeys, knowledge, microsoft, memoryFacts, memoryEpisodes, attention, brief] = await Promise.all([
       api("/api/v1/employees?limit=100&is_active=true"),
@@ -743,7 +813,7 @@ function editKnowledge(entryId) {
 
 async function deleteKnowledge(entryId) {
   const entry = state.knowledge.find((item) => item.id === entryId);
-  if (!entry || !await askDialog({ title: `Delete “${entry.title}”?`, message: "It will be removed from the agent's saved knowledge.", confirmLabel: "Delete", danger: true })) return;
+  if (!entry || !await askDialog({ title: `Delete “${entry.title}”?`, message: "It will be removed from Prism's saved knowledge.", confirmLabel: "Delete", danger: true })) return;
   try {
     await api(`/api/v1/management-context/${entryId}`, { method: "DELETE" });
     if (editingKnowledgeId === entryId) resetKnowledgeForm();
@@ -961,15 +1031,132 @@ async function submitRevision(event) {
   }
 }
 
-const themeKey = "manager-agent-theme";
-const themeQuery = window.matchMedia("(prefers-color-scheme: dark)");
-
 function setTheme(choice) {
-  if (choice === "light" || choice === "dark") localStorage.setItem(themeKey, choice);
-  else localStorage.removeItem(themeKey);
-  document.documentElement.dataset.theme = choice === "light" || choice === "dark" ? choice : (themeQuery.matches ? "dark" : "light");
-  $("#theme-select").value = choice === "light" || choice === "dark" ? choice : "system";
+  window.prismTheme.set(choice);
 }
+
+function syncThemeControls() {
+  const choice = window.prismTheme.choice;
+  document.querySelectorAll("[data-profile-theme]").forEach((button) => {
+    button.setAttribute("aria-checked", String(button.dataset.profileTheme === choice));
+  });
+}
+document.addEventListener("prism:theme", syncThemeControls);
+
+function closeProfileMenu() {
+  const menu = $("#profile-menu");
+  if (!menu) return;
+  menu.hidden = true;
+  $("#profile-menu-trigger").setAttribute("aria-expanded", "false");
+  $("#profile-status-details").hidden = true;
+}
+
+function positionProfileMenu() {
+  const menu = $("#profile-menu");
+  if (menu.hidden) return;
+  // Layout pixels: getBoundingClientRect and innerWidth are visual, style values are zoomed.
+  const z = window.prismUi.zoom();
+  const rect = (element) => { const box = element.getBoundingClientRect(); return { left: box.left / z, right: box.right / z, top: box.top / z, bottom: box.bottom / z, width: box.width / z }; };
+  const viewW = innerWidth / z, viewH = innerHeight / z;
+  const row = rect($(".profile-row") || $("#profile-menu-trigger"));
+  const gap = 8, edge = 12;
+  menu.style.width = `${Math.min(row.width, viewW - edge * 2)}px`;
+  const above = row.top - menu.offsetHeight - gap;
+  menu.style.left = `${Math.max(edge, Math.min(row.left, viewW - menu.offsetWidth - edge))}px`;
+  menu.style.top = `${above >= edge ? above : Math.max(edge, Math.min(row.bottom + gap, viewH - menu.offsetHeight - edge))}px`;
+}
+
+function openProfileMenu(last = false) {
+  $("#profile-menu").hidden = false;
+  $("#profile-menu-trigger").setAttribute("aria-expanded", "true");
+  positionProfileMenu();
+  const items = $("#profile-menu").querySelectorAll(".profile-menu-group > [role='menuitem']");
+  items[last ? items.length - 1 : 0]?.focus();
+}
+
+function updateProfileStatus() {
+  const detail = $("#profile-status-details");
+  if (!detail) return;
+  const provider = state.provider?.ready ? "AI provider ready" : "AI provider needs attention";
+  const microsoft = state.microsoft?.is_connected ? "Microsoft Teams connected" : "Microsoft Teams not connected";
+  const computer = v24Mode === true ? "Computer features available" : "Computer features unavailable";
+  detail.textContent = `${provider} · ${microsoft} · ${computer}`;
+  $("#profile-status-dot").classList.toggle("warn", !state.provider?.ready || !state.microsoft?.is_connected);
+  window.prismStatus = { provider: state.provider, microsoft: state.microsoft, computers: v24Mode };
+  document.dispatchEvent(new CustomEvent("prism:status", { detail: window.prismStatus }));
+}
+
+$("#profile-menu-trigger").addEventListener("click", () => {
+  if ($("#profile-menu").hidden) openProfileMenu();
+  else closeProfileMenu();
+});
+$("#profile-menu-trigger").addEventListener("keydown", (event) => {
+  if (!["ArrowDown", "ArrowUp"].includes(event.key)) return;
+  event.preventDefault();
+  openProfileMenu(event.key === "ArrowUp");
+});
+window.addEventListener("resize", positionProfileMenu);
+document.querySelector(".workspace").addEventListener("scroll", positionProfileMenu, { passive: true });
+document.addEventListener("click", (event) => {
+  const theme = event.target.closest("[data-profile-theme]");
+  if (theme) { setTheme(theme.dataset.profileTheme); return; }
+  const action = event.target.closest("[data-profile-action]")?.dataset.profileAction;
+  if (action === "settings" || action === "account" || action === "workspace") {
+    openSettings(action === "account" ? "account" : action === "workspace" ? "general" : undefined);
+  } else if (action === "status") {
+    updateProfileStatus();
+    $("#profile-status-details").hidden = !$("#profile-status-details").hidden;
+    positionProfileMenu();
+  } else if (action === "signout") {
+    closeProfileMenu();
+    const key = localStorage.getItem(operatorTokenKey);
+    if (!key) { setStatus("Local mode has no sign-in session to end."); return; }
+    askDialog({ title: "Sign out of this browser?", message: "This removes the operator access key stored in this browser. It will not disconnect Microsoft Teams.", confirmLabel: "Sign out" }).then((confirmed) => {
+      if (!confirmed) return;
+      localStorage.removeItem(operatorTokenKey);
+      window.location.reload();
+    });
+  } else if (event.target.closest("#profile-menu [data-connect-microsoft]") || !event.target.closest("#profile-menu, #profile-menu-trigger")) closeProfileMenu();
+});
+document.addEventListener("keydown", (event) => {
+  if ($("#profile-menu").hidden) return;
+  if (event.key === "Tab") { closeProfileMenu(); $("#profile-menu-trigger").focus(); return; }
+  if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); closeProfileMenu(); $("#profile-menu-trigger").focus(); return; }
+  const inTheme = event.target.closest(".profile-theme-options");
+  if (inTheme && ["ArrowLeft", "ArrowRight"].includes(event.key)) {
+    event.preventDefault();
+    const radios = [...inTheme.querySelectorAll("[role='radio']")];
+    radios[(radios.indexOf(event.target) + (event.key === "ArrowLeft" ? -1 : 1) + radios.length) % radios.length]?.focus();
+    return;
+  }
+  if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key) || !event.target.closest("#profile-menu")) return;
+  event.preventDefault();
+  const items = [...$("#profile-menu").querySelectorAll(".profile-menu-group > [role='menuitem'], .profile-theme-options [aria-checked='true']")];
+  const index = items.indexOf(document.activeElement);
+  const next = event.key === "Home" ? 0 : event.key === "End" ? items.length - 1 : (index + (event.key === "ArrowUp" ? -1 : 1) + items.length) % items.length;
+  items[next]?.focus();
+});
+document.querySelectorAll("[data-settings-link]").forEach((button) => button.addEventListener("click", () => {
+  if (button.dataset.settingsLink === "spending") { closeSettings(); setActiveTab("spending"); return; }
+  document.querySelector(`[data-subtab-target="${button.dataset.settingsLink}"]`)?.click();
+}));
+
+// Settings is a Notion-style modal over whatever page is open; Escape and the backdrop close it.
+const settingsDialog = $("#settings-dialog");
+function openSettings(subtab) {
+  closeProfileMenu();
+  if (!settingsDialog.open) settingsDialog.showModal();
+  if (subtab) setSubtab("settings", subtab);
+  window.prismRoutes?.settings(settingsDialog.querySelector("[data-subtab-target].active")?.dataset.subtabTarget || "general");
+  document.dispatchEvent(new CustomEvent("prism:tab", { detail: { tab: "settings" } }));
+  (subtab ? $(`[data-subtab-target="${subtab}"]`) : settingsDialog.querySelector("[data-subtab-target].active"))?.focus();
+}
+function closeSettings() { if (settingsDialog.open) settingsDialog.close(); }
+$("#settings-close").addEventListener("click", closeSettings);
+settingsDialog.addEventListener("click", (event) => { if (event.target === settingsDialog) closeSettings(); });
+settingsDialog.addEventListener("close", () => { if (!settingsDialog.open) window.prismRoutes?.settingsClosed(); });
+window.prism.openSettings = openSettings;
+window.prism.closeSettings = closeSettings;
 
 const appShell = $("#app");
 const narrowQuery = window.matchMedia("(max-width: 820px)");
@@ -983,8 +1170,6 @@ function toggleSidebar(open) {
   localStorage.setItem("manager-agent-sidebar", open ? "open" : "closed");
 }
 
-$("#theme-select").addEventListener("change", (event) => setTheme(event.target.value));
-themeQuery.addEventListener("change", () => { if (!localStorage.getItem(themeKey)) setTheme("system"); });
 $("#sidebar-close").addEventListener("click", () => toggleSidebar(false));
 $("#sidebar-open").addEventListener("click", () => toggleSidebar(true));
 document.querySelectorAll(".chat-sidebar-open").forEach((button) => button.addEventListener("click", () => toggleSidebar(true)));
@@ -1032,19 +1217,47 @@ document.addEventListener("click", (event) => {
 });
 $("#revision-form").addEventListener("submit", submitRevision);
 $("#revision-cancel").addEventListener("click", () => $("#revision-dialog").close());
-setTheme(localStorage.getItem(themeKey) || "system");
+syncThemeControls();
 if (!narrowQuery.matches && localStorage.getItem("manager-agent-sidebar") === "closed") appShell.classList.add("sidebar-collapsed");
 document.querySelectorAll("[data-tab-target]").forEach((button) => button.addEventListener("click", () => {
   setActiveTab(button.dataset.tabTarget);
   if (narrowQuery.matches) toggleSidebar(false);
 }));
+document.querySelectorAll("[data-sidebar-target]").forEach((button) => button.addEventListener("click", () => setSidebarSection(button.dataset.sidebarTarget)));
+$("#sidebar-notify-settings")?.addEventListener("click", () => {
+  setActiveTab("settings");
+  setSubtab("settings", "notifications");
+  if (narrowQuery.matches) toggleSidebar(false);
+});
+$(".sidebar-tabs")?.addEventListener("keydown", (event) => {
+  if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+  const buttons = [...document.querySelectorAll("[data-sidebar-target]")].filter((button) => !button.hidden);
+  const index = buttons.indexOf(document.activeElement);
+  if (index < 0) return;
+  event.preventDefault();
+  const next = buttons[(index + (event.key === "ArrowRight" ? 1 : buttons.length - 1)) % buttons.length];
+  next.focus();
+  setSidebarSection(next.dataset.sidebarTarget);
+});
 document.querySelectorAll("[data-subtabs]").forEach((root) => {
   const group = root.dataset.subtabs;
   root.querySelectorAll("[data-subtab-target]").forEach((button) => button.addEventListener("click", () => setSubtab(group, button.dataset.subtabTarget)));
+  root.addEventListener("keydown", (event) => {
+    if (!event.target.matches("[data-subtab-target]") || !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
+    const buttons = [...root.querySelectorAll("[data-subtab-target]")].filter((button) => !button.hidden && !button.disabled && button.getClientRects().length);
+    const index = buttons.indexOf(event.target);
+    if (index < 0) return;
+    event.preventDefault();
+    const previous = event.key === "ArrowLeft" || event.key === "ArrowUp";
+    const next = event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1 : (index + (previous ? -1 : 1) + buttons.length) % buttons.length;
+    buttons[next].focus();
+    buttons[next].click();
+  });
   let saved = null;
   try { saved = localStorage.getItem(subtabKey(group)); } catch (_) { /* private mode */ }
-  setSubtab(group, saved || root.querySelector("[data-subtab-target]").dataset.subtabTarget);
+  setSubtab(group, saved || (group === "settings" ? "preferences" : root.querySelector("[data-subtab-target]").dataset.subtabTarget));
 });
+setSidebarSection(sidebarSection);
 setActiveTab(state.activeTab);
 const microsoftResult = new URLSearchParams(window.location.search);
 if (microsoftResult.get("microsoft") === "connected") setStatus("Microsoft account connected. Import your organization directory next.");

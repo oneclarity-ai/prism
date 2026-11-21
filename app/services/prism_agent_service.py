@@ -13,7 +13,8 @@ from app.core.config import get_settings
 from app.models.prism_v22 import Prism
 from app.models.work import PrismComputer
 from app.services.brain_service import BrainService
-from app.services.prism_presets import grants_for
+from app.services.prism_presets import effective_grants
+from app.services.prism_skill_service import SAFE_RULE, PrismSkillService
 from app.services.qa_swarm_client import QaSwarmClient
 
 logger = logging.getLogger(__name__)
@@ -40,12 +41,20 @@ class PrismAgentService:
             f"You are {prism.name}, a member of the manager's team. Your job: {prism.description}",
             BASE_RULES,
         ]
+        manager_id = getattr(prism, "reports_to_prism_id", None)
+        manager = db.get(Prism, manager_id) if manager_id else None
+        parts.append(
+            f"Your role is {getattr(prism, 'job_role', None) or 'Prism Specialist'} in {getattr(prism, 'department', None) or 'Operations'}. You report to {manager.name if manager else 'the user'}. Reporting lines do not grant permission to start other Prisms, read their private memory, or bypass action approvals."
+        )
         if "qa_kit" in (prism.capabilities or []):
             parts.append(
                 "You are a QA tester. You test web apps in a real browser and report bugs with evidence."
             )
         if prism.role_instructions:
             parts.append("How you work:\n" + prism.role_instructions)
+        skills = PrismSkillService.context(db, prism.id)
+        if skills:
+            parts.append(SAFE_RULE + "\nEnabled skills:\n" + json.dumps(skills, ensure_ascii=False))
         brain = BrainService.context(db)
         if brain:
             parts.append("What the whole team knows (shared memory):\n" + brain)
@@ -67,9 +76,15 @@ class PrismAgentService:
             "description": prism.description[:1000],
             "instructions": cls.instructions(db, prism),
             "runtime": "openai_agents",
-            "tool_grants": grants_for(prism.capabilities or ["browser"], prism.logins_policy),
-            "max_turns": settings.work_max_turns_cap,
-            "run_budget_usd": settings.work_budget_cap_usd,
+            "tool_grants": effective_grants(prism),
+            "max_turns": min(
+                prism.max_turns or settings.work_max_turns_cap, settings.work_max_turns_cap
+            ),
+            "run_budget_usd": min(
+                float(prism.run_budget_usd or settings.work_budget_cap_usd),
+                settings.work_budget_cap_usd,
+            ),
+            "monthly_budget_usd": float(prism.monthly_budget_usd or 100),
         }
 
     @classmethod
@@ -91,7 +106,14 @@ class PrismAgentService:
         if row.swarm_agent_id and row.agent_hash == digest:
             return row.swarm_agent_id
         key = row.computer_key
-        existing = client.find_agent(key)
+        existing = None
+        if row.swarm_agent_id:
+            # An adopted engine agent keeps its own id (and the tasks and runs attached to it).
+            existing = next(
+                (a for a in client.list_agents() if a.get("id") == row.swarm_agent_id), None
+            )
+        if existing is None:
+            existing = client.find_agent(key)
         if existing is None:
             created = client.create_agent({"key": key, **spec})
             row.swarm_agent_id = created["id"]

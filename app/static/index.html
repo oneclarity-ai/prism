@@ -4,43 +4,98 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Prism</title>
-    <script>try{var t=localStorage.getItem("manager-agent-theme");document.documentElement.dataset.theme=t||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")}catch(e){}</script>
+    <script src="/dashboard/js/theme-init.js"></script>
     <link rel="stylesheet" href="/dashboard/styles.css">
+    <link rel="stylesheet" href="/dashboard/prism-theme.css">
   </head>
   <body>
     <div class="app" id="app" data-view="overview">
       <aside class="sidebar" aria-label="Primary">
         <div class="sidebar-head">
           <div class="brand"><span class="brand-logo" data-prism-brand aria-hidden="true"></span><span class="brand-name">Prism</span></div>
-          <button id="nav-today" class="icon-button today-button active" type="button" data-tab-target="overview" aria-label="Home" data-tooltip="Home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11 12 3l9 8M5 10v10h14V10"/></svg><span id="nav-today-count" class="nav-count" hidden></span></button>
           <button id="prism-create-button" class="icon-button" type="button" aria-label="Create Prism" data-tooltip="Create Prism" data-v22-only hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
           <button id="sidebar-close" class="icon-button" type="button" aria-label="Close sidebar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m11 17-5-5 5-5M18 17l-5-5 5-5"/></svg></button>
         </div>
-        <div class="sidebar-search" data-v22-only hidden>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m20 20-4-4"/></svg>
-          <label class="sr-only" for="prism-search-input">Search Prisms</label>
-          <input id="prism-search-input" type="search" autocomplete="off" maxlength="80" placeholder="Search">
-          <button id="prism-archived-button" class="icon-button small" type="button" aria-pressed="false" aria-label="Show archived Prisms" data-tooltip="Show archived" data-v22-only hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v4H4zM6 9v10h12V9M10 13h4"/></svg></button>
+        <div class="sidebar-switcher" data-v22-only hidden>
+          <div class="sidebar-tabs" role="tablist" aria-label="Sidebar view">
+          <button class="sidebar-switch active" type="button" role="tab" id="sidebar-chat-tab" aria-label="Chats" title="Chats" data-sidebar-target="chat" aria-selected="true" aria-controls="sidebar-chat-panel"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg><span>Chats</span></button>
+          <button class="sidebar-switch" type="button" role="tab" id="sidebar-workspace-tab" aria-label="Workspace" title="Workspace" data-sidebar-target="workspace" aria-selected="false" aria-controls="sidebar-workspace-panel"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg><span>Workspace</span></button>
+          <button class="sidebar-switch" type="button" role="tab" id="sidebar-notifications-tab" aria-label="Notifications" title="Notifications" data-sidebar-target="notifications" aria-selected="false" aria-controls="sidebar-notifications-panel"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 4.5-7h9l4.5 7v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-8ZM3 11h5a4 4 0 0 0 8 0h5"/></svg><span>Notifications</span></button>
+          </div>
+          <button class="sidebar-switch sidebar-switch-end" type="button" id="sidebar-search-tab" aria-label="Search" title="Search (Ctrl/Cmd+K)" aria-haspopup="dialog" data-open-search><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m20 20-4-4"/></svg><span>Search</span></button>
         </div>
         <nav class="nav" aria-label="Dashboard sections">
-          <button class="nav-item" type="button" data-tab-target="agent" data-v21-only data-hide-v22 hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z"/><path d="M5 19h14"/></svg><span>Assistant Prism</span><span id="nav-agent-count" class="nav-count approval" aria-label="Drafts waiting for your approval" hidden></span></button>
-          <div id="prism-directory-list" class="prism-nav-list" data-v22-only hidden aria-live="polite"></div>
+          <div id="sidebar-chat-panel" class="sidebar-section" role="tabpanel" aria-labelledby="sidebar-chat-tab">
+            <button class="nav-item" type="button" data-tab-target="overview" data-hide-v22><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11 12 3l9 8M5 10v10h14V10"/></svg><span>Home</span></button>
+            <button class="nav-item" type="button" data-tab-target="agent" data-v21-only data-hide-v22 hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z"/><path d="M5 19h14"/></svg><span>Assistant Prism</span><span id="nav-agent-count" class="nav-count approval" aria-label="Drafts waiting for your approval" hidden></span></button>
+            <div class="sidebar-section-head" data-v22-only hidden><span>Prisms</span><button id="prism-archived-button" class="icon-button small" type="button" aria-pressed="false" aria-label="Show archived Prisms" data-tooltip="Show archived" data-v22-only hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v4H4zM6 9v10h12V9M10 13h4"/></svg></button></div>
+            <div id="prism-directory-list" class="prism-nav-list" data-v22-only hidden aria-live="polite"></div>
+          </div>
+          <div id="sidebar-workspace-panel" class="sidebar-section" role="tabpanel" aria-labelledby="sidebar-workspace-tab" hidden>
+            <div class="workspace-navigation">
+              <div class="workspace-nav-label">Overview</div>
+              <button class="nav-item workspace-nav-item" type="button" data-workspace-page="overview" data-v24-only hidden><svg class="workspace-icon" aria-hidden="true"><use href="/dashboard/assets/workspace-icons.svg#layout-dashboard"></use></svg><span>Dashboard</span><span class="nav-count" data-workspace-count="overview" hidden></span></button>
+              <button id="nav-spending" class="nav-item" type="button" data-tab-target="spending" data-v22-only hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h18v12H3zM3 11h18M7 15h3"/></svg><span>Spending</span></button>
+              <button class="nav-item workspace-nav-item" type="button" data-workspace-page="usage" data-v24-only hidden><svg class="workspace-icon" aria-hidden="true"><use href="/dashboard/assets/workspace-icons.svg#wallet"></use></svg><span>Run analytics</span><span class="nav-count" data-workspace-count="usage" hidden></span></button>
+            </div>
+            <div class="workspace-navigation" data-v24-only hidden>
+              <div class="workspace-nav-label">Work</div>
+              <button class="nav-item workspace-nav-item" type="button" data-workspace-page="tasks"><svg class="workspace-icon" aria-hidden="true"><use href="/dashboard/assets/workspace-icons.svg#list-checks"></use></svg><span>Tasks</span><span class="nav-count" data-workspace-count="tasks" hidden></span></button>
+              <button class="nav-item workspace-nav-item" type="button" data-workspace-page="runs"><svg class="workspace-icon" aria-hidden="true"><use href="/dashboard/assets/workspace-icons.svg#circle-play"></use></svg><span>Runs</span><span class="nav-count" data-workspace-count="runs" hidden></span></button>
+              <button class="nav-item workspace-nav-item" type="button" data-workspace-page="approvals"><svg class="workspace-icon" aria-hidden="true"><use href="/dashboard/assets/workspace-icons.svg#shield-check"></use></svg><span>Approvals</span><span class="nav-count" data-workspace-count="approvals" hidden></span></button>
+              <button class="nav-item workspace-nav-item" type="button" data-workspace-page="bugs"><svg class="workspace-icon" aria-hidden="true"><use href="/dashboard/assets/workspace-icons.svg#bug"></use></svg><span>Bugs</span><span class="nav-count" data-workspace-count="bugs" hidden></span></button>
+              <div class="workspace-nav-label">Team</div>
+              <button class="nav-item workspace-nav-item" type="button" data-workspace-page="agents"><svg class="workspace-icon" aria-hidden="true"><use href="/dashboard/assets/workspace-icons.svg#bot"></use></svg><span>Prisms</span><span class="nav-count" data-workspace-count="agents" hidden></span></button>
+              <div class="workspace-nav-label">Setup</div>
+              <button class="nav-item workspace-nav-item" type="button" data-workspace-page="targets"><svg class="workspace-icon" aria-hidden="true"><use href="/dashboard/assets/workspace-icons.svg#globe"></use></svg><span>Target apps</span><span class="nav-count" data-workspace-count="targets" hidden></span></button>
+              <button class="nav-item workspace-nav-item" type="button" data-workspace-page="secrets"><svg class="workspace-icon" aria-hidden="true"><use href="/dashboard/assets/workspace-icons.svg#key-round"></use></svg><span>Secrets</span><span class="nav-count" data-workspace-count="secrets" hidden></span></button>
+            </div>
+            <div class="workspace-navigation" data-v22-only hidden>
+              <div class="workspace-nav-label">Knowledge</div>
+              <button class="nav-item workspace-nav-item" type="button" data-workspace-page="skills" data-v22-only hidden><svg class="workspace-icon" aria-hidden="true"><use href="/dashboard/assets/workspace-icons.svg#brain"></use></svg><span>Skills</span></button>
+              <button class="nav-item workspace-nav-item" type="button" data-workspace-page="brain" data-v22-only hidden><svg class="workspace-icon" aria-hidden="true"><use href="/dashboard/assets/workspace-icons.svg#brain"></use></svg><span>Brain</span><span class="nav-count approval" data-workspace-count="brain" aria-label="Facts waiting for your approval" hidden></span></button>
+            </div>
+            <div id="workspace-legacy-links">
+              <button class="nav-item" type="button" data-tab-target="work"><span>Work</span></button>
+              <button class="nav-item" type="button" data-tab-target="approvals"><span>Approvals</span><span id="work-approval-count" class="nav-count approval" hidden></span></button>
+            </div>
+          </div>
+          <div id="sidebar-notifications-panel" class="sidebar-section" role="tabpanel" aria-labelledby="sidebar-notifications-tab" hidden>
+            <div class="workspace-navigation">
+              <div class="workspace-nav-label">Needs your attention</div>
+              <button class="nav-item workspace-nav-item" type="button" data-workspace-page="approvals"><svg class="workspace-icon" aria-hidden="true"><use href="/dashboard/assets/workspace-icons.svg#shield-check"></use></svg><span>Approvals waiting</span><span class="nav-count approval" data-workspace-count="approvals" hidden></span></button>
+              <button class="nav-item workspace-nav-item" type="button" data-workspace-page="brain"><svg class="workspace-icon" aria-hidden="true"><use href="/dashboard/assets/workspace-icons.svg#brain"></use></svg><span>Brain facts to review</span><span class="nav-count approval" data-workspace-count="brain" hidden></span></button>
+              <div class="workspace-nav-label">Settings</div>
+              <button class="nav-item" type="button" id="sidebar-notify-settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0c0 6 2 7 2 7H4s2-1 2-7M10 20a2 2 0 0 0 4 0"/></svg><span>Notification settings</span></button>
+            </div>
+          </div>
         </nav>
         <div class="sidebar-footer">
           <div class="profile-row">
-            <div class="account-chip">
+            <button id="profile-menu-trigger" class="account-chip" type="button" aria-label="Open profile menu" aria-haspopup="menu" aria-expanded="false" aria-controls="profile-menu">
               <span id="account-avatar" class="account-avatar">M</span>
               <span id="account-menu-name" class="account-menu-name">Microsoft account</span>
-            </div>
+              <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 15 5 5 5-5M7 9l5-5 5 5"/></svg>
+            </button>
             <button id="nav-settings" class="icon-button" type="button" data-tab-target="settings" aria-label="Settings" data-tooltip="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg></button>
+          </div>
+          <div id="profile-menu" class="profile-menu" role="menu" aria-label="Profile" hidden>
+            <div class="profile-menu-group">
+              <button type="button" role="menuitem" data-profile-action="settings"><span class="menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg></span><span>Settings</span></button>
+              <div class="profile-theme-row"><span class="profile-theme-label"><span class="menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18Z"/></svg></span><span>Theme</span></span><div class="profile-theme-options" role="radiogroup" aria-label="Color theme"><button type="button" role="radio" aria-checked="true" data-profile-theme="system" aria-label="System" title="System"><svg viewBox="0 0 24 24" aria-hidden="true"><rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8M12 17v4"/></svg></button><button type="button" role="radio" aria-checked="false" data-profile-theme="dark" aria-label="Dark" title="Dark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></button><button type="button" role="radio" aria-checked="false" data-profile-theme="light" aria-label="Light" title="Light"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2m-7.07-17.07 1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41m11.32-11.32 1.41-1.41"/></svg></button></div></div>
+              <button type="button" role="menuitem" data-profile-action="status"><span class="menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg></span><span>System status</span><span id="profile-status-dot" class="profile-status-dot" aria-hidden="true"></span></button>
+              <div id="profile-status-details" class="profile-status-details" hidden></div>
+            </div>
+            <div class="profile-menu-group"><button type="button" role="menuitem" class="profile-menu-muted" data-profile-action="signout"><span class="menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg></span><span>Log out</span></button></div>
           </div>
         </div>
       </aside>
 
       <div class="scrim" id="scrim"></div>
       <div class="workspace">
-        <div class="topbar">
-          <button id="sidebar-open" class="icon-button" type="button" aria-label="Open sidebar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+          <button id="sidebar-open" class="icon-button floating-sidebar-open" type="button" aria-label="Open sidebar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+        <!-- Retired top bar: kept hidden so shared scripts that update it keep working. -->
+        <div class="topbar" hidden>
           <div class="breadcrumb"><span id="crumb-icon" aria-hidden="true">📊</span><span id="crumb-logo" class="brand-logo crumb-logo" data-prism-brand hidden></span><span id="crumb-title">Overview</span></div>
           <div class="topbar-actions">
             <span id="ai-cost-today" aria-live="polite">Today's AI cost: —</span>
@@ -55,6 +110,7 @@
             <div id="page-logo" class="page-logo" data-prism-brand hidden></div>
             <h1 id="page-title">Overview</h1>
             <p id="page-subtitle" class="page-subtitle">A quiet view of team work, risks, and follow-through.</p>
+            <div id="workspace-page-actions" class="workspace-page-actions"></div>
           </header>
           <main>
             <p id="status-message" class="status-message" role="status" aria-live="polite"></p>
@@ -63,22 +119,8 @@
             <section class="view tab-panel" data-tab="overview">
               <div class="callout setup-callout" data-setup hidden></div>
 
-              <div id="today-prisms" data-v22-only hidden>
-                <section class="panel home-prisms">
-                  <div class="panel-heading"><div><h2>Your Prisms</h2></div></div>
-                  <div id="today-prism-grid" class="prism-card-grid empty-state">No Prisms yet. Use + in the sidebar to create one.</div>
-                </section>
-                <div class="section-label-row"><p class="section-label">AI spend <span id="cost-updated" class="cost-updated"></span></p><span class="currency-toggle" role="group" aria-label="Currency"><button type="button" data-currency="INR" aria-pressed="true">₹ INR</button><button type="button" data-currency="USD" aria-pressed="false">$ USD</button></span></div>
-                <section class="cost-columns" aria-label="AI spend">
-                  <article class="stat-card cost-col" data-cost-col="prism"><h3 class="subhead">Prism</h3><p class="cost-meta">Chats, plans, reports and reviews</p>
-                    <dl class="cost-periods"><div><dt>Today</dt><dd data-cost="prism:today">—</dd></div><div><dt>Last 7 days</dt><dd data-cost="prism:week">—</dd></div><div><dt>This month</dt><dd data-cost="prism:month">—</dd></div><div><dt>Total so far</dt><dd data-cost="prism:total">—</dd></div></dl></article>
-                  <article class="stat-card cost-col" data-cost-col="swarm"><h3 class="subhead">Agentic swarm</h3><p class="cost-meta">Tasks Prisms run on their own computers</p>
-                    <dl class="cost-periods"><div><dt>Today</dt><dd data-cost="swarm:today">—</dd></div><div><dt>Last 7 days</dt><dd data-cost="swarm:week">—</dd></div><div><dt>This month</dt><dd data-cost="swarm:month">—</dd></div><div><dt>Total so far</dt><dd data-cost="swarm:total">—</dd></div></dl></article>
-                </section>
-              </div>
-
               <section id="agent-foundation-panel" class="panel agent-activity" hidden>
-                <div class="panel-heading"><div><h2>Agent activity</h2><p class="panel-note">Every review, approval, edit, and delivery is stored for audit and safe recovery.</p></div></div>
+                <div class="panel-heading"><div><h2>Prism activity</h2><p class="panel-note">Every review, approval, edit, and delivery is stored for audit and safe recovery.</p></div></div>
                 <div class="stats compact-stats">
                   <article class="stat-card"><span>Prism conversations</span><strong id="foundation-thread-count">0</strong></article>
                   <article class="stat-card"><span>Reviews</span><strong id="foundation-job-count">0</strong></article>
@@ -90,7 +132,7 @@
               <div id="legacy-today">
               <section class="panel today-agent" data-v21-only hidden>
                 <div class="panel-heading">
-                  <div><h2>Agent</h2><p class="panel-note">Continue one conversation with Prism. Teams chats are work sources, not separate Prism chats.</p></div>
+                  <div><h2>Prism</h2><p class="panel-note">Continue one conversation with Prism. Teams chats are work sources, not separate Prism chats.</p></div>
                   <button class="button" type="button" data-agent-new>Open Prism</button>
                 </div>
                 <div class="callout approval-banner">
@@ -135,7 +177,7 @@
               </details>
 
               <section class="panel">
-                <div class="panel-heading"><div><h2>Flagged by rules</h2><p class="panel-note">Deterministic checks on current work, separate from the agent's judgement.</p></div><span id="findings-count" class="badge">0</span></div>
+                <div class="panel-heading"><div><h2>Flagged by rules</h2><p class="panel-note">Deterministic checks on current work, separate from Prism's judgement.</p></div><span id="findings-count" class="badge">0</span></div>
                 <div id="findings-list" class="list empty-state">No active rule findings.</div>
               </section>
               </div>
@@ -152,11 +194,12 @@
                 <div id="prism-onboarding-workspace" class="chat-window" hidden>
                   <header class="agent-bar">
                   <button class="icon-button chat-sidebar-open" type="button" aria-label="Open sidebar" data-tooltip="Open sidebar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
-                    <div class="agent-bar-title"><span id="prism-conversation-logo" class="header-logo" aria-hidden="true"></span><strong id="prism-conversation-title">Prism</strong><span id="prism-conversation-subtitle" class="agent-bar-sub"></span></div>
+                    <div class="agent-bar-title"><span id="prism-conversation-logo" class="header-logo" aria-hidden="true"></span><strong id="prism-conversation-title">Prism</strong><code id="prism-conversation-code" class="prism-code" aria-label="Prism code" hidden></code><span id="prism-conversation-subtitle" class="agent-bar-sub"></span></div>
                     <div class="agent-bar-actions chat-header-actions">
                       <span id="prism-conversation-state" class="prism-state"></span>
                       <button id="prism-menu-button" class="icon-button" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="prism-menu" aria-label="More actions"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg></button>
                       <div id="prism-menu" class="menu" role="menu" aria-label="Prism actions" hidden>
+                        <button id="prism-more-settings-button" class="menu-item" type="button" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h8M16 7h4M4 17h4M12 17h8"/><circle cx="14" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span>More settings</span></button>
                         <button id="prism-edit-button" class="menu-item" type="button" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4ZM13 7l4 4"/></svg><span id="prism-edit-label">Edit Prism</span></button>
                         <button id="prism-policy-button" class="menu-item" type="button" role="menuitem" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.5 3 8.5 7 10 4-1.5 7-5.5 7-10V6l-7-3Z"/></svg><span>Teams monitoring scope</span></button>
                         <button id="prism-trigger-button" class="menu-item" type="button" role="menuitem" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v7l4 2M5 5l2-2m10 0 2 2M4 18l2 2m12-2-2 2M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18Z"/></svg><span>Monitoring schedule</span></button>
@@ -193,6 +236,23 @@
                   </form>
                 </div>
               </section>
+            </section>
+
+            <section class="view tab-panel unified-work-view" data-tab="work" data-v22-only hidden>
+              <div class="panel-heading"><div><h2>Work across your Prisms</h2><p class="panel-note">Track computer tasks, live progress, results, and cost in one place.</p></div><div class="unified-work-toolbar"><label class="sr-only" for="work-prism-filter">Filter by Prism</label><select id="work-prism-filter"><option value="">All Prisms</option></select><button id="work-refresh" class="mini-button" type="button">Refresh</button></div></div>
+              <div id="work-runtime-status" class="callout" role="status" aria-live="polite">Checking the computer service…</div>
+              <p id="work-status" class="panel-note" role="status" aria-live="polite"></p>
+              <div id="work-run-list" class="list empty-state">Loading Prism work…</div>
+            </section>
+
+            <section class="view tab-panel unified-work-view" data-tab="approvals" data-v22-only hidden>
+              <div class="panel-heading"><div><h2>Approval inbox</h2><p class="panel-note">Review computer actions here. Questions and sign-ins continue in their Prism conversation.</p></div><button id="approval-refresh" class="mini-button" type="button">Refresh</button></div>
+              <p id="approval-status" class="panel-note" role="status" aria-live="polite"></p>
+              <div id="work-approval-list" class="list empty-state">Loading approvals…</div>
+            </section>
+
+            <section class="view tab-panel operations-view" data-tab="operations" data-v22-only data-v24-only hidden>
+              <div id="operations-content" aria-live="polite"><p class="panel-note">Open Operations to load execution details.</p></div>
             </section>
 
             <!-- Ask: one focused question box. -->
@@ -240,7 +300,7 @@
             <section class="view tab-panel" data-tab="journey" data-v21-legacy hidden>
               <section class="panel journey-panel">
                 <div class="panel-heading">
-                  <div><h2>Blocker journeys</h2><p class="panel-note">A read-only trail of how the agent handled each blocker across Teams and the database.</p></div>
+                  <div><h2>Blocker journeys</h2><p class="panel-note">A read-only trail of how Prism handled each blocker across Teams and the database.</p></div>
                   <div class="journey-header-actions"><button id="create-dummy-journey-button" class="mini-button" type="button" data-tooltip="Render an in-memory sample journey. It writes nothing to the database and does not contact Teams.">Preview dummy flow</button><span id="journeys-count" class="badge">0</span></div>
                 </div>
                 <div id="journeys-list" class="journeys empty-state">No blocker journeys recorded yet.</div>
@@ -255,19 +315,20 @@
                   <div class="agent-bar-title">
                     <span id="agent-thread-logo" class="header-logo" aria-hidden="true" hidden></span>
                     <strong id="agent-thread-title">Prism</strong>
+                    <code id="agent-thread-code" class="prism-code" aria-label="Prism code" hidden></code>
                     <span id="agent-source-label" class="agent-bar-sub"></span>
                   </div>
                   <div class="agent-bar-actions">
+                  <div id="agent-search-panel" class="agent-search" hidden>
+                    <label class="sr-only" for="agent-search-input">Search your conversation with Prism</label>
+                    <input id="agent-search-input" type="search" autocomplete="off" maxlength="200" placeholder="Search your conversation with Prism">
+                    <div id="agent-search-results" class="agent-search-results" aria-live="polite"></div>
+                  </div>
                   <button id="agent-computer-button" class="icon-button" type="button" aria-expanded="false" aria-controls="qa-computer-panel" aria-label="Show Prism's computer" data-tooltip="Computer" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg><span id="agent-computer-dot" class="icon-badge live-dot" hidden></span></button>
                   <button id="agent-search-button" class="icon-button" type="button" aria-expanded="false" aria-controls="agent-search-panel" aria-label="Search" data-tooltip="Search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m20 20-4-4"/></svg></button>
                   <button id="agent-preferences-button" class="icon-button" type="button" aria-expanded="false" aria-controls="agent-preferences-panel" aria-label="Preferences and settings" data-tooltip="Preferences"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h8M16 7h4M4 17h4M12 17h8"/><circle cx="14" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span id="agent-preferences-count" class="icon-badge" hidden></span></button>
                   </div>
                 </header>
-                <div id="agent-search-panel" class="agent-search" hidden>
-                  <label class="sr-only" for="agent-search-input">Search your conversation with Prism</label>
-                  <input id="agent-search-input" type="search" autocomplete="off" maxlength="200" placeholder="Search your conversation with Prism">
-                  <div id="agent-search-results" class="agent-search-results" aria-live="polite"></div>
-                </div>
 
                 <div class="agent-scroll fade-scrollbar" id="agent-scroll">
                   <div class="agent-stream">
@@ -298,6 +359,7 @@
                 <aside id="agent-preferences-panel" class="agent-drawer" aria-label="Prism settings">
                   <div class="drawer-head">
                     <h3 id="agent-drawer-title">Settings</h3>
+                    <button id="agent-more-settings" class="button secondary drawer-more" type="button" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h8M16 7h4M4 17h4M12 17h8"/><circle cx="14" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span>More settings</span></button>
                     <button id="agent-preferences-close" class="icon-button" type="button" aria-label="Close settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
                   </div>
                   <div class="drawer-tabs" role="tablist" aria-label="Prism settings">
@@ -323,6 +385,8 @@
                       <div id="agent-profile-colors" class="profile-colors"></div>
                       <label for="agent-profile-name">Name<input id="agent-profile-name" maxlength="120" required autocomplete="off"></label>
                       <label for="agent-profile-description">Description<textarea id="agent-profile-description" rows="4" maxlength="2000" required></textarea></label>
+                      <p id="agent-profile-organization" class="panel-note"></p>
+                      <button id="agent-profile-organization-edit" class="mini-button" type="button">Edit role, department & reporting</button>
                       <label class="switch-row" for="agent-profile-notify"><span><strong>Notifications</strong><small>Get notified when this Prism has something for you</small></span><input id="agent-profile-notify" class="toggle" type="checkbox" role="switch"></label>
                       <fieldset id="agent-profile-logins" class="prism-fieldset" hidden>
                         <legend>Signing in to websites</legend>
@@ -375,7 +439,7 @@
                 <div class="panel-heading">
                   <div>
                     <h2>Add context</h2>
-                    <p class="panel-note">Add the context, preferences, and working agreements the agent should keep in mind.</p>
+                    <p class="panel-note">Add the context, preferences, and working agreements Prism should keep in mind.</p>
                   </div>
                 </div>
                 <form id="knowledge-context-form" class="knowledge-context-form">
@@ -392,7 +456,7 @@
                   <label>Short title
                     <input name="title" maxlength="200" placeholder="For example: How the connector work is divided" required>
                   </label>
-                  <label>What should the agent know?
+                  <label>What should Prism know?
                     <textarea name="content" maxlength="10000" placeholder="Write the background, preference, rule, or important detail here." required></textarea>
                   </label>
                   <div class="knowledge-form-footer">
@@ -422,33 +486,90 @@
                 </form>
                 <div id="memory-search-results" class="memory-search-results" hidden></div>
                 <div class="memory-grid">
-                  <section><h3>What the agent currently believes</h3><div id="memory-facts-list" class="list empty-state">No derived facts yet.</div></section>
+                  <section><h3>What Prism currently believes</h3><div id="memory-facts-list" class="list empty-state">No derived facts yet.</div></section>
                   <section><h3>Recent situations</h3><div id="memory-episodes-list" class="list empty-state">No memory episodes yet.</div></section>
                 </div>
                 <details class="memory-context-preview">
-                  <summary>Preview the context given to the agent</summary>
+                  <summary>Preview the context given to Prism</summary>
                   <div class="memory-context-controls"><label for="memory-employee-select">Team member</label><select id="memory-employee-select"><option value="">Choose a team member</option></select><button id="load-memory-context-button" class="mini-button" type="button">Load preview</button></div>
                   <pre id="memory-context-output" class="memory-context-output">Choose a team member to see their limited working context.</pre>
                 </details>
               </section>
             </section>
 
-            <!-- Settings: one section at a time, like a preferences window. -->
-            <section class="view settings tab-panel" data-tab="settings" hidden>
-              <div class="settings-layout">
-                <nav class="settings-nav" role="tablist" aria-label="Settings sections" aria-orientation="vertical" data-subtabs="settings">
-                  <button class="nav-item active" type="button" role="tab" data-subtab-target="account"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span>Account</span></button>
-                  <button class="nav-item" type="button" role="tab" data-subtab-target="brain" data-v22-only hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4a3 3 0 0 0-3 3 3 3 0 0 0-2 2.8A3 3 0 0 0 5 12.6 3 3 0 0 0 7 17a3 3 0 0 0 5 1.5V5.5A3 3 0 0 0 9 4ZM15 4a3 3 0 0 1 3 3 3 3 0 0 1 2 2.8 3 3 0 0 1-1 2.8 3 3 0 0 1-2 4.4 3 3 0 0 1-5 1.5V5.5A3 3 0 0 1 15 4Z"/></svg><span>Brain</span><span id="nav-brain-count" class="nav-count approval" aria-label="Facts waiting for your approval" hidden></span></button>
-                  <button class="nav-item" type="button" role="tab" data-subtab-target="teams"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 19c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5M16 5.2a3.2 3.2 0 0 1 0 5.6M18 14c1.8.6 3 2.2 3 5"/></svg><span>People</span></button>
-                  <button class="nav-item" type="button" role="tab" data-subtab-target="appearance"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18Z"/></svg><span>Appearance</span></button>
-                  <button class="nav-item" type="button" role="tab" data-subtab-target="archived" data-v22-only hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v4H4zM6 9v10h12V9M10 13h4"/></svg><span>Archived Prisms</span></button>
-                  <button class="nav-item" type="button" role="tab" data-subtab-target="provider"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z"/></svg><span>AI provider</span><span id="provider-nav-dot" class="nav-dot warn" aria-label="Needs attention" hidden></span></button>
-                  <button class="nav-item" type="button" role="tab" data-subtab-target="usage"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Usage and spend</button>
-                  <button class="nav-item" type="button" role="tab" data-subtab-target="access"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><span>Access</span></button>
-                </nav>
 
-                <div class="settings-body">
-                  <section data-subtab-group="settings" data-subtab="account">
+            <!-- Spending: one page for everything Prism and the swarm cost. -->
+            <section class="view tab-panel spending-view" data-tab="spending" data-v22-only hidden>
+              <div class="spending-toolbar">
+                <span id="cost-updated" class="cost-updated" aria-live="polite"></span>
+                <span class="currency-toggle" role="group" aria-label="Currency"><button type="button" data-currency="INR" aria-pressed="true">₹ INR</button><button type="button" data-currency="USD" aria-pressed="false">$ USD</button></span>
+              </div>
+              <div class="spend-grid" aria-label="Spend summary">
+      <article class="stat-card spend-card"><span class="spend-label">Today</span><strong class="spend-total" data-cost="all:today">—</strong>
+        <dl class="spend-split"><div><dt>Prism</dt><dd data-cost="prism:today">—</dd></div><div><dt>Swarm</dt><dd data-cost="swarm:today">—</dd></div></dl></article>
+      <article class="stat-card spend-card"><span class="spend-label">Last 7 days</span><strong class="spend-total" data-cost="all:week">—</strong>
+        <dl class="spend-split"><div><dt>Prism</dt><dd data-cost="prism:week">—</dd></div><div><dt>Swarm</dt><dd data-cost="swarm:week">—</dd></div></dl></article>
+      <article class="stat-card spend-card"><span class="spend-label">This month</span><strong class="spend-total" data-cost="all:month">—</strong>
+        <dl class="spend-split"><div><dt>Prism</dt><dd data-cost="prism:month">—</dd></div><div><dt>Swarm</dt><dd data-cost="swarm:month">—</dd></div></dl></article>
+      <article class="stat-card spend-card"><span class="spend-label">Total so far</span><strong class="spend-total" data-cost="all:total">—</strong>
+        <dl class="spend-split"><div><dt>Prism</dt><dd data-cost="prism:total">—</dd></div><div><dt>Swarm</dt><dd data-cost="swarm:total">—</dd></div></dl></article>
+              </div>
+              <section class="panel spending-breakdown">
+                <div class="panel-heading"><div><h2>Breakdown</h2><p id="cost-note" class="panel-note">Estimated from exact token counts and each model's rate.</p></div>
+                  <div class="cost-controls">
+                      <span class="currency-toggle" role="group" aria-label="Date range"><button type="button" data-cost-range="today" aria-pressed="false">Today</button><button type="button" data-cost-range="week" aria-pressed="false">7 days</button><button type="button" data-cost-range="month" aria-pressed="true">This month</button></span>
+                      <span class="currency-toggle" role="group" aria-label="Breakdown"><button type="button" data-cost-view="feature" aria-pressed="true">By feature</button><button type="button" data-cost-view="model" aria-pressed="false">By model</button></span>
+                    </div>
+                </div>
+                <div class="settings-cost-summary"><span>Estimated total for this period</span><strong id="settings-cost-total">—</strong><small>Prism and swarm usage combined</small></div>
+                <div class="cost-split">
+                      <section class="cost-source" data-cost-source="prism"><h3 class="subhead">Prism</h3><p class="cost-big" data-cost-total>—</p><p class="cost-meta" data-cost-tokens></p><p class="cost-azure" data-cost-azure hidden></p><div class="cost-list empty-state" data-cost-rows>No usage in this range.</div></section>
+                      <section class="cost-source" data-cost-source="swarm"><h3 class="subhead">Agentic swarm</h3><p class="cost-big" data-cost-total>—</p><p class="cost-meta" data-cost-tokens></p><p class="cost-azure" data-cost-azure hidden></p><div class="cost-list empty-state" data-cost-rows>No usage in this range.</div></section>
+                    </div>
+              </section>
+              <section class="panel spending-providers">
+                <div class="panel-heading"><div><h2>By provider</h2><p class="panel-note">From recorded usage. Swarm runs are separate because their upstream provider is not stored here.</p></div></div>
+                <div id="settings-provider-costs" class="settings-card">Loading provider costs…</div>
+              </section>
+            </section>
+          </main>
+        </div>
+      </div>
+    </div>
+
+    <dialog id="search-dialog" class="search-dialog" aria-label="Search Prism">
+      <div class="search-head"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m20 20-4-4"/></svg><label class="sr-only" for="search-input">Search Prisms, chats, pages, settings and actions</label><input id="search-input" type="search" role="combobox" aria-expanded="true" aria-controls="search-list" aria-autocomplete="list" autocomplete="off" spellcheck="false" placeholder="Search Prisms, chats, pages, settings…"><kbd class="search-esc">Esc</kbd></div>
+      <div id="search-list" class="search-list" role="listbox" aria-label="Results"></div>
+      <p id="search-status" class="sr-only" role="status" aria-live="polite"></p>
+      <div class="search-foot" aria-hidden="true"><span><kbd>↑</kbd><kbd>↓</kbd> Navigate</span><span><kbd>↵</kbd> Open</span><span><kbd>Esc</kbd> Close</span></div>
+    </dialog>
+
+    <dialog id="settings-dialog" class="settings-dialog" aria-labelledby="settings-dialog-title">
+      <h1 id="settings-dialog-title" class="sr-only">Settings</h1>
+      <div class="settings-layout">
+        <aside class="settings-side">
+          <label class="settings-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m20 20-4-4"/></svg><span class="sr-only">Search settings</span><input id="settings-search" type="search" placeholder="Search settings" autocomplete="off"></label>
+          <nav class="settings-nav" role="tablist" aria-label="Settings sections" aria-orientation="vertical" data-subtabs="settings">
+                    <span class="settings-nav-label">Account</span>
+                    <button class="nav-item" type="button" role="tab" data-subtab-target="account"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span>Account</span></button>
+                    <button class="nav-item active" type="button" role="tab" data-subtab-target="preferences"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h8M16 7h4M4 17h4M12 17h8"/><circle cx="14" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span>Preferences</span></button>
+                    <button class="nav-item" type="button" role="tab" data-subtab-target="notifications"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0c0 6 2 7 2 7H4s2-1 2-7M10 20a2 2 0 0 0 4 0"/></svg><span>Notifications</span></button>
+                    <span class="settings-nav-label">Workspace</span>
+                    <button class="nav-item" type="button" role="tab" data-subtab-target="skills" data-v22-only hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6a3 3 0 0 1 3 3v14a4 4 0 0 0-4-3H4zM20 4h-4a3 3 0 0 0-3 3M13 21a4 4 0 0 1 4-3h3V4"/></svg><span>Skills</span></button>
+                    <button class="nav-item" type="button" role="tab" data-subtab-target="general"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg><span>General</span></button>
+                    <button class="nav-item" type="button" role="tab" data-subtab-target="teams"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 19c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5M16 5.2a3.2 3.2 0 0 1 0 5.6M18 14c1.8.6 3 2.2 3 5"/></svg><span>People</span></button>
+                    <button class="nav-item" type="button" role="tab" data-subtab-target="archived" data-v22-only hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v4H4zM6 9v10h12V9M10 13h4"/></svg><span>Archived Prisms</span></button>
+                    <button class="nav-item" type="button" role="tab" data-subtab-target="connections"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Connections</span></button>
+                    <button class="nav-item" type="button" role="tab" data-subtab-target="provider"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z"/></svg><span>AI provider</span><span id="provider-nav-dot" class="nav-dot warn" aria-label="Needs attention" hidden></span></button>
+                    <button class="nav-item" type="button" role="tab" data-subtab-target="access"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><span>Access</span></button>
+                    <span class="settings-nav-label">Advanced</span>
+                    <button class="nav-item" type="button" role="tab" data-subtab-target="developer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 8-4 4 4 4M16 8l4 4-4 4M14 5l-4 14"/></svg><span>Developer</span></button>
+                  </nav>
+          <p id="settings-search-empty" class="panel-note" hidden>No matching settings.</p>
+        </aside>
+        <div class="settings-body">
+                  <section data-subtab-group="settings" data-subtab="skills" hidden><h2 class="settings-title">Skills</h2><div id="settings-skills-library"></div></section>
+                  <section data-subtab-group="settings" data-subtab="account" hidden>
                     <h2 class="settings-title">Account</h2>
                     <div class="setting-row">
                       <div class="setting-identity">
@@ -457,9 +578,36 @@
                       </div>
                       <button id="connect-microsoft-button" class="button secondary" type="button" data-connect-microsoft>Connect Microsoft account</button>
                     </div>
-                    <p class="settings-foot">Prism reads your Teams chats and sends approved replies from this account. Choose who the agent manages, and import your directory, on the People page.</p>
+                    <p class="settings-foot">Prism reads your Teams chats and sends approved replies from this account. Choose who Prism manages, and import your directory, on the People page.</p>
                   </section>
-
+                  <section data-subtab-group="settings" data-subtab="preferences" hidden>
+                    <h2 class="settings-title">Preferences</h2><p class="settings-intro">Choose how you want Prism to look and behave.</p>
+                    <h3 class="settings-group">Appearance</h3>
+                    <div class="setting-row"><div><strong>Display size</strong><p class="panel-note">Make text and controls smaller or larger. Touch screens always use full-size controls.</p></div><select id="size-select" aria-label="Display size"><option value="compact">Compact</option><option value="default">Default</option><option value="large">Large</option></select></div>
+                    <div class="setting-row"><div><strong>High contrast <span class="tag">Beta</span></strong><p class="panel-note">Increase contrast for improved visibility.</p></div><select id="contrast-select" aria-label="High contrast"><option value="system">Use system setting</option><option value="off">Off</option><option value="on">On</option></select></div>
+                    <h3 class="settings-group">Input options</h3>
+                    <div class="setting-row"><div><strong>Use Enter to add a new line</strong><p class="panel-note">Applies to Prism chat. Press <kbd>Cmd</kbd>/<kbd>Ctrl</kbd> + <kbd>Enter</kbd> to send.</p></div><input id="pref-enter-newline" class="toggle" type="checkbox" role="switch" aria-label="Use Enter to add a new line"></div>
+                    <h3 class="settings-group">Display</h3>
+                    <div class="setting-row"><div><strong>Currency</strong><p class="panel-note">Used for spending and cost totals.</p></div><span class="currency-toggle" role="group" aria-label="Currency"><button type="button" data-currency="INR" aria-pressed="true">₹ INR</button><button type="button" data-currency="USD" aria-pressed="false">$ USD</button></span></div>
+                    <div class="setting-row"><div><strong>Time zone</strong><p class="panel-note">Dates and times follow this browser.</p></div><span id="pref-timezone" class="setting-value"></span></div>
+                  </section>
+                  <section data-subtab-group="settings" data-subtab="notifications" hidden>
+                    <h2 class="settings-title">Notifications</h2><p class="settings-intro">Control what asks for your attention on this browser.</p>
+                    <h3 class="settings-group">Approvals</h3>
+                    <div class="setting-row"><div><strong>Show waiting-approval counts</strong><p class="panel-note">Badges in the sidebar and Home when drafts or actions wait for you.</p></div><input id="pref-notify-approvals" class="toggle" type="checkbox" role="switch" aria-label="Show waiting-approval counts" checked></div>
+                    <h3 class="settings-group">Browser alerts</h3>
+                    <div class="setting-row"><div><strong>Desktop notifications</strong><p class="panel-note">Prism can alert you when a Prism needs you. Permission is managed by your browser.</p></div><span class="setting-actions"><span id="pref-notify-status" class="badge">Checking</span><button id="pref-notify-enable" class="button secondary" type="button" hidden>Allow notifications</button></span></div>
+                  </section>
+                  <section data-subtab-group="settings" data-subtab="general">
+                    <h2 class="settings-title">General</h2><p class="settings-intro">Manage your private Prism workspace and connected services.</p>
+                    <div class="settings-card settings-links">
+                      <button type="button" data-settings-link="provider"><span><strong>AI provider</strong><small>Current model and OpenAI key</small></span><span aria-hidden="true">›</span></button>
+                      <button type="button" data-settings-link="teams"><span><strong>People and Microsoft Teams</strong><small>Connected account and team directory</small></span><span aria-hidden="true">›</span></button>
+                      <button type="button" data-settings-link="spending"><span><strong>Spending</strong><small>Prism, swarm, and provider costs</small></span><span aria-hidden="true">›</span></button>
+                      <button type="button" data-settings-link="connections"><span><strong>Connections</strong><small>Microsoft Teams, AI provider, computers</small></span><span aria-hidden="true">›</span></button>
+                      <button type="button" data-settings-link="access"><span><strong>Access</strong><small>Operator key for this browser</small></span><span aria-hidden="true">›</span></button>
+                    </div>
+                  </section>
                   <section data-subtab-group="settings" data-subtab="teams" hidden>
                     <h2 class="settings-title">People</h2>
                     <div class="settings-subhead">
@@ -477,7 +625,19 @@
                     </div>
                     <div id="people-list" class="people-list empty-state">No people yet. Refresh from Teams to pull your team and the people you chat with.</div>
                   </section>
-
+                  <section data-subtab-group="settings" data-subtab="archived" hidden>
+                    <h2 class="settings-title">Archived Prisms</h2>
+                    <p class="panel-note">Archived Prisms are hidden from your list. Deleting one removes it, its chats and its saved logins for good.</p>
+                    <div id="archived-prisms" class="brain-list empty-state">No archived Prisms.</div>
+                  </section>
+                  <section data-subtab-group="settings" data-subtab="connections" hidden>
+                    <h2 class="settings-title">Connections</h2><p class="settings-intro">Services Prism uses on your behalf.</p>
+                    <div class="settings-card conn-list">
+                      <div class="setting-row"><div><strong>Microsoft Teams</strong><p id="conn-microsoft-detail" class="panel-note">Checking connection.</p></div><span class="setting-actions"><span id="conn-microsoft-badge" class="badge">Checking</span><button class="button secondary" type="button" data-connect-microsoft>Connect Microsoft account</button></span></div>
+                      <div class="setting-row"><div><strong>AI provider</strong><p id="conn-provider-detail" class="panel-note">Checking provider.</p></div><span class="setting-actions"><span id="conn-provider-badge" class="badge">Checking</span><button class="button secondary" type="button" data-settings-link="provider">Manage</button></span></div>
+                      <div class="setting-row"><div><strong>Computers</strong><p id="conn-engine-detail" class="panel-note">Checking availability.</p></div><span class="setting-actions"><span id="conn-engine-badge" class="badge">Checking</span></span></div>
+                    </div>
+                  </section>
                   <section data-subtab-group="settings" data-subtab="provider" hidden>
                     <h2 class="settings-title">AI provider</h2>
                     <div class="setting-row">
@@ -494,55 +654,6 @@
                       </div>
                     </form>
                   </section>
-
-                  <section data-subtab-group="settings" data-subtab="brain" hidden>
-              <div class="brain-page">
-                <h2 class="settings-title">Brain</h2><p class="panel-note">What every Prism knows about your organisation. Add it here, or approve what Prisms learn from your chats. Prisms also share what they are working on.</p>
-                <form id="brain-form" class="brain-form">
-                  <input id="brain-id" type="hidden">
-                  <input id="brain-title" maxlength="200" required placeholder="Title, for example: What OneClarity does" aria-label="Title" autocomplete="off">
-                  <textarea id="brain-body" rows="3" maxlength="2000" required placeholder="What every Prism should know." aria-label="Details"></textarea>
-                  <p id="brain-error" class="inline-error" role="alert" hidden></p>
-                  <div class="brain-form-actions"><button id="brain-cancel" class="mini-button" type="button" hidden>Cancel</button><button id="brain-save" class="button" type="submit">Add to Brain</button></div>
-                </form>
-                <div id="brain-proposed-section" hidden><h3 class="brain-heading">Waiting for your approval</h3><div id="brain-proposed" class="brain-list"></div></div>
-                <h3 class="brain-heading">What every Prism knows</h3>
-                <div id="brain-facts" class="brain-list empty-state">Nothing yet. Add what Prisms should know about your organisation.</div>
-                <div id="brain-work-section" hidden><h3 class="brain-heading">What Prisms are working on</h3><div id="brain-work" class="brain-list"></div></div>
-              </div>
-                  </section>
-
-                  <section data-subtab-group="settings" data-subtab="archived" hidden>
-                    <h2 class="settings-title">Archived Prisms</h2>
-                    <p class="panel-note">Archived Prisms are hidden from your list. Deleting one removes it, its chats and its saved logins for good.</p>
-                    <div id="archived-prisms" class="brain-list empty-state">No archived Prisms.</div>
-                  </section>
-
-                  <section data-subtab-group="settings" data-subtab="usage" hidden>
-                    <div class="section-label-row"><h2 class="settings-title">Usage and spend</h2><span class="currency-toggle" role="group" aria-label="Currency"><button type="button" data-currency="INR" aria-pressed="true">₹ INR</button><button type="button" data-currency="USD" aria-pressed="false">$ USD</button></span></div>
-                    <p id="cost-note" class="panel-note">Estimated from exact token counts and each model's rate.</p>
-                    <div class="cost-controls">
-                      <span class="currency-toggle" role="group" aria-label="Date range"><button type="button" data-cost-range="today" aria-pressed="false">Today</button><button type="button" data-cost-range="week" aria-pressed="false">7 days</button><button type="button" data-cost-range="month" aria-pressed="true">This month</button></span>
-                      <span class="currency-toggle" role="group" aria-label="Breakdown"><button type="button" data-cost-view="feature" aria-pressed="true">By feature</button><button type="button" data-cost-view="model" aria-pressed="false">By model</button></span>
-                    </div>
-                    <div class="cost-split">
-                      <section class="cost-source" data-cost-source="prism"><h3 class="subhead">Prism</h3><p class="cost-big" data-cost-total>—</p><p class="cost-meta" data-cost-tokens></p><p class="cost-azure" data-cost-azure hidden></p><div class="cost-list empty-state" data-cost-rows>No usage in this range.</div></section>
-                      <section class="cost-source" data-cost-source="swarm"><h3 class="subhead">Agentic swarm</h3><p class="cost-big" data-cost-total>—</p><p class="cost-meta" data-cost-tokens></p><p class="cost-azure" data-cost-azure hidden></p><div class="cost-list empty-state" data-cost-rows>No usage in this range.</div></section>
-                    </div>
-                  </section>
-
-                  <section data-subtab-group="settings" data-subtab="appearance" hidden>
-                    <h2 class="settings-title">Appearance</h2>
-                    <div class="setting-row">
-                      <div><strong>Theme</strong><p class="panel-note">Customize how Prism looks on this browser.</p></div>
-                      <select id="theme-select" aria-label="Theme">
-                        <option value="system">Use system setting</option>
-                        <option value="light">Light</option>
-                        <option value="dark">Dark</option>
-                      </select>
-                    </div>
-                  </section>
-
                   <section data-subtab-group="settings" data-subtab="access" hidden>
                     <h2 class="settings-title">Access</h2>
                     <div class="setting-row">
@@ -550,13 +661,18 @@
                       <button id="operator-token-button" class="button secondary" type="button">Set access key</button>
                     </div>
                   </section>
-                </div>
-              </div>
-            </section>
-          </main>
+                  <section data-subtab-group="settings" data-subtab="developer" hidden>
+                    <h2 class="settings-title">Developer</h2><p class="settings-intro">Read-only tools for this Prism server.</p>
+                    <div class="settings-card conn-list">
+                      <div class="setting-row"><div><strong>API reference</strong><p class="panel-note">Interactive documentation for every endpoint.</p></div><a class="button secondary" href="/docs" target="_blank" rel="noopener">Open docs</a></div>
+                      <div class="setting-row"><div><strong>Health check</strong><p class="panel-note">Confirms the API is running.</p></div><a class="button secondary" href="/health" target="_blank" rel="noopener">Open /health</a></div>
+                      <div class="setting-row"><div><strong>Operator access key</strong><p class="panel-note">Stored only in this browser. Manage it under Access.</p></div><button class="button secondary" type="button" data-settings-link="access">Open Access</button></div>
+                    </div>
+                  </section>
         </div>
       </div>
-    </div>
+      <button id="settings-close" class="icon-button settings-close" type="button" aria-label="Close settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </dialog>
 
     <dialog id="confirm-dialog">
       <form id="confirm-form" method="dialog">
@@ -729,21 +845,29 @@
     </dialog>
 
     <dialog id="prism-editor-dialog" class="picker prism-editor-dialog">
-      <form id="prism-editor-form" method="dialog" class="prism-editor-form">
+      <form id="prism-editor-form" method="dialog" class="prism-editor-form prism-editor-split">
         <button id="prism-editor-close" class="icon-button" type="button" aria-label="Close Prism editor"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
-        <div class="editor-hero">
+        <div class="editor-side">
+          <div class="editor-hero">
           <span id="prism-editor-logo" class="editor-logo" aria-hidden="true"></span>
           <div id="prism-editor-colors"></div>
           <h2 id="prism-editor-title">Create a Prism</h2>
           <p id="prism-editor-note" class="panel-note">Give it a colour, a name and a job. It will ask a few questions to learn how you work.</p>
         </div>
-        <input id="prism-editor-id" type="hidden">
+          <input id="prism-editor-id" type="hidden">
         <input id="prism-editor-version" type="hidden">
-        <div id="prism-editor-basics">
+          <div id="prism-editor-basics">
           <label for="prism-editor-name">Name<input id="prism-editor-name" maxlength="120" required placeholder="For example: Executive Assistant Prism"></label>
-          <label for="prism-editor-description">What is this Prism responsible for?<textarea id="prism-editor-description" rows="5" maxlength="2000" required placeholder="For example: Keep me updated on important work across Microsoft Teams in a friendly, concise tone."></textarea></label>
+          <label for="prism-editor-role">Role<input id="prism-editor-role" maxlength="120" required placeholder="For example: Sales Outreach Specialist"></label>
+          <label for="prism-editor-department">Department<input id="prism-editor-department" list="prism-department-options" maxlength="100" required placeholder="For example: Sales"></label>
+          <datalist id="prism-department-options"></datalist>
+          <label for="prism-editor-reports-to">Reports to<select id="prism-editor-reports-to" required></select></label>
+          </div>
         </div>
-        <div id="prism-editor-work" class="prism-work-fields" hidden>
+        <div class="editor-main">
+          <div id="prism-editor-ai" class="job-description-bar" hidden><button id="prism-editor-generate" class="button ghost ai" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z"/></svg><span>Generate with AI</span></button><span id="prism-editor-ai-note" class="panel-note">Fill in name and role first.</span></div>
+          <label for="prism-editor-description"><span id="prism-editor-description-label">What is this Prism responsible for?</span><textarea id="prism-editor-description" rows="5" maxlength="8000" required placeholder="For example: Keep me updated on important work across Microsoft Teams in a friendly, concise tone."></textarea></label>
+          <div id="prism-editor-work" class="prism-work-fields" hidden>
           <fieldset id="prism-editor-uses" class="prism-fieldset">
             <legend>What can it use?</legend>
             <label class="check-row"><input type="checkbox" checked disabled><span>Web browsing <em>its own browser, always on</em></span></label>
@@ -757,6 +881,7 @@
             <label class="check-row"><input type="radio" name="prism-logins" value="ask"><span>Sign in when needed <em>with logins I give in the chat, kept encrypted</em></span></label>
           </fieldset>
           <label id="prism-editor-how-field" for="prism-editor-how" hidden>How I'll work<textarea id="prism-editor-how" rows="6" maxlength="6000"></textarea></label>
+        </div>
         </div>
         <p id="prism-editor-error" class="inline-error" role="alert" hidden></p>
         <div class="dialog-actions"><button id="prism-editor-back" class="button secondary" type="button" hidden>Back</button><button id="prism-editor-cancel" class="button secondary" type="button">Cancel</button><button id="prism-editor-submit" class="button" type="submit">Create prism</button></div>
@@ -781,6 +906,7 @@
       </form>
     </dialog>
 
+    <script src="/dashboard/js/navigation.js"></script>
     <script src="/dashboard/app.js"></script>
     <script type="module" src="/dashboard/js/agent-chat.js"></script>
     <script type="module" src="/dashboard/js/prism-directory.js"></script>
@@ -788,8 +914,11 @@
     <script type="module" src="/dashboard/js/prism-updates.js"></script>
     <script type="module" src="/dashboard/js/prism-health.js"></script>
     <script type="module" src="/dashboard/js/today-prisms.js"></script>
+    <script type="module" src="/dashboard/js/unified-work.js"></script>
+    <script type="module" src="/dashboard/js/operations.js"></script>
     <script type="module" src="/dashboard/js/people-directory.js"></script>
-    <script type="module" src="/dashboard/js/brain.js"></script>
     <script type="module" src="/dashboard/js/archived-prisms.js"></script>
+    <script type="module" src="/dashboard/js/preferences.js"></script>
+    <script type="module" src="/dashboard/js/command-palette.js"></script>
   </body>
 </html>

@@ -1,6 +1,6 @@
 import { agentApi } from "./api.js";
 import { colorPicker, prismColorKey, prismLogo } from "./prism-logo.js";
-import { computersEnabled, initQa, onPrism as onQaPrism, planRequest, renderQaMessage, setOpen as setComputerOpen } from "./qa-tester.js";
+import { computersEnabled, focusRun as focusComputerRun, initQa, onPrism as onQaPrism, planRequest, renderQaMessage, setOpen as setComputerOpen } from "./qa-tester.js";
 
 const $ = (selector) => document.querySelector(selector);
 const ui = () => window.prism || {};
@@ -38,6 +38,7 @@ const agentState = {
   drafts: new Map(), // proposal id -> unsaved text
   showAllThreads: false,
   loading: false,
+  openPromise: null,
   openToken: 0,
   prism: null, // the Prism whose private thread this page shows; null = legacy single conversation
   pendingSubmission: null,
@@ -148,22 +149,28 @@ async function openPrism(prism) {
   if (agentState.prism?.id === prism.id && (agentState.activeThread || agentState.loading)) {
     agentState.prism = prism;
     renderHeader();
+    if (agentState.openPromise) await agentState.openPromise;
     return;
   }
   Object.assign(agentState, { prism, threads: [], activeThread: null, messages: [], jobs: [], turns: new Map(), currentJob: null, updates: [], loading: true });
   renderHeader();
   renderStream();
-  try {
-    const thread = await fetchConversation();
-    if (agentState.prism?.id !== prism.id) return;
-    agentState.threads = [thread];
-    await openThread(thread.id);
-    loadUpdates();
-  } catch (error) {
-    agentState.loading = false;
-    ui().setStatus?.(error.message, true);
-    renderStream();
-  }
+  const opening = (async () => {
+    try {
+      const thread = await fetchConversation();
+      if (agentState.prism?.id !== prism.id) return;
+      agentState.threads = [thread];
+      await openThread(thread.id);
+      loadUpdates();
+    } catch (error) {
+      agentState.loading = false;
+      ui().setStatus?.(error.message, true);
+      renderStream();
+    }
+  })();
+  agentState.openPromise = opening;
+  await opening;
+  if (agentState.openPromise === opening) agentState.openPromise = null;
 }
 
 /* Proactive updates: durable observations rendered as first-class turns in this Prism's conversation. */
@@ -338,8 +345,10 @@ function renderIncidentHistory(item) {
   return details;
 }
 
+let loadingLegacyThreads = false;
 async function loadThreads() {
-  if (agentState.prism) return;
+  if (agentState.prism || loadingLegacyThreads) return;
+  loadingLegacyThreads = true;
   try {
     const requested = new URLSearchParams(location.search).get("thread");
     let conversation = await fetchConversation();
@@ -357,7 +366,7 @@ async function loadThreads() {
       list.className = "thread-list empty-state";
       list.textContent = error.message;
     } else ui().setStatus?.(error.message, true);
-  }
+  } finally { loadingLegacyThreads = false; }
 }
 
 function renderThreads() {
@@ -429,6 +438,8 @@ function renderHeader() {
   const label = thread?.source_label;
   const participants = thread?.source_metadata?.participants || [];
   $("#agent-thread-title").textContent = agentState.prism?.name || "Prism";
+  $("#agent-thread-code").textContent = agentState.prism?.code || "";
+  $("#agent-thread-code").hidden = !agentState.prism?.code;
   const headerLogo = $("#agent-thread-logo");
   headerLogo.hidden = !agentState.prism;
   if (agentState.prism) headerLogo.replaceChildren(prismLogo(agentState.prism, "prism-logo"));
@@ -479,7 +490,7 @@ async function openThread(threadId) {
   Object.assign(agentState, { activeThread: thread, messages: [], jobs: [], currentJob: null, turns: new Map(), loading: true, hasEarlier: false, anchor: null });
   const url = new URL(location.href);
   url.searchParams.delete("thread");
-  history.replaceState({}, "", url);
+  history.replaceState(history.state, "", url);
   renderThreads();
   renderHeader();
   renderStream();
@@ -779,7 +790,7 @@ function renderWelcome() {
     : textElement("span", "welcome-mark", "P"));
   if (!label) {
     welcome.append(
-      textElement("h2", "", agentState.prism ? `Talk to your ${agentState.prism.name} Prism` : "Talk to your manager agent"),
+      textElement("h2", "", agentState.prism ? `Talk to your ${agentState.prism.name} Prism` : "Talk to your manager Prism"),
       textElement("p", "welcome-about", agentState.prism ? briefDescription(agentState.prism.description) : "Ask naturally and Prism will disclose which Teams chats it reads. Use the chat selector in the message box to limit a request to one chat."),
     );
     const steps = textElement("ol", "welcome-steps");
@@ -1621,7 +1632,7 @@ async function reviseProposal(turn, proposal, body) {
   try {
     const revised = await agentApi(`/api/v2/agent/proposals/${proposal.id}/revisions`, {
       method: "POST",
-      body: JSON.stringify({ body, reason: "Edited by manager in Agent workspace" }),
+      body: JSON.stringify({ body, reason: "Edited by manager in Prism workspace" }),
     });
     agentState.drafts.delete(proposal.id);
     if (turn.review.action_plan) {
@@ -1819,11 +1830,20 @@ function setPreferencesOpen(open) {
   trigger.setAttribute("aria-expanded", String(open));
   trigger.classList.toggle("active", open);
   if (open) {
+    // Everything about this Prism (profile, instructions, tools, limits, tasks) is on its Workspace page.
+    $("#agent-more-settings").hidden = !(agentState.prism && ui().isV24Enabled?.() === true);
     loadPreferences();
     setDrawerTab("preferences");
     $("#agent-preference-input").focus();
   }
 }
+
+$("#agent-more-settings").addEventListener("click", () => {
+  if (!agentState.prism) return;
+  setPreferencesOpen(false);
+  ui().setSidebarSection?.("workspace");
+  document.dispatchEvent(new CustomEvent("prism:workspace-navigate", { detail: { page: "prism", id: agentState.prism.id } }));
+});
 
 // A Prism's instructions live under that Prism; only the old unscoped assistant uses the global list.
 const preferencesPath = () => (agentState.prism ? `/api/v2/prisms/${agentState.prism.id}/preferences` : "/api/v2/agent/preferences");
@@ -1958,10 +1978,12 @@ composerInput.addEventListener("input", () => {
   updateSendState();
 });
 composerInput.addEventListener("keydown", (event) => {
-  if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
-    event.preventDefault();
-    if (composerInput.value.trim()) $("#agent-composer").requestSubmit();
-  }
+  if (event.key !== "Enter" || event.isComposing) return;
+  // "Use Enter to add a new line" (Preferences) makes Cmd/Ctrl+Enter the send shortcut.
+  const send = window.prismPrefs?.get("enter-newline") === "1" ? event.metaKey || event.ctrlKey : !event.shiftKey;
+  if (!send) return;
+  event.preventDefault();
+  if (composerInput.value.trim()) $("#agent-composer").requestSubmit();
 });
 $("#agent-composer").addEventListener("submit", submitMessage);
 $("#agent-source-chip").addEventListener("click", chooseSource);
@@ -2017,11 +2039,12 @@ async function loadProfile() {
   renderProfileColor();
   $("#agent-profile-name").value = prism.name;
   $("#agent-profile-description").value = prism.description || "";
+  $("#agent-profile-organization").textContent = `${prism.job_role || "Prism Specialist"} · ${prism.department || "Operations"}`;
   $("#agent-profile-error").hidden = true;
   $("#agent-profile-logins").hidden = !computersEnabled();
   document.querySelectorAll('input[name="agent-profile-logins"]').forEach((input) => { input.checked = input.value === (prism.logins_policy || "never"); });
   const archived = String(prism.state).toLowerCase() === "archived";
-  ["#agent-profile-name", "#agent-profile-description", "#agent-profile-notify"].forEach((id) => { $(id).disabled = archived; });
+  ["#agent-profile-name", "#agent-profile-description", "#agent-profile-notify", "#agent-profile-organization-edit"].forEach((id) => { $(id).disabled = archived; });
   try {
     profileSetting = await agentApi(`/api/v2/prisms/${prism.id}/notification-settings`);
     if (agentState.prism?.id === prism.id) $("#agent-profile-notify").checked = profileSetting.enabled;
@@ -2029,6 +2052,11 @@ async function loadProfile() {
   $("#agent-profile-save").disabled = true;
 }
 const profileLogins = () => document.querySelector('input[name="agent-profile-logins"]:checked')?.value || "never";
+$("#agent-profile-organization-edit").addEventListener("click", () => {
+  if (!agentState.prism) return;
+  setPreferencesOpen(false);
+  document.dispatchEvent(new CustomEvent("prism:edit-organization", { detail: { prism: agentState.prism } }));
+});
 function profileDirty() {
   const prism = agentState.prism;
   return profileColor !== prismColorKey(prism)
@@ -2089,8 +2117,21 @@ $("#agent-preferences-panel").addEventListener("click", (event) => {
   document.getElementById(item.dataset.prismAction)?.click();
 });
 document.addEventListener("prism:open-agent", (event) => openPrism(event.detail.prism));
+document.addEventListener("prism:open-legacy-agent", () => {
+  agentState.prism = null; agentState.activeThread = null; loadThreads();
+});
+document.addEventListener("prism:open-agent-message", async (event) => {
+  const { prism, message } = event.detail || {};
+  if (!prism || !message) return;
+  await openPrism(prism);
+  if (agentState.prism?.id === prism.id && agentState.activeThread && !agentState.loading) {
+    await viewHistoryAt(message);
+  }
+});
 initQa({ refreshMessages, renderStream, setStatus: (message, isError) => ui().setStatus?.(message, isError) });
 document.addEventListener("prism:computer-opened", () => setPreferencesOpen(false));
+document.addEventListener("prism:show-computer", () => setComputerOpen(true));
+document.addEventListener("prism:focus-computer-run", (event) => focusComputerRun(event.detail?.runId));
 // New unread updates for the open Prism arrive through the shared poller; reopening the tab marks them read.
 document.addEventListener("prism:updates", (event) => {
   const current = agentState.prism && event.detail.summaries.get(agentState.prism.id);

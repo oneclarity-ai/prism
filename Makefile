@@ -1,7 +1,7 @@
 PYTHON ?= python3.11
 VENV ?= .venv
 
-.PHONY: setup dev migrate test test-integration test-e2e lint format format-check typecheck secrets audit check release-check
+.PHONY: setup dev dev-unified migrate test test-integration test-e2e lint format format-check typecheck secrets audit check release-check
 
 setup:
 	$(PYTHON) -m venv $(VENV)
@@ -10,6 +10,10 @@ setup:
 
 dev:
 	$(VENV)/bin/uvicorn app.main:app --reload
+
+# Starts the two backends and worker. Prism is the only user-facing UI.
+dev-unified:
+	SWARM_ROOT="$(SWARM_ROOT)" ./scripts/dev_unified.sh
 
 migrate:
 	$(VENV)/bin/alembic upgrade head

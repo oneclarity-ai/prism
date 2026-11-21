@@ -38,7 +38,6 @@ _STATE_FOR = {
     "timed_out": "timed_out",
 }
 LOG_LIMIT = 40
-OFFLINE_GRACE = timedelta(minutes=3)
 
 
 def make_client() -> QaSwarmClient:
@@ -189,13 +188,6 @@ def _aware(value: datetime | None) -> datetime | None:
     if value is None:
         return None
     return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
-
-
-def _parse_time(value: str | None) -> datetime | None:
-    try:
-        return datetime.fromisoformat(value) if value else None
-    except ValueError:
-        return None
 
 
 class QaRunService:
@@ -797,6 +789,12 @@ class QaRunService:
     @staticmethod
     def _plan_intro(prism: Prism, plan: dict) -> str:
         where = plan["host"]
+        if plan.get("discovery_mode") == "automatic":
+            return (
+                f"I'll discover and test internal pages on {where}, using dummy data. "
+                "I'll ask before signing in, opening another site, making important changes "
+                "or extending the budget. Start me when you're happy with it."
+            )
         extra = (
             " It's a live site, so I'll only look, never submit real data."
             if plan["environment"] == "production"
@@ -834,7 +832,7 @@ class QaRunService:
     @classmethod
     def start(cls, db: Session, qa_run_id: uuid.UUID, edits: dict | None = None) -> QaRun:
         run = cls.get(db, qa_run_id, lock=True)
-        if run.state != "planned":
+        if run.state not in ("planned", "starting"):
             raise RuleViolationError("That test has already been started")
         ok, reason = cls.available()
         if not ok:
@@ -858,7 +856,8 @@ class QaRunService:
         )
         plan = run.plan
         run.state = "starting"
-        run.started_at = _now()
+        run.started_at = run.started_at or _now()
+        run.error = None
         db.commit()
         try:
             with make_client() as client:
@@ -894,6 +893,14 @@ class QaRunService:
                         "allow_bug_filing": bool(plan["allow_bug_filing"]),
                         "focus": plan.get("notes", ""),
                     }
+                    if plan.get("discovery_mode") == "automatic":
+                        scope.update(
+                            discovery_mode="automatic",
+                            allowed_origins=plan["allowed_origins"],
+                            form_policy=plan["form_policy"],
+                            request_login=True,
+                            request_budget_extension=True,
+                        )
                     pages = plan["pages"] if plan["pages"] != ["/"] else []
                 task_id = client.create_task(
                     title=plan["title"],
@@ -901,15 +908,22 @@ class QaRunService:
                     agent_id=agent_id,
                     target_id=target_id,
                     scope=scope,
+                    operation_key=f"prism:{run.id}:task",
                 )
                 swarm_run = client.start_run(
                     task_id,
                     max_turns=int(plan["max_turns"]),
                     budget_usd=float(plan["budget_usd"]),
                     pages=pages,
+                    operation_key=f"prism:{run.id}:run",
                 )
         except SwarmError as exc:
-            cls._fail(db, run, str(exc))
+            db.rollback()
+            run = cls.get(db, qa_run_id, lock=True)
+            run.state = "starting"
+            run.error = str(exc)
+            run.current_activity = "Reconciling with my workspace…"
+            db.commit()
             return run
         run = cls.get(db, qa_run_id, lock=True)
         run.swarm_target_id = target_id
@@ -981,19 +995,9 @@ class QaRunService:
             cls._sync_locked(db, run, client)
             run.cases = {**run.cases, "synced_at": _now().isoformat()}
         except SwarmError as exc:
-            last_ok = _parse_time((run.cases or {}).get("synced_at")) or _aware(run.started_at)
-            if last_ok and _now() - last_ok > OFFLINE_GRACE:
-                run.state = "error"
-                run.error = str(exc)
-                run.ended_at = _now()
-                cls._post(
-                    db,
-                    run,
-                    "I lost contact with my testing workspace, so I had to stop. Try again in a bit.",
-                    "qa_error",
-                )
-            else:
-                run.current_activity = "Waiting for my testing workspace…"
+            # The engine owns execution state. An outage is not proof that the task ended.
+            run.current_activity = "Waiting for my testing workspace…"
+            run.error = str(exc)
         finally:
             if owned and client is not None:
                 client.close()
@@ -1044,6 +1048,9 @@ class QaRunService:
             elif kind == "usage" and payload.get("cost_usd") is not None:
                 # The workspace saves a run's cost only when the run ends; usage events carry it live.
                 live = payload["cost_usd"]
+            elif kind == "qa_coverage" and run.kind == "qa":
+                # Engine observations, never the plan's list of hoped-for routes.
+                run.cases = {**(run.cases or {}), "coverage": cls._coverage_view(payload)}
             elif kind == "artifact" and payload.get("kind") == "screenshot":
                 artifact_id = payload.get("artifact_id")
                 if artifact_id and artifact_id not in screenshots:
@@ -1167,6 +1174,31 @@ class QaRunService:
         if action == "ask_manager":
             question = str(args.get("question") or "I have a question.")[:500]
             return "question", {"question": question}, question
+        if action == "request_site_access" or (
+            action == "browser_navigate" and run.plan.get("discovery_mode") == "automatic"
+        ):
+            site = cls._qa_origin(str(args.get("site") or args.get("url") or ""))
+            reason = str(args.get("reason") or "Discovered a link to another site.")[:300]
+            return (
+                "site_access",
+                {"site": site, "reason": reason, "summary": "Open another site"},
+                f"May I include {site} in this test? {reason}",
+            )
+        if action == "request_budget_extension":
+            settings = get_settings()
+            budget = min(float(args.get("budget_usd") or 0), settings.qa_budget_cap_usd)
+            turns = min(int(args.get("max_turns") or 0), settings.qa_max_turns_cap)
+            view = {
+                "summary": "Continue testing with higher limits",
+                "reason": str(args.get("reason") or "More pages remain to test.")[:300],
+                "budget_usd": max(float(run.plan["budget_usd"]), budget),
+                "max_turns": max(int(run.plan["max_turns"]), turns),
+            }
+            return (
+                "budget_extension",
+                view,
+                "More testing remains. Extend the limits or finish with a partial report?",
+            )
         if action == "request_login":
             site = str(args.get("site") or "a site")[:200]
             reason = str(args.get("reason") or "")[:300]
@@ -1231,6 +1263,19 @@ class QaRunService:
             login = login or {}
             if not str(login.get("username") or "").strip() or not str(login.get("password") or ""):
                 raise RuleViolationError("Enter the username and password")
+            if run.plan.get("discovery_mode") == "automatic":
+                origin = cls._qa_origin(str(approval.payload.get("site") or ""))
+                if origin not in run.plan.get("allowed_origins", []):
+                    raise RuleViolationError("Approve access to this site before providing a login")
+        if decision == "approve" and approval.kind == "budget_extension":
+            budget = float(approval.payload["budget_usd"])
+            turns = int(approval.payload["max_turns"])
+            if budget <= float(run.plan["budget_usd"]) and turns <= int(run.plan["max_turns"]):
+                raise RuleViolationError(
+                    "The configured testing limit has been reached. Finish this test first"
+                )
+            # The engine's existing approval payload contract is string-valued.
+            payload = {"budget_usd": str(budget), "max_turns": str(turns)}
         try:
             with make_client() as client:
                 if decision == "approve" and approval.kind == "login":
@@ -1245,23 +1290,51 @@ class QaRunService:
                         password=str(login["password"]),
                         remember=bool(login.get("remember", True)),
                     )
+                    if (
+                        run.kind == "qa"
+                        and run.swarm_target_id
+                        and not run.plan.get("discovery_mode")
+                    ):
+                        client.allow_target_origin(run.swarm_target_id, origin)
                     cls._note_from_manager(
                         db, run, f"You gave {cls._name(db, run)} a login for {origin}."
                     )
-                result = client.decide(approval.swarm_approval_id, decision, comment[:500], payload)
+                result = client.decide(
+                    approval.swarm_approval_id,
+                    decision,
+                    comment[:500],
+                    payload,
+                    operation_key=f"prism:{approval.id}:decision",
+                )
                 previous = run.swarm_run_id
-                if previous:
+                counted = list((run.cases or {}).get("cost_counted_runs") or [])
+                if result.get("resume_run_id") and previous and previous not in counted:
                     swarm_run = client.run(previous)
                     prior = Decimal(str((run.cases or {}).get("cost_prior", 0)))
                     spent = swarm_run.get("total_cost_usd") or swarm_run.get("cost_usd") or 0
                     run.cases = {
                         **(run.cases or {}),
                         "cost_prior": float(prior + Decimal(str(spent))),
+                        "cost_counted_runs": [*counted, previous],
                     }
         except SwarmError as exc:
             raise RuleViolationError(str(exc)) from exc
         if payload and payload.get("answer"):
             cls._note_from_manager(db, run, payload["answer"])
+        if decision == "approve" and approval.kind == "site_access":
+            origin = cls._qa_origin(str(approval.payload["site"]))
+            run.plan = {
+                **run.plan,
+                "allowed_origins": list(
+                    dict.fromkeys([*run.plan.get("allowed_origins", []), origin])
+                ),
+            }
+        if decision == "approve" and approval.kind == "budget_extension":
+            run.plan = {
+                **run.plan,
+                "budget_usd": float(payload["budget_usd"]),
+                "max_turns": int(payload["max_turns"]),
+            }
         approval.status = "approved" if decision == "approve" else "rejected"
         approval.comment = comment[:500] or None
         approval.decided_at = _now()
@@ -1293,11 +1366,60 @@ class QaRunService:
 
     # ---------- finishing ----------
 
+    @staticmethod
+    def _qa_origin(site: str) -> str:
+        from urllib.parse import urlsplit
+
+        try:
+            parts = urlsplit(site)
+            port = parts.port
+            if (
+                parts.scheme not in ("http", "https")
+                or not parts.hostname
+                or parts.username
+                or parts.password
+            ):
+                raise ValueError
+            host = parts.hostname.lower()
+            host = f"[{host}]" if ":" in host else host
+            suffix = f":{port}" if port and port != (443 if parts.scheme == "https" else 80) else ""
+            return f"{parts.scheme}://{host}{suffix}"
+        except ValueError as exc:
+            raise RuleViolationError("That site address isn't valid") from exc
+
+    @staticmethod
+    def _coverage_view(payload: dict) -> dict:
+        pages = []
+        for page in (payload.get("pages") or [])[:200]:
+            if not isinstance(page, dict) or page.get("status") not in (
+                "discovered",
+                "visited",
+                "tested",
+                "blocked",
+                "skipped",
+            ):
+                continue
+            url = str(page.get("url") or "")[:1000]
+            if not url.startswith(("http://", "https://")):
+                continue
+            pages.append(
+                {
+                    "url": url,
+                    "status": page["status"],
+                    "reason": str(page.get("reason") or "")[:300],
+                }
+            )
+        return {"pages": pages, "truncated": bool(payload.get("truncated"))}
+
     FRIENDLY_ERRORS = {
         "failed": "I ran into a problem before I could finish.",
         "cancelled": "The test was stopped.",
         "timed_out": "The test took longer than allowed, so it was stopped.",
     }
+    OUTCOME_UNKNOWN_ERROR = (
+        "I stopped during an action whose result could not be confirmed. "
+        "I did not retry it; check the site before trying again."
+    )
 
     @classmethod
     def _finish(
@@ -1311,8 +1433,13 @@ class QaRunService:
             "cancelled": "Stopped",
             "timed_out": "Ran out of time",
         }[state]
-        # Raw errors from the testing workspace are never shown; the manager gets a plain sentence.
-        run.error = None if state == "succeeded" else cls.FRIENDLY_ERRORS[state]
+        # Raw errors from the testing workspace are never shown. Preserve only the engine's
+        # structured uncertainty signal so a manager knows to reconcile before retrying.
+        engine_error = str(swarm_run.get("error") or "")
+        if state == "failed" and engine_error.startswith("outcome_unknown:"):
+            run.error = cls.OUTCOME_UNKNOWN_ERROR
+        else:
+            run.error = None if state == "succeeded" else cls.FRIENDLY_ERRORS[state]
         screenshots = list(run.screenshot_ids or [])
         for swarm_id in run.swarm_run_ids or []:
             for art in client.artifacts(swarm_id):
@@ -1383,7 +1510,25 @@ class QaRunService:
             "screenshot_ids": list(run.screenshot_ids or []),
             "summary": "",
         }
+        if plan.get("discovery_mode") == "automatic":
+            coverage = cls._coverage_view((run.cases or {}).get("coverage") or {})
+            report["coverage"] = coverage
+            report["pages"] = [p["url"] for p in coverage["pages"] if p["status"] == "tested"]
+            report["untested_pages"] = [
+                {**p, "reason": p["reason"] or "Not tested before this session ended."}
+                for p in coverage["pages"]
+                if p["status"] != "tested"
+            ]
+            report["partial"] = bool(
+                report["untested_pages"] or coverage["truncated"] or not coverage["pages"]
+            )
         report["summary"] = cls._summary(db, run, report, swarm_run)
+        if report.get("partial"):
+            report["summary"] = (
+                f"Partial test: {len(report['pages'])} pages tested; "
+                f"{len(report['untested_pages'])} discovered pages remain untested. "
+                + report["summary"]
+            )[:1200]
         return report
 
     @classmethod
@@ -1555,7 +1700,15 @@ class QaRunService:
         try:
             for run_id in ids:
                 try:
-                    if cls.sync(db, run_id, client) is not None:
+                    pending_start = db.get(QaRun, run_id)
+                    if (
+                        pending_start
+                        and pending_start.state == "starting"
+                        and not pending_start.swarm_run_id
+                    ):
+                        cls.start(db, run_id)
+                        followed += 1
+                    elif cls.sync(db, run_id, client) is not None:
                         followed += 1
                 except Exception:  # noqa: BLE001 - one run must never stop the others
                     db.rollback()
@@ -1611,7 +1764,17 @@ class QaRunService:
                 "view": {
                     k: v
                     for k, v in a.payload.items()
-                    if k in ("question", "site", "reason", "summary", "details", "frame")
+                    if k
+                    in (
+                        "question",
+                        "site",
+                        "reason",
+                        "summary",
+                        "details",
+                        "frame",
+                        "budget_usd",
+                        "max_turns",
+                    )
                 },
                 "title": a.payload.get("title", ""),
                 "severity": a.payload.get("severity", ""),
@@ -1662,6 +1825,7 @@ class QaRunService:
                         "may_file_bugs",
                         "environment",
                         "host",
+                        "discovery_mode",
                     )
                 )
             },
@@ -1669,6 +1833,11 @@ class QaRunService:
             "frame": run.frame_count if run.latest_frame_id else None,
             "current_url": run.current_url,
             "activity": run.current_activity,
+            "startup_warning": (
+                "The testing workspace is unavailable. Reconnecting automatically; testing has not started."
+                if run.state == "starting" and not run.swarm_run_id and run.error
+                else None
+            ),
             "activity_log": list(run.activity_log or [])[-20:],
             "screen": cls._screen_index(run, run.latest_screenshot_id),
             "cases": cases,
@@ -1678,7 +1847,7 @@ class QaRunService:
             "budget_usd": plan.get("budget_usd"),
             "started_at": run.started_at.isoformat() if run.started_at else None,
             "ended_at": run.ended_at.isoformat() if run.ended_at else None,
-            "error": run.error if run.state in ("error",) else None,
+            "error": run.error if run.state in ("error", "failed", "timed_out") else None,
             "approvals": pending,
             "report": cls._report_view(run),
         }

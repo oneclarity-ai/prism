@@ -13,6 +13,7 @@ from app.models.enums import PrismLifecycleState
 from app.models.prism_v22 import Prism, PrismLifecycleEvent
 from app.schemas.prism_v22 import PrismCreate, PrismUpdate
 from app.services.errors import ConflictError, NotFoundError, RuleViolationError
+from app.services.prism_organization_service import PrismOrganizationService
 from app.services.prism_presets import normalize_capabilities
 
 logger = logging.getLogger(__name__)
@@ -53,6 +54,7 @@ class PrismLifecycleService:
 
     @classmethod
     def create(cls, db: Session, data: PrismCreate) -> Prism:
+        PrismOrganizationService.lock(db)
         name = " ".join(data.name.split())
         normalized_name = cls.normalize_name(name)
         if not normalized_name:
@@ -63,6 +65,7 @@ class PrismLifecycleService:
         if cls._active_name_exists(db, normalized_name):
             raise ConflictError("A non-archived Prism already uses this name")
         prism = Prism(
+            id=uuid.uuid4(),
             name=name,
             normalized_name=normalized_name,
             description=description,
@@ -71,17 +74,20 @@ class PrismLifecycleService:
             color=data.color,
             capabilities=normalize_capabilities(data.template_key, data.capabilities),
             logins_policy=data.logins_policy,
-            state=PrismLifecycleState.DRAFT,
+            role_instructions=(data.role_instructions or "").strip() or None,
+            state=PrismLifecycleState.ACTIVE if data.activate else PrismLifecycleState.DRAFT,
             lifecycle_version=1,
         )
+        PrismOrganizationService.assign(db, prism, data, creating=True)
         db.add(prism)
         db.flush()
         db.add(
             PrismLifecycleEvent(
                 prism_id=prism.id,
                 sequence=1,
-                event_type="created",
-                target_state=PrismLifecycleState.DRAFT,
+                # Onboarded in one step (job description, instructions, tools): ready to chat and work.
+                event_type="created_active" if data.activate else "created",
+                target_state=prism.state,
             )
         )
         try:
@@ -159,6 +165,7 @@ class PrismLifecycleService:
 
     @classmethod
     def update(cls, db: Session, prism_id: uuid.UUID, data: PrismUpdate) -> Prism:
+        PrismOrganizationService.lock(db)
         prism = cls._locked_prism(db, prism_id)
         if prism.lifecycle_version != data.expected_lifecycle_version:
             raise ConflictError("Prism changed; refresh before saving")
@@ -182,6 +189,7 @@ class PrismLifecycleService:
             prism.description = description
         if data.color is not None:
             prism.color = data.color
+        PrismOrganizationService.assign(db, prism, data)
         prism.lifecycle_version += 1
         try:
             db.commit()
@@ -203,6 +211,8 @@ class PrismLifecycleService:
         reason: str | None = None,
         agreement_confirmed: bool = False,
     ) -> Prism:
+        if target == PrismLifecycleState.ARCHIVED:
+            PrismOrganizationService.lock(db)
         prism = cls._locked_prism(db, prism_id)
         if prism.lifecycle_version != expected_lifecycle_version:
             raise ConflictError("Prism changed; refresh before trying again")
@@ -215,6 +225,8 @@ class PrismLifecycleService:
         if target == PrismLifecycleState.ACTIVE and not agreement_confirmed:
             raise RuleViolationError("A confirmed working agreement is required before activation")
         previous_state = prism.state
+        if target == PrismLifecycleState.ARCHIVED:
+            PrismOrganizationService.before_archive(db, prism)
         prism.state = target
         prism.lifecycle_version += 1
         db.add(

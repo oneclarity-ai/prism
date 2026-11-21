@@ -59,7 +59,6 @@ def grants_for(capabilities: Iterable[str], logins_policy: str) -> dict[str, str
         grants.update(request_login="ask_first", sign_in="allowed")
     if "qa_kit" in caps:
         grants.update(
-            get_test_login="allowed",
             save_test_plan="allowed",
             record_test_result="allowed",
             draft_bug="allowed",
@@ -76,3 +75,149 @@ def uses_labels(capabilities: Iterable[str]) -> list[str]:
         "qa_kit": "Test cases and bugs",
     }
     return [names[c] for c in ALL_CAPABILITIES if c in set(capabilities)]
+
+
+# The Tools tab: every tool a Prism can be given, in the order shown. The grant for each is
+# Allowed, Ask first or Off. Names match the engine's tool names; unknown names are harmless.
+TOOL_CATALOG: list[dict[str, str]] = [
+    {
+        "name": "browser",
+        "label": "Browser",
+        "group": "Computer",
+        "description": "Navigate, click, type and take screenshots in its own browser",
+    },
+    {
+        "name": "computer",
+        "label": "Computer",
+        "group": "Computer",
+        "description": "Use its own private computer for longer jobs",
+    },
+    {
+        "name": "sign_in",
+        "label": "Sign in to sites",
+        "group": "Computer",
+        "description": "Use logins you gave it, kept encrypted",
+    },
+    {
+        "name": "request_login",
+        "label": "Ask for a login",
+        "group": "Computer",
+        "description": "Ask you for a login when a site needs one",
+    },
+    {
+        "name": "get_task_context",
+        "label": "Read task context",
+        "group": "Work",
+        "description": "Goal, scope and target app of the task",
+    },
+    {
+        "name": "get_test_login",
+        "label": "Read test login",
+        "group": "Work",
+        "description": "Username and password for the target app",
+    },
+    {
+        "name": "add_note",
+        "label": "Add a note",
+        "group": "Work",
+        "description": "Progress notes on the task",
+    },
+    {
+        "name": "update_checklist",
+        "label": "Update checklist",
+        "group": "Work",
+        "description": "Tick off the steps of a task",
+    },
+    {
+        "name": "complete_task",
+        "label": "Complete task",
+        "group": "Work",
+        "description": "Final report and status",
+    },
+    {
+        "name": "ask_manager",
+        "label": "Ask you a question",
+        "group": "Work",
+        "description": "Pause and ask you when something is unclear",
+    },
+    {
+        "name": "confirm_action",
+        "label": "Confirm an action",
+        "group": "Work",
+        "description": "Wait for your yes before an outward action",
+    },
+    {
+        "name": "save_file",
+        "label": "Save files",
+        "group": "Files",
+        "description": "CSV, documents and screenshots it makes for you",
+    },
+    {
+        "name": "teams_search",
+        "label": "Search Teams",
+        "group": "Teams",
+        "description": "Search the chats you allow",
+    },
+    {
+        "name": "teams_read_chat",
+        "label": "Read Teams chats",
+        "group": "Teams",
+        "description": "Read chats you allow it to see",
+    },
+    {
+        "name": "teams_draft_message",
+        "label": "Draft Teams messages",
+        "group": "Teams",
+        "description": "Draft a message for your approval; it never sends on its own",
+    },
+    {
+        "name": "save_test_plan",
+        "label": "Save test plan",
+        "group": "Testing",
+        "description": "Write Given / When / Then cases",
+    },
+    {
+        "name": "record_test_result",
+        "label": "Record test result",
+        "group": "Testing",
+        "description": "Pass, fail or blocked with evidence",
+    },
+    {
+        "name": "draft_bug",
+        "label": "Draft bug",
+        "group": "Testing",
+        "description": "Prepare a bug report for review",
+    },
+    {
+        "name": "file_bug",
+        "label": "File bug externally",
+        "group": "Testing",
+        "description": "Create an issue in GitHub or Jira",
+    },
+]
+
+
+def effective_grants(prism) -> dict[str, str]:
+    """What the Prism's agent may do: the manager's own choices, else the role's defaults."""
+
+    if prism.tool_grants:
+        return dict(prism.tool_grants)
+    return grants_for(prism.capabilities or ["browser"], prism.logins_policy)
+
+
+def tools_for(prism) -> list[dict[str, str]]:
+    grants = effective_grants(prism)
+    known = {item["name"] for item in TOOL_CATALOG}
+    rows = [{**item, "grant": grants.get(item["name"], "off")} for item in TOOL_CATALOG]
+    for name, grant in sorted(grants.items()):
+        if name not in known:
+            rows.append(
+                {
+                    "name": name,
+                    "label": name,
+                    "group": "Other",
+                    "description": "Custom tool",
+                    "grant": grant,
+                }
+            )
+    return rows

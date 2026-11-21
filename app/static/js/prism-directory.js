@@ -4,7 +4,7 @@ import { colorPicker, prismColorKey, prismLogo } from "./prism-logo.js";
 const $ = (selector) => document.querySelector(selector);
 const ui = () => window.prism || {};
 const selectedKey = "prism-v22-selected-id";
-const state = { starting: false, query: "", enabled: false, includeArchived: false, prisms: [], loading: false, selectedId: localStorage.getItem(selectedKey), onboarding: null, answering: null, agreement: null, conversation: null, editingQuestionId: null, renderedId: null, pending: null, sourceCatalog: [], selectedSources: [], pendingSources: null, sourcePolicy: null, activity: null, observations: null, updates: new Map(), pendingPolicy: null, triggerPolicy: null, runs: null };
+const state = { starting: false, enabled: false, includeArchived: false, prisms: [], loading: false, selectedId: window.prismRoutes?.requestedPrism || window.prismRoutes?.requestedLegacy ? null : localStorage.getItem(selectedKey), onboarding: null, answering: null, agreement: null, conversation: null, editingQuestionId: null, renderedId: null, pending: null, sourceCatalog: [], selectedSources: [], pendingSources: null, sourcePolicy: null, activity: null, observations: null, updates: new Map(), pendingPolicy: null, triggerPolicy: null, runs: null };
 
 function textElement(tag, className, value) {
   const element = document.createElement(tag);
@@ -47,12 +47,15 @@ function syncView() {
   const prism = state.prisms.find((item) => item.id === state.selectedId);
   const view = currentView();
   if (!prism || (view !== "prisms" && view !== "agent")) return;
+  window.prismRoutes?.prism(prism, true);
   if (isWorking(prism)) {
     if (view !== "agent") ui().setActiveTab?.("agent");
     document.dispatchEvent(new CustomEvent("prism:open-agent", { detail: { prism } }));
   } else if (view === "agent") ui().setActiveTab?.("prisms");
 }
 function selectPrism(prismId) {
+  const selected = state.prisms.find((item) => item.id === prismId);
+  if (selected) window.prismRoutes?.prism(selected);
   state.selectedId = prismId;
   state.editingQuestionId = null;
   state.onboarding = null;
@@ -76,12 +79,7 @@ function render() {
   list.replaceChildren();
   if (state.loading && !state.prisms.length) list.append(textElement("p", "prism-nav-empty", "Loading…"));
   else if (!state.prisms.length) list.append(textElement("p", "prism-nav-empty", "No Prisms yet."));
-  else {
-    const query = state.query.trim().toLowerCase();
-    const shown = query ? state.prisms.filter((prism) => `${prism.name} ${prism.description} ${prism.last_message_preview || ""}`.toLowerCase().includes(query)) : state.prisms;
-    if (!shown.length) list.append(textElement("p", "prism-nav-empty", "No matching Prisms."));
-    shown.forEach((prism) => list.append(renderNavItem(prism)));
-  }
+  else state.prisms.forEach((prism) => list.append(renderNavItem(prism)));
   if (
     !state.loading &&
     state.prisms.length &&
@@ -104,6 +102,19 @@ function openPrismView(prism) {
   selectPrism(prism.id);
   ui().setActiveTab?.(isWorking(prism) ? "agent" : "prisms");
   if (isWorking(prism)) document.dispatchEvent(new CustomEvent("prism:open-agent", { detail: { prism } }));
+  window.prismRoutes?.prism(prism);
+}
+ui().openPrismForRoute = (prism) => {
+  if (isArchived(prism)) state.includeArchived = true;
+  state.prisms = [prism, ...state.prisms.filter((item) => item.id !== prism.id)];
+  openPrismView(prism);
+};
+// Everything about one Prism (profile, instructions, tools, limits, tasks) lives on its Workspace page.
+function openMoreSettings(prism) {
+  if (ui().isV24Enabled?.() !== true) return openEditor(prism);
+  ui().setSidebarSection?.("workspace");
+  document.dispatchEvent(new CustomEvent("prism:workspace-navigate", { detail: { page: "prism", id: prism.id } }));
+  if (window.matchMedia("(max-width: 820px)").matches) document.getElementById("scrim")?.click();
 }
 function renderNavItem(prism) {
   const item = textElement("button", "nav-item prism-nav-item");
@@ -236,6 +247,8 @@ function renderWorkspace() {
   state.forceScroll = false;
   $("#prism-conversation-logo").replaceChildren(prismLogo(prism, "prism-logo"));
   $("#prism-conversation-title").textContent = prism.name;
+  $("#prism-conversation-code").textContent = prism.code || "";
+  $("#prism-conversation-code").hidden = !prism.code;
   $("#prism-conversation-subtitle").textContent = "";
   const badge = $("#prism-conversation-state");
   badge.className = `prism-state ${prism.state}`;
@@ -975,7 +988,7 @@ async function confirmAgreement() {
     });
     state.agreement = result.agreement;
     state.prisms = state.prisms.map((item) => item.id === result.prism.id ? result.prism : item);
-    ui().setStatus?.(`${result.prism.name} is active. Set its Teams monitoring scope when you are ready.`);
+    ui().setStatus?.(result.skills_error || (result.skills_created ? `${result.skills_created} skills created from onboarding. Edit them in this Prism’s settings → Skills.` : `${result.prism.name} is active.`), Boolean(result.skills_error));
     render();
     await loadConversation();
   } catch (error) {
@@ -1035,7 +1048,7 @@ async function loadPrisms() {
     // This local workspace intentionally has one Executive Assistant. Open it
     // immediately on a new browser/profile so its preserved history is never
     // hidden behind an empty-state screen.
-    if (!state.selectedId && state.prisms.length === 1) {
+    if (!state.selectedId && state.prisms.length === 1 && !window.prismRoutes?.requestedPrism && !window.prismRoutes?.requestedLegacy) {
       state.selectedId = state.prisms[0].id;
       localStorage.setItem(selectedKey, state.selectedId);
     }
@@ -1060,12 +1073,24 @@ async function refreshPrismList() {
   refreshingList = true;
   try {
     const prisms = await agentApi(`/api/v2/prisms?include_archived=${state.includeArchived}`);
-    const key = (rows) => rows.map((row) => `${row.id}|${row.last_message_at}|${row.last_message_preview}|${row.state}|${row.name}`).join("\n");
+    const key = (rows) => rows.map((row) => `${row.id}|${row.last_message_at}|${row.last_message_preview}|${row.state}|${row.name}|${row.job_role}|${row.department}|${row.reports_to_prism_id}|${row.is_chief_of_staff}`).join("\n");
     if (key(prisms) !== key(state.prisms)) { state.prisms = prisms; render(); }
   } catch { /* retried on the next poll */ }
   finally { refreshingList = false; }
 }
+let editorOrganization = null;
+let editorOrganizationRequest = 0;
+
 function resetEditor() {
+  ++editorOrganizationRequest;
+  editorOrganization = null;
+  $("#prism-editor-role").value = "";
+  $("#prism-editor-role").disabled = false;
+  $("#prism-editor-department").value = "Operations";
+  $("#prism-editor-department").disabled = false;
+  $("#prism-editor-department").readOnly = false;
+  $("#prism-editor-reports-to").replaceChildren(new Option("Loading your team…", ""));
+  $("#prism-editor-reports-to").disabled = true;
   $("#prism-editor-id").value = ""; $("#prism-editor-version").value = "";
   $("#prism-editor-note").textContent = "Create a Prism, give it a colour, a name and a job. It will ask a few questions to learn how you work.";
   $("#prism-editor-name").value = ""; $("#prism-editor-description").value = "";
@@ -1083,31 +1108,80 @@ let editorStep = 1;
 function setEditorStep(step) {
   editorStep = step;
   const creating = !$("#prism-editor-id").value;
-  const twoStep = creating && computersOn;
+  const twoStep = false; // Onboarding is one step now: tools, instructions and limits live on the Prism's page.
   $("#prism-editor-basics").hidden = twoStep && step === 2;
   $("#prism-editor-work").hidden = twoStep ? step === 1 : $("#prism-editor-work").hidden;
   $("#prism-editor-back").hidden = !(twoStep && step === 2);
   $("#prism-editor-submit").textContent = twoStep && step === 1 ? "Next" : creating ? "Create prism" : "Save changes";
 }
-function openCreate() { resetEditor(); syncWorkFields("blank"); setEditorStep(1); editorColor = prismColorKey({ name: String(Date.now()) }); renderEditorColor(); $("#prism-editor-dialog").showModal(); $("#prism-editor-name").focus(); }
+function openCreate() { resetEditor(); syncWorkFields("blank"); setEditorStep(1); $("#prism-editor-title").textContent = oneStepOnboarding() ? "Onboard a new Prism" : "Create a Prism"; $("#prism-editor-note").textContent = oneStepOnboarding() ? "Give it a colour, a name and a job. It will ask a few questions in chat to learn how you work." : "Create a Prism, give it a colour, a name and a job. It will ask a few questions to learn how you work."; setupDescriptionHelper(); editorColor = prismColorKey({ name: String(Date.now()) }); renderEditorColor(); $("#prism-editor-dialog").showModal(); loadEditorOrganization(); $("#prism-editor-name").focus(); }
 function openEditor(prism) {
   resetEditor(); editorColor = prismColorKey(prism); renderEditorColor(); $("#prism-editor-id").value = prism.id; $("#prism-editor-version").value = String(prism.lifecycle_version);
   $("#prism-editor-title").textContent = isArchived(prism) ? "Archived Prism" : "Edit Prism";
-  $("#prism-editor-note").textContent = isArchived(prism) ? "Archived Prisms are read-only. You can still review their original role." : "Update this Prism’s role before working-agreement review is added in Phase 4.";
-  $("#prism-editor-name").value = prism.name; $("#prism-editor-description").value = prism.description;
+  $("#prism-editor-note").textContent = isArchived(prism) ? "Archived Prisms are read-only. You can still review their original role." : "Update its role, department, reporting line, and responsibilities.";
+  $("#prism-editor-name").value = prism.name; $("#prism-editor-description").value = prism.description; setupDescriptionHelper();
   syncWorkFields(prism.template_key, prism); setEditorStep(1);
   $("#prism-editor-submit").textContent = isArchived(prism) ? "Close" : "Save changes";
   $("#prism-editor-name").disabled = isArchived(prism); $("#prism-editor-description").disabled = isArchived(prism); $("#prism-editor-submit").disabled = isArchived(prism);
   $("#prism-editor-dialog").showModal();
+  loadEditorOrganization(prism);
   if (!isArchived(prism)) $("#prism-editor-name").focus();
 }
+async function loadEditorOrganization(prism = null) {
+  const request = editorOrganizationRequest;
+  $("#prism-editor-submit").disabled = true;
+  try {
+    const organization = await agentApi("/api/v2/prisms/organization");
+    if (request !== editorOrganizationRequest || !$("#prism-editor-dialog").open) return;
+    editorOrganization = organization;
+    const firstChief = !prism && !organization.chief_of_staff_id;
+    $("#prism-editor-role").value = prism?.job_role || (firstChief ? "Chief of Staff" : "");
+    $("#prism-editor-department").value = prism?.department || (firstChief ? "Leadership" : "Operations");
+    if (firstChief) {
+      $("#prism-editor-name").value ||= "Chief of Staff";
+      $("#prism-editor-description").value ||= "Coordinate my Prism team across departments and keep me informed about its work.";
+    }
+    const options = $("#prism-department-options"); options.replaceChildren();
+    for (const department of organization.departments) { const option = document.createElement("option"); option.value = department; options.append(option); }
+    const blocked = new Set(prism ? [prism.id] : []);
+    let changed = true;
+    while (changed) { changed = false; for (const row of organization.members) if (blocked.has(row.reports_to_prism_id) && !blocked.has(row.id)) { blocked.add(row.id); changed = true; } }
+    const reports = $("#prism-editor-reports-to");
+    reports.replaceChildren(new Option("Choose a Prism", ""));
+    for (const manager of organization.members.filter((row) => !blocked.has(row.id))) reports.add(new Option(`${manager.name}${manager.is_chief_of_staff && manager.name.trim().toLowerCase() !== "chief of staff" ? " · Chief of Staff" : ""}`, manager.id));
+    reports.value = prism?.reports_to_prism_id || organization.chief_of_staff_id || "";
+    syncEditorReporting(prism);
+    $("#prism-editor-submit").disabled = Boolean(prism && isArchived(prism));
+  } catch (error) {
+    if (request === editorOrganizationRequest) showEditorError(`Could not load your team: ${error.message}`);
+  }
+}
+function syncEditorReporting(prism = null) {
+  if (!editorOrganization) return;
+  const chief = $("#prism-editor-role").value.trim().toLowerCase().replace(/\s+/g, " ") === "chief of staff";
+  const reports = $("#prism-editor-reports-to");
+  const owner = reports.querySelector('[data-owner-option]');
+  if (chief) {
+    if (!owner) { const option = new Option(`${editorOrganization.owner_name} · You`, ""); option.dataset.ownerOption = "true"; reports.prepend(option); }
+    reports.value = "";
+    $("#prism-editor-department").value = "Leadership";
+  } else if (owner) { owner.remove(); reports.value = editorOrganization.chief_of_staff_id || ""; }
+  reports.required = !chief;
+  reports.disabled = chief || Boolean(prism && isArchived(prism));
+  $("#prism-editor-role").disabled = Boolean(prism && (isArchived(prism) || prism.is_chief_of_staff));
+  $("#prism-editor-department").disabled = Boolean(prism && isArchived(prism));
+  $("#prism-editor-department").readOnly = chief;
+}
+$("#prism-editor-role").addEventListener("input", () => syncEditorReporting(state.prisms.find((prism) => prism.id === $("#prism-editor-id").value)));
+
 // v2.4: capabilities, sign-in policy and "How I'll work" are shown when every Prism has a computer.
 let computersOn = false;
 const WORK_ROLES = new Set(["blank", "executive_assistant"]);
 function syncWorkFields(role, prism = null) {
   // A QA tester's tools are fixed by its role; only its sign-in choice is editable.
   const qa = role === "qa_tester";
-  $("#prism-editor-work").hidden = !computersOn || !(qa || WORK_ROLES.has(role));
+  // New Prisms set tools on their own page afterwards, so the dialog stays short.
+  $("#prism-editor-work").hidden = !computersOn || !(qa || WORK_ROLES.has(role)) || (!prism && oneStepOnboarding());
   $("#prism-editor-uses").hidden = qa;
   const caps = prism?.capabilities || (role === "executive_assistant" ? ["browser", "teams"] : ["browser"]);
   $("#prism-cap-files").checked = caps.includes("files");
@@ -1124,14 +1198,40 @@ function workPayload() {
     logins_policy: document.querySelector('input[name="prism-logins"]:checked')?.value || "never",
   };
 }
+// One-step onboarding (name, role, job description) applies when every Prism has its own computer.
+const oneStepOnboarding = () => computersOn && ui().isV24Enabled?.() === true;
+function syncDescriptionAi() {
+  const ready = $("#prism-editor-name").value.trim() && $("#prism-editor-role").value.trim();
+  const button = $("#prism-editor-generate");
+  button.disabled = !ready || button.dataset.busy === "1";
+  $("#prism-editor-ai-note").textContent = ready ? "Uses the name, role and anything you already wrote." : "Fill in name and role first.";
+  button.querySelector("span").textContent = $("#prism-editor-description").value.trim() ? "Regenerate with AI" : "Generate with AI";
+}
+function setupDescriptionHelper() {
+  const creating = !$("#prism-editor-id").value;
+  $("#prism-editor-ai").hidden = !oneStepOnboarding();
+  $("#prism-editor-description-label").textContent = oneStepOnboarding() && creating ? "What does this Prism do?" : "What is this Prism responsible for?";
+  syncDescriptionAi();
+}
+async function generateDescription() {
+  const button = $("#prism-editor-generate");
+  button.dataset.busy = "1"; button.disabled = true; showEditorError("");
+  const label = button.querySelector("span"); label.textContent = "Writing a job description…";
+  try {
+    const result = await agentApi("/api/v2/prisms/generate-description", { method: "POST", body: JSON.stringify({ name: $("#prism-editor-name").value.trim(), role: $("#prism-editor-role").value.trim(), department: $("#prism-editor-department").value.trim(), notes: $("#prism-editor-description").value.slice(0, 4000) }) });
+    $("#prism-editor-description").value = result.description;
+    ui().setStatus?.("Job description drafted. Review and edit it before creating.");
+  } catch (error) { showEditorError(error.message); }
+  finally { button.dataset.busy = "0"; syncDescriptionAi(); }
+}
 function closeEditor() { $("#prism-editor-dialog").close(); }
 async function submitEditor(event) {
   event.preventDefault();
   const id = $("#prism-editor-id").value;
   const submit = $("#prism-editor-submit");
-  const payload = { name: $("#prism-editor-name").value, description: $("#prism-editor-description").value, color: editorColor };
+  const payload = { name: $("#prism-editor-name").value, description: $("#prism-editor-description").value, color: editorColor, job_role: $("#prism-editor-role").value, department: $("#prism-editor-department").value, reports_to_prism_id: $("#prism-editor-reports-to").value || null };
+  if (!editorOrganization || !payload.job_role.trim() || !payload.department.trim()) { showEditorError("Choose a role, department, and reporting line for this Prism."); return; }
   if (!payload.name.trim() || !payload.description.trim()) { showEditorError("Give this Prism both a name and a short responsibility."); return; }
-  if (!id && computersOn && editorStep === 1) { showEditorError(""); setEditorStep(2); return; }
   if (id) payload.expected_lifecycle_version = Number($("#prism-editor-version").value);
   else { payload.template_key = "blank"; Object.assign(payload, workPayload()); }
   showEditorError(""); submit.disabled = true;
@@ -1164,9 +1264,13 @@ async function archivePrism(prism, alreadyConfirmed = false) {
   } catch (error) { ui().setStatus?.(error.message, true); await loadPrisms(); }
 }
 function initialize() {
+  $("#prism-editor-generate").addEventListener("click", generateDescription);
+  ["#prism-editor-name", "#prism-editor-role", "#prism-editor-description"].forEach((selector) => $(selector).addEventListener("input", syncDescriptionAi));
   agentApi("/api/v2/qa/status").then((status) => { computersOn = Boolean(status.computers); }).catch(() => {});
   $("#prism-create-button").addEventListener("click", openCreate);
+  document.addEventListener("prism:edit-organization", (event) => { if (event.detail?.prism) openEditor(event.detail.prism); });
   document.addEventListener("prism:prisms-changed", () => loadPrisms());
+  $("#prism-more-settings-button").addEventListener("click", () => { const prism = state.prisms.find((item) => item.id === state.selectedId); if (prism) openMoreSettings(prism); });
   $("#prism-edit-button").addEventListener("click", () => { const prism = state.prisms.find((item) => item.id === state.selectedId); if (prism) openEditor(prism); });
   $("#prism-archive-button").addEventListener("click", () => { const prism = state.prisms.find((item) => item.id === state.selectedId); if (prism) archivePrism(prism); }); $("#prism-editor-close").addEventListener("click", closeEditor); $("#prism-editor-cancel").addEventListener("click", closeEditor); $("#prism-editor-back").addEventListener("click", () => setEditorStep(1)); $("#prism-editor-form").addEventListener("submit", submitEditor);
   $("#prism-onboarding-form").addEventListener("submit", (event) => { event.preventDefault(); const prism = state.prisms.find((item) => item.id === state.selectedId); if (prism?.state === "active") { sendConversationMessage(); return; } const question = state.onboarding?.questions.find((item) => item.id === (state.editingQuestionId || state.onboarding.current_question_id)); if (question) submitAnswer(question, state.onboarding); });
@@ -1205,7 +1309,20 @@ function initialize() {
     event.preventDefault();
     if (!$("#prism-onboarding-next").disabled) $("#prism-onboarding-form").requestSubmit();
   });
-  $("#prism-search-input").addEventListener("input", (event) => { state.query = event.target.value; render(); });
+  document.addEventListener("prism:search-result", async (event) => {
+    let prism = state.prisms.find((item) => item.id === event.detail?.prismId);
+    if (!prism) {
+      await loadPrisms();
+      prism = state.prisms.find((item) => item.id === event.detail?.prismId);
+    }
+    if (!prism) return ui().setStatus?.("This Prism is no longer available.", true);
+    openPrismView(prism);
+    if (event.detail?.message && isWorking(prism)) {
+      document.dispatchEvent(new CustomEvent("prism:open-agent-message", {
+        detail: { prism, message: event.detail.message },
+      }));
+    }
+  });
   $("#prism-menu-button").addEventListener("click", (event) => { event.stopPropagation(); setMenuOpen($("#prism-menu").hidden); });
   $("#prism-menu").addEventListener("click", (event) => { if (event.target.closest(".menu-item")) setMenuOpen(false); });
   document.addEventListener("click", (event) => { if (!event.target.closest("#prism-menu")) setMenuOpen(false); });

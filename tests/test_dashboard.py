@@ -73,7 +73,7 @@ def test_dashboard_is_served() -> None:
     assert '<p class="nav-label">Chats</p>' not in response.text
     assert "one conversation with Prism" in response.text
     # Directory import lives with the people it affects, in the Teams section of Settings.
-    assert response.text.index('data-tab="settings"') < response.text.index(
+    assert response.text.index('id="settings-dialog"') < response.text.index(
         'id="people-sync-button"'
     )
 

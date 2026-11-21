@@ -55,6 +55,13 @@ class FakeEngine(FakeSwarm):
         path = request.url.path.removeprefix("/api/v1")
         body = json.loads(request.content) if request.content else {}
         method = request.method
+        if path.startswith("/targets/") and method in ("GET", "PATCH"):
+            target = next((t for t in self.targets if t["id"] == path.split("/")[-1]), None)
+            if target is None:
+                return httpx.Response(404, json={"error": {"code": "not_found"}})
+            if method == "PATCH":
+                target.update(body)
+            return httpx.Response(200, json=target)
         if path == "/agents" and method == "GET":
             return httpx.Response(200, json=[{"id": "agent-1", "name": "QA Agent"}, *self.agents])
         if path == "/agents":
@@ -220,6 +227,7 @@ def test_grants_follow_capabilities_and_outward_tools_always_ask() -> None:
     assert rich["save_file"] == "allowed" and rich["teams_read_chat"] == "allowed"
     assert rich["request_login"] == "ask_first" and rich["sign_in"] == "allowed"
     assert rich["file_bug"] == "ask_first"
+    assert "get_test_login" not in rich  # secure-card logins never enter the model context
 
 
 def test_a_custom_role_gets_work_questions_from_its_description(engine) -> None:
@@ -300,6 +308,23 @@ def test_a_web_task_becomes_a_plan_card_and_chat_is_left_alone(work, engine) -> 
         for chat in ("what can you do?", "send the list to Akshay on Teams", "hi there"):
             out = qa_run_service.QaRunService.handle_chat(db, thread_id=thread_id, text=chat)
             assert out == {"handled": False}, chat
+
+
+def test_a_lost_start_response_reconciles_without_duplicate_engine_work(work, engine) -> None:
+    _, thread_id = work
+    with SessionLocal() as db:
+        run = _plan(db, thread_id, TASK)
+        run_id = run.id
+        engine.drop_run_response_once = True
+        run = qa_run_service.QaRunService.start(db, run.id)
+        assert run.state == "starting" and run.swarm_run_id is None
+        assert len(engine.tasks) == len(engine.started) == 1
+
+    with SessionLocal() as db:
+        qa_run_service.QaRunService.cycle(db)
+        run = db.get(QaRun, run_id)
+        assert run.state == "running" and run.swarm_run_id == "run-1"
+        assert len(engine.tasks) == len(engine.started) == 1
 
 
 def test_a_site_in_the_task_limits_where_the_browser_may_go(work, engine) -> None:
@@ -515,6 +540,21 @@ def test_a_failed_task_never_shows_engine_errors(work, engine) -> None:
         )
 
 
+def test_an_uncertain_external_action_is_not_hidden_or_retried(work, engine) -> None:
+    _, thread_id = work
+    with SessionLocal() as db:
+        run_id = _started(db, thread_id).id
+    engine.status = "failed"
+    engine.error = "outcome_unknown: worker stopped during browser_click"
+    with SessionLocal() as db:
+        run = qa_run_service.QaRunService.sync(db, run_id)
+        assert run.error == qa_run_service.QaRunService.OUTCOME_UNKNOWN_ERROR
+        assert "check the site before trying again" in _messages(db, thread_id)[-1].content
+    response = TestClient(app).get(f"/api/v2/qa/runs/{run_id}")
+    assert response.status_code == 200
+    assert response.json()["error"] == qa_run_service.QaRunService.OUTCOME_UNKNOWN_ERROR
+
+
 # ---------- mid-task: the Prism stops and asks ----------
 
 
@@ -678,6 +718,78 @@ def test_a_login_is_given_in_a_secure_card_and_the_password_goes_nowhere_else(wo
     removed = client.delete(f"/api/v2/prisms/{prism_id}/logins/{logins[0]['id']}")
     assert removed.status_code == 200 and removed.json() == []
     assert engine.secrets == []  # gone from the engine too
+
+
+def test_a_legacy_qa_login_card_allows_only_its_approved_redirect_origin(work, engine) -> None:
+    prism_id, thread_id = work
+    with SessionLocal() as db:
+        prism = db.get(Prism, prism_id)
+        prism.template_key = "qa_tester"
+        prism.capabilities = ["browser", "files", "qa_kit"]
+        prism.logins_policy = "ask"
+        db.commit()
+        run = _plan(db, thread_id, "test https://beta.example.com/login")
+        assert run.kind == "qa"
+        legacy = dict(run.plan)
+        legacy.pop("discovery_mode")
+        run.plan = legacy
+        db.commit()
+        run = qa_run_service.QaRunService.start(db, run.id)
+        assert engine.targets[0]["extra_origins"] == []
+        run_id = run.id
+
+    _pause(
+        engine,
+        "request_login",
+        {"site": "https://example.com/login", "reason": "sign in"},
+        "ap-redirect",
+    )
+    with SessionLocal() as db:
+        qa_run_service.QaRunService.sync(db, run_id)
+        approval_id = db.scalar(select(QaApproval.id).where(QaApproval.qa_run_id == run_id))
+
+    response = TestClient(app).post(
+        f"/api/v2/qa/approvals/{approval_id}/decision",
+        json={
+            "decision": "approve",
+            "login": {"username": "tester@example.com", "password": PASSWORD, "remember": True},
+        },
+    )
+    assert response.status_code == 200
+    assert engine.targets[0]["extra_origins"] == ["https://example.com"]
+    assert engine.decision_payloads[-1] is None
+    assert PASSWORD not in response.text
+
+    with QaSwarmClient(get_settings(), transport=httpx.MockTransport(engine)) as client:
+        client.allow_target_origin(engine.targets[0]["id"], "https://example.com")
+    assert engine.targets[0]["extra_origins"] == ["https://example.com"]
+
+
+def test_automatic_qa_login_cannot_silently_expand_to_another_site(work, engine) -> None:
+    prism_id, thread_id = work
+    with SessionLocal() as db:
+        prism = db.get(Prism, prism_id)
+        prism.template_key = "qa_tester"
+        prism.capabilities = ["browser", "qa_kit"]
+        db.commit()
+        run = _plan(db, thread_id, "test https://beta.example.com")
+        qa_run_service.QaRunService.start(db, run.id)
+        run_id = run.id
+    _pause(
+        engine, "request_login", {"site": "https://example.com/login", "reason": "SSO"}, "ap-login"
+    )
+    with SessionLocal() as db:
+        qa_run_service.QaRunService.sync(db, run_id)
+        approval_id = db.scalar(select(QaApproval.id).where(QaApproval.qa_run_id == run_id))
+    response = TestClient(app).post(
+        f"/api/v2/qa/approvals/{approval_id}/decision",
+        json={
+            "decision": "approve",
+            "login": {"username": "tester@example.com", "password": PASSWORD},
+        },
+    )
+    assert response.status_code == 422 and "Approve access" in response.text
+    assert engine.secrets == [] and engine.targets[0]["extra_origins"] == []
 
 
 def test_a_login_for_one_task_is_removed_when_the_task_ends(work, engine) -> None:

@@ -16,7 +16,9 @@ logger = logging.getLogger(__name__)
 DEFAULT_MAX_TURNS = 60
 DEFAULT_BUDGET_USD = 1.0
 PRODUCTION_NOTE = (
-    "Read-only. Validation only: empty fields, not-an-email. Never submit forms with valid data."
+    "Use synthetic test data only. Ask before payments, messages, deletions, publishing, "
+    "account creation or other important changes, even with dummy data. "
+    "Request secure login approval; never ask for credentials in chat."
 )
 
 _URL = re.compile(r"https?://[^\s<>\"')]+", re.I)
@@ -59,7 +61,9 @@ _SITE_WORDS = re.compile(r"\b(site|website|web ?app|webpage|pages?|forms?|app)\b
 
 QA_PLAN_PROMPT = """You are {name}, a QA tester on the manager's team. The manager asked you to test a website.
 Turn the request into a short test plan. Use only what the manager actually asked for; never invent pages,
-logins, or features. pages are paths on the site such as /pricing (leave empty when none were named).
+logins, or features. Discover internal pages automatically; the manager never needs to list routes.
+pages are optional starting paths explicitly named by the manager, not an exhaustive page list.
+Missing routes, login details or feature names are NOT reasons to ask for clarification.
 features are short names of the areas to check (for example navigation, form validation).
 acceptance_criteria are short Given/When/Then sentences, one per thing the manager wants verified.
 If the request does not say what to test, return a sensible smoke test: key pages load, navigation works,
@@ -171,6 +175,15 @@ class QaPlanService:
         site = find_site(text)
         if site is None:
             raise QaPlanError("Which site should I test? Send me the address and what to check.")
+        parts = urlsplit(site)
+        try:
+            port = parts.port
+        except ValueError as exc:
+            raise QaPlanError("Send a website URL with a valid port.") from exc
+        if parts.username or parts.password:
+            raise QaPlanError(
+                "Send a website URL without login details. Use the secure login card later."
+            )
         host = urlsplit(site).hostname or ""
         environment = environment_for(site)
         if environment == "local" and not settings.qa_allow_local_targets:
@@ -191,14 +204,21 @@ class QaPlanService:
             )
         except Exception:  # noqa: BLE001 - the plan still works from the plain request
             logger.info("qa_plan_model_unavailable", exc_info=False)
-        if draft.needs_clarification and draft.question.strip():
-            raise QaPlanError(draft.question.strip())
-
-        base = f"{urlsplit(site).scheme}://{urlsplit(site).netloc}"
+        authority = f"[{host}]" if ":" in host else host
+        if port and port != (443 if parts.scheme == "https" else 80):
+            authority += f":{port}"
+        base = f"{parts.scheme}://{authority}"
+        # Only the request supplies seeds. A model must not invent a mandatory route list.
         pages = cls._clean_pages(
-            [urlsplit(site).path or "", *draft.pages, *(m.group(1) for m in _PATH.finditer(text))]
+            [urlsplit(site).path or "", *(m.group(1) for m in _PATH.finditer(text))]
         )
-        notes = [PRODUCTION_NOTE] if environment == "production" else []
+        notes = [
+            PRODUCTION_NOTE,
+            "Discover all reachable internal pages, menus and client-side routes on the starting "
+            "origin. Ask before entering any other origin, including subdomains. Record tested "
+            "and untested pages with reasons. Ask to extend the approved budget before stopping; "
+            "never continue beyond a limit without approval.",
+        ]
         notes += rules
         return {
             "site": base,
@@ -207,6 +227,11 @@ class QaPlanService:
             "title": (draft.title.strip() or f"Test {host}")[:200],
             "request": " ".join(text.split())[:4000],
             "pages": pages or ["/"],
+            "discovery_mode": "automatic",
+            "allowed_origins": [base],
+            "form_policy": "synthetic_with_approval",
+            "request_login": True,
+            "request_budget_extension": True,
             "features": [f[:120] for f in draft.features if f.strip()][:12]
             or ["navigation", "form validation"],
             "acceptance_criteria": [c[:300] for c in draft.acceptance_criteria if c.strip()][:12],
@@ -240,7 +265,7 @@ class QaPlanService:
         plan = dict(plan)
         edits = edits or {}
         if "pages" in edits:
-            plan["pages"] = QaPlanService._clean_pages(list(edits["pages"] or [])) or plan["pages"]
+            plan["pages"] = QaPlanService._clean_pages(list(edits["pages"] or [])) or ["/"]
         for key in ("features", "acceptance_criteria"):
             if key in edits:
                 plan[key] = [str(v).strip()[:300] for v in (edits[key] or []) if str(v).strip()][

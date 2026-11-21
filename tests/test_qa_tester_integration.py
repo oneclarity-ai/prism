@@ -40,6 +40,7 @@ class FakeSwarm:
         self.tasks: list[dict] = []
         self.started: list[dict] = []
         self.status = "running"
+        self.error: str | None = None
         self.events: list[dict] = []
         self.cases: list[dict] = []
         self.bugs: list[dict] = []
@@ -50,6 +51,8 @@ class FakeSwarm:
         self.decisions: list[tuple[str, str]] = []
         self.cost = "0.2500"
         self.run_list: list[dict] = []
+        self.run_operations: dict[str, str] = {}
+        self.drop_run_response_once = False
 
     def add_event(self, type_: str, payload: dict) -> None:
         self.events.append(
@@ -77,11 +80,27 @@ class FakeSwarm:
             self.targets.append(target)
             return httpx.Response(201, json=target)
         if path == "/tasks":
+            if body.get("operation_key"):
+                old = next(
+                    (t for t in self.tasks if t.get("operation_key") == body["operation_key"]), None
+                )
+                if old:
+                    return httpx.Response(201, json=old)
             task = {"id": f"task-{len(self.tasks) + 1}", **body}
             self.tasks.append(task)
             return httpx.Response(201, json=task)
         if re.fullmatch(r"/tasks/[^/]+/runs", path):
+            key = body.get("operation_key")
+            if key and key in self.run_operations:
+                return httpx.Response(
+                    201, json={"id": self.run_operations[key], "status": "queued"}
+                )
             self.started.append(body)
+            if key:
+                self.run_operations[key] = self.run_id
+            if self.drop_run_response_once:
+                self.drop_run_response_once = False
+                raise httpx.ReadTimeout("response lost after commit", request=request)
             return httpx.Response(201, json={"id": self.run_id, "status": "queued"})
         if path == "/runs":
             return httpx.Response(200, json=self.run_list)
@@ -92,7 +111,7 @@ class FakeSwarm:
                     "id": path.split("/")[-1],
                     "status": self.status,
                     "summary": "done" if self.status == "succeeded" else "",
-                    "error": None,
+                    "error": self.error,
                     "cost_usd": self.cost,
                 },
             )
@@ -230,7 +249,9 @@ def test_a_test_request_becomes_a_plan_card_that_is_safe_by_default(qa_prism) ->
         assert plan["site"] == "https://oneclarity.ai"
         assert plan["environment"] == "production"
         assert plan["allow_bug_filing"] is False
-        assert "Never submit forms with valid data" in plan["notes"]
+        assert "Use synthetic test data only" in plan["notes"]
+        assert plan["discovery_mode"] == "automatic"
+        assert plan["allowed_origins"] == ["https://oneclarity.ai"]
         assert plan["max_turns"] <= 150 and plan["budget_usd"] <= 3
         card = _messages(db, thread_id)[-1]
         assert card.message_metadata["kind"] == "qa_plan"
@@ -286,6 +307,7 @@ def test_a_run_is_followed_live_and_ends_with_a_report(qa_prism, swarm) -> None:
         assert started.plan["allow_bug_filing"] is False
         assert swarm.targets[0]["environment"] == "production"
         assert swarm.tasks[0]["scope"]["allow_bug_filing"] is False
+        assert swarm.tasks[0]["scope"]["discovery_mode"] == "automatic"
         assert swarm.started[0]["mode"] == "single"
         run_id = run.id
 
@@ -482,7 +504,9 @@ def test_nothing_a_browser_can_see_names_the_testing_workspace(qa_prism, swarm) 
         qa_run_service.QaRunService.cancel(db, run_id)
 
 
-def test_unreachable_workspace_gives_a_friendly_failure(qa_prism, monkeypatch) -> None:
+def test_unreachable_workspace_stays_reconcilable_with_a_friendly_status(
+    qa_prism, monkeypatch
+) -> None:
     prism_id, thread_id = qa_prism
 
     def boom(request: httpx.Request) -> httpx.Response:
@@ -495,10 +519,13 @@ def test_unreachable_workspace_gives_a_friendly_failure(qa_prism, monkeypatch) -
     )
     with SessionLocal() as db:
         run = _plan(db, thread_id)
-        failed = qa_run_service.QaRunService.start(db, run.id)
-        assert failed.state == "error"
-        last = _messages(db, thread_id)[-1].content
-        assert "offline" in last and "swarm.invalid" not in last
+        pending = qa_run_service.QaRunService.start(db, run.id)
+        assert pending.state == "starting"
+        assert pending.current_activity == "Reconciling with my workspace…"
+        assert "swarm.invalid" not in (pending.error or "")
+        snapshot = qa_run_service.QaRunService.snapshot(db, pending)
+        assert "testing has not started" in snapshot["startup_warning"]
+        assert "swarm.invalid" not in json.dumps(snapshot)
 
 
 def test_qa_tester_onboarding_asks_testing_questions_and_agreement_allows_bug_filing(swarm) -> None:

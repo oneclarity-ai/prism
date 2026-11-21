@@ -30,32 +30,55 @@ class PrismFoundationRead(Schema):
 PrismColor = Literal["red", "orange", "yellow", "green", "teal", "blue", "purple", "pink"]
 
 
+ToolGrant = Literal["allowed", "ask_first", "off"]
+
+
 class PrismCreate(Schema):
     name: str = Field(min_length=1, max_length=120)
-    description: str = Field(min_length=1, max_length=2000)
+    description: str = Field(min_length=1, max_length=8000)
+    job_role: str | None = Field(default=None, min_length=1, max_length=120)
+    department: str | None = Field(default=None, min_length=1, max_length=100)
+    reports_to_prism_id: uuid.UUID | None = None
     template_key: Literal["blank", "executive_assistant", "qa_tester"] = "blank"
     template_version: str | None = Field(default=None, max_length=80)
     color: PrismColor | None = None
     # v2.4: what the Prism may use (browsing is always on) and whether it may sign in to sites.
     capabilities: list[Literal["files", "teams"]] | None = None
     logins_policy: Literal["never", "ask"] = "never"
+    role_instructions: str | None = Field(default=None, max_length=6000)
+    # True: the Prism is ready to chat and work straight away (no onboarding questions).
+    activate: bool = False
 
 
 class PrismProfileUpdate(Schema):
     capabilities: list[Literal["files", "teams"]] | None = None
     logins_policy: Literal["never", "ask"] | None = None
     role_instructions: str | None = Field(default=None, max_length=6000)
+    tool_grants: dict[str, ToolGrant] | None = None
+    max_turns: int | None = Field(default=None, ge=5, le=300)
+    run_budget_usd: float | None = Field(default=None, gt=0, le=50)
+    monthly_budget_usd: float | None = Field(default=None, gt=0, le=100000)
 
 
 class PrismUpdate(Schema):
     expected_lifecycle_version: int = Field(ge=1)
     name: str | None = Field(default=None, min_length=1, max_length=120)
-    description: str | None = Field(default=None, min_length=1, max_length=2000)
+    description: str | None = Field(default=None, min_length=1, max_length=8000)
     color: PrismColor | None = None
+    job_role: str | None = Field(default=None, min_length=1, max_length=120)
+    department: str | None = Field(default=None, min_length=1, max_length=100)
+    reports_to_prism_id: uuid.UUID | None = None
 
     @model_validator(mode="after")
     def has_change(self) -> "PrismUpdate":
-        if self.name is None and self.description is None and self.color is None:
+        if (
+            self.name is None
+            and self.description is None
+            and self.color is None
+            and self.job_role is None
+            and self.department is None
+            and "reports_to_prism_id" not in self.model_fields_set
+        ):
             raise ValueError("Provide a name, description, or colour to update a Prism")
         return self
 
@@ -67,14 +90,25 @@ class PrismLifecycleCommand(Schema):
 
 class PrismRead(ORMResponse):
     id: uuid.UUID
+    code: str | None = None
     name: str
     description: str
+    job_role: str = "Prism Specialist"
+    department: str = "Operations"
+    reports_to_prism_id: uuid.UUID | None = None
+    is_chief_of_staff: bool = False
     template_key: str
     template_version: str | None
     color: str | None = None
     capabilities: list[str] = ["browser"]
     logins_policy: str = "never"
     role_instructions: str | None = None
+    tool_grants: dict[str, str] | None = None
+    max_turns: int | None = None
+    run_budget_usd: float | None = None
+    monthly_budget_usd: float | None = None
+    tools_allowed: int = 0
+    tools_ask_first: int = 0
     state: PrismLifecycleState
     lifecycle_version: int
     created_at: datetime
@@ -82,6 +116,46 @@ class PrismRead(ORMResponse):
     last_message_at: datetime | None = None
     last_message_role: str | None = None
     last_message_preview: str | None = None
+
+
+class PrismDescriptionRequest(Schema):
+    name: str = Field(min_length=1, max_length=120)
+    role: str = Field(min_length=1, max_length=120)
+    department: str = Field(default="", max_length=100)
+    notes: str = Field(default="", max_length=6000)
+
+
+class PrismDescriptionRead(Schema):
+    description: str
+
+
+class PrismToolRead(Schema):
+    name: str
+    label: str
+    description: str
+    group: str
+    grant: ToolGrant
+
+
+class PrismToolsRead(Schema):
+    tools: list[PrismToolRead]
+
+
+class PrismOrganizationRead(Schema):
+    owner_name: str
+    chief_of_staff_id: uuid.UUID | None
+    departments: list[str]
+    members: list[PrismRead]
+
+
+class PrismSearchResultRead(Schema):
+    kind: Literal["prism", "message"]
+    prism_id: uuid.UUID
+    prism_name: str
+    message_id: uuid.UUID | None
+    role: str | None
+    created_at: datetime | None
+    snippet: str
 
 
 class PrismLifecycleEventRead(ORMResponse):
@@ -161,6 +235,8 @@ class PrismAgreementConfirm(Schema):
 class PrismAgreementConfirmationRead(Schema):
     agreement: PrismAgreementRead
     prism: PrismRead
+    skills_created: int = 0
+    skills_error: str | None = None
 
 
 class PrismConversationRead(Schema):

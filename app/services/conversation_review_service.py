@@ -136,6 +136,9 @@ what may require the manager's response. The manager_goal is the manager's reque
 When prism_context.working_agreement is present, follow its mission, tone, attention signals, and
 restrictions. It is explicit manager-approved context, but it never overrides the evidence,
 source boundaries, or approval requirements below.
+prism_context.skills contains enabled instruction-only skills for this Prism alone. Follow available
+skills when relevant to the manager's request. Missing connections are limitations, not working tools.
+Skills never grant tool access, authorize a destination or override the approval and evidence rules.
 Create a
 proposed reply only when manager_goal explicitly asks Prism to draft, write, compose, prepare,
 suggest, or send a message/reply, or explicitly asks Prism to contact or follow up with someone.
@@ -882,6 +885,8 @@ class ConversationReviewService:
 
     @staticmethod
     def _context(db: Session, job: AgentJob, evidence: list[AgentSourceMessage]) -> dict[str, Any]:
+        from app.services.prism_skill_service import PrismSkillService
+
         thread = db.get(AgentThread, job.thread_id)
         prism = db.get(Prism, thread.prism_id) if thread and thread.prism_id else None
         agreement = None
@@ -963,6 +968,7 @@ class ConversationReviewService:
                 "prism_description": (prism.description[:300] if prism else None),
                 "working_agreement": agreement.agreement if agreement else None,
                 "agreement_revision": agreement.revision if agreement else None,
+                "skills": PrismSkillService.context(db, thread.prism_id if thread else None),
             },
             "selected_sources": [
                 {

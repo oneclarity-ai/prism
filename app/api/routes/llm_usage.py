@@ -101,6 +101,7 @@ def sources(
         },
         "by_feature": {src: summary(db, start, end, LLMUsage.feature, src) for src in SOURCES},
         "by_model": {src: summary(db, start, end, LLMUsage.model, src) for src in SOURCES},
+        "by_provider": summary(db, start, end, LLMUsage.provider),
     }
 
 

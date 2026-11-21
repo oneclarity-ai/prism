@@ -1,6 +1,6 @@
 import { agentApi } from "./api.js";
 
-/* QA tester Prism: plan card, live computer panel, approvals and the test report.
+/* Prism plan cards, live computer panel, approvals and task reports (including QA).
    Everything here talks to Prism only; the testing workspace behind it is never named. */
 
 const $ = (selector) => document.querySelector(selector);
@@ -65,7 +65,7 @@ export const isQaPrism = (prism) => prism?.template_key === "qa_tester";
 export const computersEnabled = () => state.computers;
 const usesComputer = (prism) => Boolean(prism) && (isQaPrism(prism) || state.computers);
 const isWork = (run) => run?.kind === "work";
-const stateText = (run) => (isWork(run) && run.state === "running" ? "Working" : STATE_TEXT[run.state] || run.state);
+const stateText = (run) => (run.startup_warning ? "Waiting for workspace" : isWork(run) && run.state === "running" ? "Working" : STATE_TEXT[run.state] || run.state);
 
 /* ---------- plumbing ---------- */
 
@@ -95,7 +95,7 @@ function elapsed(run) {
 const money = (value) => `$${Number(value || 0).toFixed(2)}`;
 
 // What the chat cards show. The live panel updates on every change; the chat only when this changes.
-const cardKey = (run) => [run.state, run.approvals.map((a) => a.status).join(","), run.report ? "r" : "", run.cases?.total || 0].join("|");
+const cardKey = (run) => [run.state, run.startup_warning || "", run.approvals.map((a) => a.status).join(","), run.report ? "r" : "", run.cases?.total || 0].join("|");
 
 function remember(run) {
   state.runs.set(run.id, run);
@@ -174,7 +174,9 @@ async function loadRuns() {
     runs.forEach(remember);
     state.order = runs.map((run) => run.id);
     runs.filter(isActive).forEach((run) => follow(run.id));
-    if (!state.focus || !state.runs.has(state.focus)) state.focus = (runs.find(isActive) || runs[0])?.id || null;
+    const active = runs.find(isActive);
+    if (active && !isActive(state.runs.get(state.focus))) state.focus = active.id;
+    else if (!state.focus || !state.runs.has(state.focus)) state.focus = runs[0]?.id || null;
   } catch { /* the panel just shows no runs */ }
   renderPanel();
   updateButton();
@@ -206,10 +208,15 @@ export function onPrism(prism, force = false) {
   const show = usesComputer(prism);
   $("#agent-computer-button").hidden = !show;
   if (!show) { setOpen(false); return; }
-  if (!same || force) { state.order = []; state.focus = null; state.computer = null; loadRuns(); }
+  if (!same || force) {
+    stopLive();
+    state.order = []; state.focus = null; state.computer = null;
+    renderPanel();
+    loadRuns();
+  }
 }
 
-// A test request in a QA tester's chat becomes a plan card. Returns true when the request was handled.
+// A computer-enabled Prism's task request becomes a plan card. Returns true when handled.
 export async function planRequest(prism, threadId, content) {
   if (!usesComputer(prism)) return false;
   const result = await agentApi(`/api/v2/prisms/${prism.id}/qa/plan`, { method: "POST", body: JSON.stringify({ thread_id: threadId, content }) });
@@ -231,6 +238,14 @@ export function setOpen(open) {
   if (!state.open) stopLive();
   clearInterval(state.timer);
   state.timer = state.open ? setInterval(() => { if (isActive(state.runs.get(state.focus))) renderClock(); }, 1000) : null;
+  renderPanel();
+}
+
+export async function focusRun(runId) {
+  if (!runId || !state.prism) return;
+  state.focus = runId;
+  if (!state.runs.has(runId)) await loadRun(runId);
+  setOpen(true);
   renderPanel();
 }
 
@@ -320,9 +335,14 @@ function planBody(run) {
   const plan = run.plan || {};
   const body = el("div", "qa-card");
   const head = el("div", "qa-card-head");
-  head.append(el("strong", "", plan.host || "Website test"), chip(plan.environment === "production" ? "Live site · read-only" : plan.environment || "", plan.environment === "production" ? "orange" : "gray"));
+  head.append(el("strong", "", plan.host || "Website test"), chip(plan.environment === "production" ? (plan.discovery_mode === "automatic" ? "Live site · dummy data" : "Live site · read-only") : plan.environment || "", plan.environment === "production" ? "orange" : "gray"));
   body.append(head);
-  body.append(field("Pages", (plan.pages || ["/"]).join("  ·  ")));
+  if (plan.discovery_mode === "automatic") {
+    body.append(field("Pages", "Discover pages automatically"));
+    body.append(field("Starting pages", (plan.pages || ["/"]).join("  ·  ")));
+    body.append(field("Scope", "Internal pages on this site. I'll ask before opening subdomains or other sites."));
+    body.append(field("Actions", "Dummy data only. Login and important changes need your approval."));
+  } else body.append(field("Pages", (plan.pages || ["/"]).join("  ·  ")));
   body.append(field("Checks", (plan.features || []).join(", ") || "General smoke test"));
   if ((plan.acceptance_criteria || []).length) {
     const list = el("ul", "qa-criteria");
@@ -344,7 +364,7 @@ function editForm(run, onDone) {
   const budget = el("input"); budget.type = "number"; budget.min = "0.1"; budget.max = "3"; budget.step = "0.1"; budget.value = plan.budget_usd;
   const bugs = el("input"); bugs.type = "checkbox"; bugs.checked = Boolean(plan.allow_bug_filing);
   const label = (text, input) => { const wrap = el("label", "qa-edit-field"); wrap.append(el("span", "", text), input); return wrap; };
-  form.append(label("Pages (comma separated)", pages), label("What to make sure of (one per line)", criteria), label("Max steps", turns), label("Budget ($)", budget));
+  form.append(label(plan.discovery_mode === "automatic" ? "Starting pages (optional; I'll discover the rest)" : "Pages (comma separated)", pages), label("What to make sure of (one per line)", criteria), label("Max steps", turns), label("Budget ($)", budget));
   if (plan.may_file_bugs && plan.environment !== "production") {
     const wrap = label("Let me ask to file bugs", bugs); wrap.classList.add("qa-edit-check"); form.append(wrap);
   }
@@ -367,6 +387,8 @@ function editForm(run, onDone) {
 
 async function startRun(run, edits, startButton) {
   startButton.disabled = true;
+  state.focus = run.id;
+  setOpen(true);
   try {
     const started = await agentApi(`/api/v2/qa/runs/${run.id}/start`, { method: "POST", body: JSON.stringify(edits || {}) });
     state.planEdits.delete(run.id);
@@ -516,6 +538,21 @@ function renderApprovalCard(message) {
   const approval = run.approvals.find((item) => item.id === approvalId);
   if (!approval) return holder;
   if (approval.kind === "outward_action") return outwardCard(run, approval);
+  if (approval.kind === "site_access") return outwardCard(run, approval);
+  if (approval.kind === "budget_extension") {
+    const view = approval.view || {};
+    const card = el("div", "qa-card");
+    card.append(el("strong", "", "More pages remain to test"));
+    card.append(el("p", "qa-muted", view.reason || "The current testing limits are almost used."));
+    card.append(field("New total limits", `${view.max_turns} steps · ${money(view.budget_usd)} total budget`));
+    holder.append(card);
+    if (approval.status === "pending") {
+      const actions = el("div", "qa-actions");
+      actions.append(button("Extend and continue", "button", () => decideApproval(approval, { decision: "approve" }, holder)), button("Finish with partial report", "button secondary", () => decideApproval(approval, { decision: "reject" }, holder)));
+      holder.append(actions);
+    } else holder.append(decidedLine(approval, "You extended the limits.", "You finished with a partial report."));
+    return holder;
+  }
   if (approval.kind === "question") return questionCard(run, approval);
   if (approval.kind === "login") return loginCard(run, approval);
   const body = el("div", "qa-card");
@@ -589,6 +626,8 @@ function renderWorkReport(runId, report) {
   if (report.row_count) summary.append(chip(`${report.row_count} found`, "green"));
   (report.files || []).forEach((file) => summary.append(button(`Download ${file.name}`, "mini-button file-chip", () => downloadFile(runId, file))));
   holder.append(summary);
+
+
   if (report.rows?.length) {
     const wrap = el("div", "qa-table-wrap");
     wrap.tabIndex = 0;
@@ -660,6 +699,19 @@ function renderReport(message) {
   if (report.bugs?.length) summary.append(chip(`${report.bugs.length} issue${report.bugs.length === 1 ? "" : "s"}`, "red"));
   holder.append(summary);
 
+  if (report.coverage) {
+    if (report.partial) holder.append(el("p", "qa-muted", "Partial coverage: some discovered pages remain untested."));
+    const coverage = el("details", "qa-cases");
+    coverage.append(el("summary", "", `Page coverage (${report.coverage.pages?.length || 0})`));
+    (report.coverage.pages || []).forEach((page) => {
+      const row = el("div", "qa-case");
+      row.append(el("strong", "", `${page.status === "tested" ? "Tested" : "Untested"}: ${page.url}`));
+      if (page.reason || page.status !== "tested") row.append(el("p", "qa-muted", page.reason || "Not tested before this session ended."));
+      coverage.append(row);
+    });
+    if (report.coverage.truncated) coverage.append(el("p", "qa-muted", "The discovery list reached its safety limit. More routes may exist."));
+    holder.append(coverage);
+  }
   if (report.bugs?.length) {
     const section = el("div", "qa-section");
     section.append(el("h4", "", "Issues"));
@@ -737,7 +789,12 @@ async function frameUrl(run) {
 
 // One open stream per Prism. Every <img> showing the screen (sidebar, enlarged popup) subscribes to it,
 // so the panel can re-render freely without dropping the connection.
-const liveScreen = { prismId: null, runId: null, controller: null, url: null, views: new Set(), retry: null };
+const liveScreen = { prismId: null, runId: null, controller: null, url: null, views: new Set(), retry: null, status: "Connecting live view…" };
+
+function liveStatus(text) {
+  liveScreen.status = text;
+  document.querySelectorAll(".qa-stream-status").forEach((node) => { node.textContent = text; });
+}
 
 function paintLive(url) {
   for (const image of [...liveScreen.views]) {
@@ -757,7 +814,8 @@ function frameBoundaries(buffer) {
     if (!length) { buffer = buffer.subarray(end + 4); continue; }
     if (buffer.length < end + 4 + length) break;
     frames.push(buffer.slice(end + 4, end + 4 + length));
-    buffer = buffer.subarray(end + 4 + length + 2);
+    // The trailing CRLF can arrive in the next network chunk.
+    buffer = buffer.subarray(end + 4 + length);
   }
   return { frames, rest: buffer };
 }
@@ -771,12 +829,15 @@ function indexOfBytes(buffer, pattern) {
 }
 
 async function readLive(controller, prismId) {
-  const response = await fetch(`/api/v2/prisms/${prismId}/computer/live`, { headers: authHeaders(), signal: controller.signal });
+  const response = await fetch(`/api/v2/prisms/${prismId}/computer/live`, { headers: authHeaders(), signal: controller.signal, cache: "no-store" });
   if (!response.ok || !response.body) throw new Error("asleep");
   const reader = response.body.getReader();
   let buffer = new Uint8Array(0);
   for (;;) {
-    const { done, value } = await reader.read();
+    const watchdog = setTimeout(() => controller.abort(), 10000);
+    let chunk;
+    try { chunk = await reader.read(); } finally { clearTimeout(watchdog); }
+    const { done, value } = chunk;
     if (done) return;
     const joined = new Uint8Array(buffer.length + value.length);
     joined.set(buffer); joined.set(value, buffer.length);
@@ -784,10 +845,16 @@ async function readLive(controller, prismId) {
     buffer = parsed.rest;
     const newest = parsed.frames.at(-1); // a slow tab shows the newest frame, never a backlog
     if (!newest || controller.signal.aborted) continue;
+    const url = URL.createObjectURL(new Blob([newest], { type: "image/jpeg" }));
+    const decoded = new Image();
+    decoded.src = url;
+    try { await decoded.decode(); } catch { URL.revokeObjectURL(url); continue; }
+    if (controller.signal.aborted || liveScreen.controller !== controller) { URL.revokeObjectURL(url); return; }
     const previous = liveScreen.url;
-    liveScreen.url = URL.createObjectURL(new Blob([newest], { type: "image/jpeg" }));
-    paintLive(liveScreen.url);
-    if (previous) URL.revokeObjectURL(previous);
+    liveScreen.url = url;
+    paintLive(url);
+    liveStatus("Live · continuous screen");
+    if (previous) setTimeout(() => URL.revokeObjectURL(previous), 1000);
   }
 }
 
@@ -801,22 +868,24 @@ function stopLive() {
 function startLive(prismId, runId) {
   if (liveScreen.controller && liveScreen.prismId === prismId && liveScreen.runId === runId) return;
   stopLive();
-  if (liveScreen.runId !== runId && liveScreen.url) { URL.revokeObjectURL(liveScreen.url); liveScreen.url = null; }
+  if ((liveScreen.prismId !== prismId || liveScreen.runId !== runId) && liveScreen.url) { URL.revokeObjectURL(liveScreen.url); liveScreen.url = null; }
   Object.assign(liveScreen, { prismId, runId });
   const controller = new AbortController();
   liveScreen.controller = controller;
+  liveStatus("Connecting live view…");
   readLive(controller, prismId)
     .catch(() => {})
     .finally(() => {
       if (liveScreen.controller !== controller) return;
       liveScreen.controller = null; // the computer was still starting, or the stream dropped: try again shortly
-      liveScreen.retry = setTimeout(() => { if (state.open && isActive(state.runs.get(state.focus))) startLive(prismId, runId); }, 2000);
+      liveStatus("Live view disconnected · reconnecting…");
+      liveScreen.retry = setTimeout(() => { if (state.open && state.prism?.id === prismId && state.focus === runId && isActive(state.runs.get(runId))) startLive(prismId, runId); }, 1000);
     });
 }
 
 // Streams only while the panel is open and a task is running; otherwise nothing is held open.
 function syncLive(run) {
-  if (state.open && state.prism && usesComputer(state.prism) && isActive(run)) startLive(state.prism.id, run.id);
+  if (state.open && state.prism && usesComputer(state.prism) && isActive(run) && !run.startup_warning) startLive(state.prism.id, run.id);
   else stopLive();
 }
 
@@ -1010,17 +1079,25 @@ function renderPanel() {
   renderEnlarged();
   const caption = el("div", "qa-caption");
   const live = isActive(run);
-  const waiting = run?.state === "waiting_approval";
+  const waiting = run?.state === "waiting_approval" || Boolean(run?.startup_warning);
   caption.append(el("span", `qa-live${live ? " on" : ""}${waiting ? " waiting" : ""}`), el("strong", "", `${name}'s screen`));
   const offline = !run && state.computer?.state === "unavailable";
   caption.append(el("span", "qa-muted", run ? stateText(run) : offline ? "Offline" : state.computers ? "Asleep" : "Idle"));
   body.append(caption);
+  if (live) {
+    const status = el("p", "qa-muted qa-stream-status", run.startup_warning ? "Live view will connect when the testing workspace is available." : liveScreen.status);
+    status.setAttribute("role", "status");
+    body.append(status);
+  } else if (run && (run.frame != null || run.screen != null || liveScreen.runId === run.id && liveScreen.url)) {
+    body.append(el("p", "qa-muted", "Last screen · task ended"));
+  }
   if (!run) {
     if (offline) body.append(el("p", "qa-error", state.computer.reason || "My computer is offline right now."));
     else if (work) body.append(el("p", "qa-empty", `Asleep. ${name}'s computer wakes up when you give it a task, for example "find five fintech companies in Bangalore and list their websites". You'll watch the work here.`));
     else body.append(el("p", "qa-empty", `Ask ${name} to test a website, for example "test example.com and check the contact form". You'll watch the work here.`));
   } else {
-    if (run.state === "starting") body.append(el("p", "qa-now live", "Starting my computer…"));
+    if (run.startup_warning) body.append(el("p", "qa-now qa-waiting", run.startup_warning));
+    else if (run.state === "starting") body.append(el("p", "qa-now live", run.activity || "Connecting to my testing workspace…"));
     else if (waiting) body.append(el("p", "qa-now qa-waiting", "Waiting for you in the chat"));
     else if (run.activity) body.append(el("p", `qa-now${live ? " live" : ""}`, run.activity));
     if (isWork(run) && run.checklist?.length) body.append(checklistBlock(run));

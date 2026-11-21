@@ -106,7 +106,7 @@ def test_search_jumps_into_history_and_returns_to_latest(page: Page) -> None:
     ask(page, "What else needs my attention across the release team this afternoon?")
     expect(page.locator(".turn.assistant")).to_have_count(2)
 
-    page.get_by_role("button", name="Search").click()
+    page.locator("#agent-search-button").click()
     search = page.get_by_label("Search your conversation with Prism")
     expect(search).to_be_focused()
     search.fill("What needs my attention")  # only the first question; the second says "What else"
@@ -135,12 +135,12 @@ def test_auto_resolves_ambiguous_request_without_source_picker(page: Page, e2e_a
 def test_search_without_matches_says_so(page: Page) -> None:
     ask(page, QUESTION)
     expect(page.locator(".turn.assistant", has_text="release schema")).to_be_visible()
-    page.get_by_role("button", name="Search").click()
+    page.locator("#agent-search-button").click()
     page.get_by_label("Search your conversation with Prism").fill("zzz-nothing-matches")
     expect(page.locator("#agent-search-results")).to_contain_text("No messages match")
     page.keyboard.press("Escape")
     expect(page.locator("#agent-search-panel")).to_be_hidden()
-    expect(page.get_by_role("button", name="Search")).to_be_focused()
+    expect(page.locator("#agent-search-button")).to_be_focused()
 
 
 def test_workspace_has_no_horizontal_scroll_and_exposes_a_live_region(page: Page) -> None:

@@ -2,16 +2,19 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from decimal import Decimal
 from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     DateTime,
     Enum,
     Float,
     ForeignKey,
     Index,
     Integer,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
@@ -32,6 +35,15 @@ class Prism(TimestampMixin, Base):
 
     __tablename__ = "prisms"
     __table_args__ = (
+        CheckConstraint(
+            "reports_to_prism_id IS NULL OR reports_to_prism_id <> id", name="no_self_reporting"
+        ),
+        Index(
+            "uq_prisms_chief_of_staff",
+            "is_chief_of_staff",
+            unique=True,
+            postgresql_where=text("is_chief_of_staff AND state != 'ARCHIVED'"),
+        ),
         Index(
             "uq_prisms_active_normalized_name",
             "normalized_name",
@@ -41,9 +53,30 @@ class Prism(TimestampMixin, Base):
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    code: Mapped[str] = mapped_column(
+        String(24), nullable=False, unique=True, server_default=text("prism_next_code()")
+    )
+    legacy_code: Mapped[str] = mapped_column(
+        String(24),
+        nullable=False,
+        unique=True,
+        server_default=text("'PR-' || nextval('prism_code_seq')::text"),
+    )
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     normalized_name: Mapped[str] = mapped_column(String(120), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
+    job_role: Mapped[str] = mapped_column(
+        String(120), nullable=False, default="Prism Specialist", server_default="Prism Specialist"
+    )
+    department: Mapped[str] = mapped_column(
+        String(100), nullable=False, default="Operations", server_default="Operations"
+    )
+    reports_to_prism_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("prisms.id", ondelete="SET NULL"), index=True
+    )
+    is_chief_of_staff: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
     template_key: Mapped[str] = mapped_column(String(80), nullable=False, default="blank")
     template_version: Mapped[Optional[str]] = mapped_column(String(80))
     color: Mapped[Optional[str]] = mapped_column(String(20))
@@ -55,6 +88,11 @@ class Prism(TimestampMixin, Base):
         String(10), nullable=False, default="never", server_default="never"
     )
     role_instructions: Mapped[Optional[str]] = mapped_column(Text)
+    # Agent setup: per-tool Allowed / Ask first / Off (None = derive from capabilities) and limits.
+    tool_grants: Mapped[Optional[dict]] = mapped_column(JSONB)
+    max_turns: Mapped[Optional[int]] = mapped_column(Integer)
+    run_budget_usd: Mapped[Optional[Decimal]] = mapped_column(Numeric(10, 2))
+    monthly_budget_usd: Mapped[Optional[Decimal]] = mapped_column(Numeric(10, 2))
     # "all": this Prism knows everyone Prism knows; "selected": only the people in prism_people.
     people_scope: Mapped[str] = mapped_column(
         String(20), nullable=False, default="all", server_default="all"
@@ -67,6 +105,18 @@ class Prism(TimestampMixin, Base):
     )
     lifecycle_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     agreement_revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    @property
+    def tools_allowed(self) -> int:
+        from app.services.prism_presets import effective_grants
+
+        return sum(1 for grant in effective_grants(self).values() if grant == "allowed")
+
+    @property
+    def tools_ask_first(self) -> int:
+        from app.services.prism_presets import effective_grants
+
+        return sum(1 for grant in effective_grants(self).values() if grant == "ask_first")
 
     lifecycle_events: Mapped[list["PrismLifecycleEvent"]] = relationship(
         "PrismLifecycleEvent",

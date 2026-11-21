@@ -5,17 +5,19 @@ the v2.1 agent routes prevents unfinished multi-Prism behavior from changing the
 working manager-agent journey.
 """
 
+import logging
 import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import get_settings
 from app.db.session import get_db
 from app.models.agent_v21 import AgentJob, AgentPreference, AgentThreadMessage
 from app.models.enums import PrismLifecycleState
+from app.models.microsoft_connection import MicrosoftConnection
 from app.models.prism_v22 import (
     Prism,
     PrismLifecycleEvent,
@@ -29,6 +31,15 @@ from app.schemas.agent_v21 import (
     PrismPreferenceCreate,
     PrismPreferenceUpdate,
 )
+from app.schemas.prism_skill import (
+    PrismSkillEdit,
+    SkillApproval,
+    SkillAssign,
+    SkillContent,
+    SkillInterviewAnswer,
+    SkillRead,
+    SkillUpdate,
+)
 from app.schemas.prism_v22 import (
     PrismAgreementConfirm,
     PrismAgreementConfirmationRead,
@@ -36,6 +47,8 @@ from app.schemas.prism_v22 import (
     PrismBudgetUpdate,
     PrismConversationRead,
     PrismCreate,
+    PrismDescriptionRead,
+    PrismDescriptionRequest,
     PrismFeedbackCreate,
     PrismFoundationRead,
     PrismIncidentHistoryRead,
@@ -52,23 +65,28 @@ from app.schemas.prism_v22 import (
     PrismObservationsRead,
     PrismOnboardingAnswerInput,
     PrismOnboardingSessionRead,
+    PrismOrganizationRead,
     PrismPresenceBeat,
     PrismRead,
     PrismRunPage,
     PrismRunRead,
+    PrismSearchResultRead,
     PrismSignalMute,
     PrismTeamsEventsPage,
     PrismTeamsSourcePolicyRead,
     PrismTeamsSourcePolicyUpdate,
     PrismTeamsSyncRead,
+    PrismToolsRead,
     PrismTriggerPolicyRead,
     PrismTriggerPolicyUpdate,
     PrismUpdate,
     PrismUpdateSummaryRead,
 )
 from app.services.agent_preference_service import AgentPreferenceService
+from app.services.prism_adoption_service import PrismAdoptionService
 from app.services.prism_agreement_service import PrismAgreementService
 from app.services.prism_conversation_service import PrismConversationService
+from app.services.prism_description_service import PrismDescriptionService
 from app.services.prism_draft_service import PrismDraftService
 from app.services.prism_health_service import PrismHealthService
 from app.services.prism_incident_service import PrismIncidentService
@@ -77,7 +95,11 @@ from app.services.prism_migration_service import PrismMigrationService
 from app.services.prism_notification_service import PrismNotificationService
 from app.services.prism_observation_service import PrismObservationService
 from app.services.prism_onboarding_service import PrismOnboardingService
+from app.services.prism_organization_service import DEPARTMENTS
+from app.services.prism_presets import tools_for
 from app.services.prism_run_service import PrismRunService
+from app.services.prism_search_service import PrismSearchService
+from app.services.prism_skill_service import PrismSkillService
 from app.services.prism_teams_policy_service import PrismTeamsPolicyService
 from app.services.prism_tuning_service import PrismTuningService
 
@@ -199,6 +221,160 @@ def create_prism(payload: PrismCreate, db: Session = Depends(get_db)) -> Prism:
     return PrismLifecycleService.create(db, payload)
 
 
+@router.get(
+    "/search",
+    response_model=list[PrismSearchResultRead],
+    dependencies=[Depends(require_v22)],
+)
+def search_prisms(
+    q: str = Query(min_length=2, max_length=80), db: Session = Depends(get_db)
+) -> list[dict]:
+    """Find names and message text in non-archived canonical Prism conversations."""
+
+    return PrismSearchService.search(db, q)
+
+
+@router.get(
+    "/organization", response_model=PrismOrganizationRead, dependencies=[Depends(require_v22)]
+)
+def organization(db: Session = Depends(get_db)) -> PrismOrganizationRead:
+    members = list(
+        db.scalars(
+            select(Prism)
+            .where(Prism.state != PrismLifecycleState.ARCHIVED)
+            .order_by(Prism.created_at, Prism.id)
+        )
+    )
+    owner_name = (
+        db.scalar(
+            select(MicrosoftConnection.display_name)
+            .order_by(MicrosoftConnection.last_connected_at.desc())
+            .limit(1)
+        )
+        or "You"
+    )
+    chief = next((member for member in members if member.is_chief_of_staff), None)
+    return PrismOrganizationRead(
+        owner_name=owner_name,
+        chief_of_staff_id=chief.id if chief else None,
+        departments=list(dict.fromkeys(DEPARTMENTS + [member.department for member in members])),
+        members=[PrismRead.model_validate(member) for member in members],
+    )
+
+
+@router.post(
+    "/generate-description",
+    response_model=PrismDescriptionRead,
+    dependencies=[Depends(require_v22)],
+)
+def generate_description(payload: PrismDescriptionRequest) -> dict:
+    """Draft a job description from the name and role. Nothing is saved; the manager edits it first."""
+
+    return {"description": PrismDescriptionService.draft(payload)}
+
+
+@router.post(
+    "/adopt-engine-agents",
+    response_model=list[PrismRead],
+    dependencies=[Depends(require_v22)],
+)
+def adopt_engine_agents(db: Session = Depends(get_db)) -> list[Prism]:
+    """Make every engine-only agent a Prism. Safe to call again: already adopted agents are skipped."""
+
+    from app.services import qa_run_service
+    from app.services.qa_swarm_client import SwarmError
+
+    if not get_settings().prism_v24_enabled:
+        return []
+    try:
+        with qa_run_service.make_client() as client:
+            return PrismAdoptionService.adopt_all(db, client)
+    except SwarmError:
+        return []
+
+
+@router.get("/{prism_id}/tools", response_model=PrismToolsRead, dependencies=[Depends(require_v22)])
+def prism_tools(prism_id: uuid.UUID, db: Session = Depends(get_db)) -> dict:
+    return {"tools": tools_for(PrismLifecycleService.get(db, prism_id))}
+
+
+@router.get("/skills/library", response_model=list[SkillRead], dependencies=[Depends(require_v22)])
+def skill_library(db: Session = Depends(get_db)):
+    return PrismSkillService.library(db)
+
+
+@router.post(
+    "/skills/library",
+    response_model=SkillRead,
+    status_code=201,
+    dependencies=[Depends(require_v22)],
+)
+def create_skill(payload: SkillContent, db: Session = Depends(get_db)):
+    return PrismSkillService.create(db, payload)
+
+
+@router.put(
+    "/skills/library/{skill_id}", response_model=SkillRead, dependencies=[Depends(require_v22)]
+)
+def update_skill(skill_id: uuid.UUID, payload: SkillUpdate, db: Session = Depends(get_db)):
+    return PrismSkillService.update(db, skill_id, payload)
+
+
+@router.get("/{prism_id}/skills", dependencies=[Depends(require_v22)])
+def prism_skills(prism_id: uuid.UUID, db: Session = Depends(get_db)) -> dict:
+    return PrismSkillService.for_prism(db, prism_id)
+
+
+@router.post("/{prism_id}/skills/from-onboarding", dependencies=[Depends(require_v22)])
+def create_onboarding_skills(prism_id: uuid.UUID, db: Session = Depends(get_db)) -> dict:
+    return PrismSkillService.from_onboarding(db, prism_id)
+
+
+@router.put("/{prism_id}/skills/{skill_id}/definition", dependencies=[Depends(require_v22)])
+def edit_private_skill(
+    prism_id: uuid.UUID, skill_id: uuid.UUID, payload: PrismSkillEdit, db: Session = Depends(get_db)
+) -> dict:
+    return PrismSkillService.edit_private(db, prism_id, skill_id, payload)
+
+
+@router.put("/{prism_id}/skills/{skill_id}", dependencies=[Depends(require_v22)])
+def assign_skill(
+    prism_id: uuid.UUID, skill_id: uuid.UUID, payload: SkillAssign, db: Session = Depends(get_db)
+) -> dict:
+    return PrismSkillService.assign(db, prism_id, skill_id, payload)
+
+
+@router.post("/{prism_id}/skills/interview/start", dependencies=[Depends(require_v22)])
+def start_skill_interview(prism_id: uuid.UUID, db: Session = Depends(get_db)) -> dict:
+    return PrismSkillService.start(db, prism_id)
+
+
+@router.post("/{prism_id}/skills/interview/answer", dependencies=[Depends(require_v22)])
+def answer_skill_interview(
+    prism_id: uuid.UUID, payload: SkillInterviewAnswer, db: Session = Depends(get_db)
+) -> dict:
+    return PrismSkillService.answer(db, prism_id, payload)
+
+
+@router.post("/{prism_id}/skills/interview/approve", dependencies=[Depends(require_v22)])
+def approve_prism_skills(
+    prism_id: uuid.UUID, payload: SkillApproval, db: Session = Depends(get_db)
+) -> dict:
+    return PrismSkillService.approve(db, prism_id, payload)
+
+
+@router.get("/by-code/{code}", response_model=PrismRead, dependencies=[Depends(require_v22)])
+def get_prism_by_code(code: str, db: Session = Depends(get_db)) -> Prism:
+    from app.services.errors import NotFoundError
+
+    prism = db.scalar(
+        select(Prism).where(or_(Prism.code == code, Prism.legacy_code == code.upper()))
+    )
+    if prism is None:
+        raise NotFoundError("That Prism could not be found")
+    return prism
+
+
 @router.get("/{prism_id}", response_model=PrismRead, dependencies=[Depends(require_v22)])
 def get_prism(prism_id: uuid.UUID, db: Session = Depends(get_db)) -> Prism:
     return PrismLifecycleService.get(db, prism_id)
@@ -301,7 +477,20 @@ def confirm_working_agreement(
     prism_id: uuid.UUID, payload: PrismAgreementConfirm, db: Session = Depends(get_db)
 ) -> dict:
     agreement, prism = PrismAgreementService.confirm(db, prism_id, payload)
-    return {"agreement": agreement, "prism": prism}
+    skills_created = 0
+    skills_error = None
+    try:
+        skills_created = PrismSkillService.from_onboarding(db, prism_id)["skills_created"]
+    except Exception:  # noqa: BLE001 - activation is committed; optional skills are retryable
+        db.rollback()
+        logging.getLogger(__name__).info("onboarding_skill_creation_deferred")
+        skills_error = "Skills could not be created. Retry from Skills in this Prism's settings."
+    return {
+        "agreement": agreement,
+        "prism": prism,
+        "skills_created": skills_created,
+        "skills_error": skills_error,
+    }
 
 
 @router.get(

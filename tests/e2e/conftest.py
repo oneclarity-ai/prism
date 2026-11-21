@@ -121,7 +121,7 @@ class FakeGraph:
             }
         ]
 
-    def send_chat_message(self, chat_id: str, content: str):
+    def send_chat_message(self, chat_id: str, content: str, signature: str | None = None):
         if chat_id in FakeGraph.fail_sends_for:
             from app.services.errors import ExternalServiceError
 
@@ -353,7 +353,7 @@ def page(request, browser, e2e_app):
     FakeGraph.empty_chats = False
     FakeGraph.hostile = False
     width, height = request.param
-    context = browser.new_context(viewport={"width": width, "height": height})
+    context = browser.new_context(base_url=e2e_app.url, viewport={"width": width, "height": height})
     # Land on the Agent workspace directly; the sidebar is collapsed at phone width.
     context.add_init_script("localStorage.setItem('manager-agent-tab', 'agent')")
     page = context.new_page()

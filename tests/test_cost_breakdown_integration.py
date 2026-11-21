@@ -60,6 +60,18 @@ def test_sources_split_prism_from_swarm_and_keep_exact_cost():
         assert moved("prism") == Decimal("0.0000123456")  # six decimals survive, no rounding
         assert moved("swarm") == Decimal("0.0005567891")
         assert moved("swarm", "cached_input_tokens") == 400
+        before_providers = {
+            row["group"]: Decimal(row["estimated_cost_usd"]) for row in before["by_provider"]
+        }
+        after_providers = {
+            row["group"]: Decimal(row["estimated_cost_usd"]) for row in after["by_provider"]
+        }
+        assert after_providers["azure_openai"] - before_providers.get("azure_openai", 0) == Decimal(
+            "0.0000123456"
+        )
+        assert after_providers["qa_workspace"] - before_providers.get("qa_workspace", 0) == Decimal(
+            "0.0005567891"
+        )
         swarm_models = {row["group"] for row in after["by_model"]["swarm"]}
         assert "gpt-5-mini" in swarm_models and "gpt-5-nano" not in swarm_models
         assert "prism_computer_tasks" in {row["group"] for row in after["by_feature"]["swarm"]}

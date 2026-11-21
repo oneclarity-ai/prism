@@ -63,7 +63,6 @@ def seed_org() -> None:
 def open_people(page: Page) -> None:
     open_sidebar_if_narrow(page)
     page.locator("#nav-settings").click()
-    page.get_by_role("button", name="Teams", exact=True).click()
     page.get_by_role("tab", name="People").click()
 
 

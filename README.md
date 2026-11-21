@@ -262,6 +262,100 @@ Open these URLs in the same computer:
 At this stage, the dashboard and core API should work without Microsoft credentials. Do not
 start automation yet.
 
+### Unified Prism + computer workspace (local development)
+
+QA Prisms now discover internal website pages automatically. Say “Test https://example.com”;
+you do not need to list routes. New plans show **Discover pages automatically**, request
+separate approvals for new sites and secure logins, and ask before extending testing limits.
+Reports distinguish tested pages from discovered pages left untested. See the
+[website testing runbook](docs/v2.4-release-runbook.md#website-testing-automatic-page-discovery)
+for dummy-data rules, limits and restart instructions.
+
+Prism needs `PRISM_V22_ENABLED=true`, `PRISM_V24_ENABLED=true`, and the `QA_SWARM_*` connection
+settings from `.env.example` for Operations to appear and load data. After both projects are
+configured and migrated, start the Prism UI, the swarm API, and its worker together with:
+
+```bash
+make dev-unified SWARM_ROOT="/path/to/agentic swarm"
+```
+
+Stop any earlier swarm `scripts/dev.sh` session first; that older launcher also starts its
+separate frontend and occupies the swarm API port. The unified command checks ports 8000, 8080,
+and 5173 before starting.
+
+Open <http://127.0.0.1:8000/dashboard/>. **Workspace** in the Prism sidebar contains three groups:
+**Organization** (org chart and its departments), **Work** (Dashboard, Tasks, Runs, Approvals,
+Bugs), and **Setup** (Agents, Target apps, Secrets, Usage & analytics). These pages follow the
+swarm interface while using Prism's shared neutral design system. The launcher does not start
+the old swarm React UI on port `5173`; that frontend remains
+in its own repository for development and debugging. Prism calls the swarm API from the server, so
+the browser needs only the Prism URL and operator token when configured. Browser workers still need
+the swarm project's Docker setup.
+
+The sidebar has **Chat** (your Prisms), **Workspace** (the pages above), and **Search**.
+The selected control shows its icon and title; the other controls stay icon-only. Search opens a
+field above the Prism list, finds non-archived Prism names and private conversation messages, and
+keeps the list visible while you search. Selecting a message opens that point in its Prism's chat.
+
+The dashboard uses one Notion-style design system across chat, approvals, computer work, and
+Workspace pages, with System, Light, and Dark preferences. The sidebar's top row switches between
+Chats and Workspace, with a Search button at the right edge; the new **Spending** page and
+the Prisms page (cards or org chart view) live under Workspace. There is no Home page when Prisms are on. There is no top bar. The profile menu at the bottom of the
+sidebar offers Settings, Theme, System status and Log out; Settings is a modal with Account,
+Preferences, Notifications, Workspace, Connections and Developer sections and a settings search.
+Menus support keyboard navigation and the theme menu fits to the viewport. The app opens on Chats. Search (or Ctrl/Cmd+K) opens a universal search across Prisms, chats, pages, settings and actions.
+See [the design system guide](docs/prism-design-system.md) for tokens, components, and verification.
+
+Prisms can have role-specific, instruction-only skills for any department. Manage reusable
+definitions in **Workspace → Skills** or **Settings → Workspace → Skills**. Confirming chat
+onboarding automatically creates three private skills and posts a notification in the chat.
+Edit them on the Prism's **Skills** tab; manage permissions separately on **Tools**.
+There is no second questionnaire, and generated skills never change tool access.
+See [Prism skills](docs/prism-skills.md) for setup, permissions, revisions and migration notes.
+
+Dashboard pages now have direct URLs, including `/spending`, `/run-analytics` and `/tasks`.
+Each Prism receives a permanent code during creation, visible in its onboarding/chat header
+and its URL, such as `/prisms/pA7xQ2` (lowercase `p` plus five random letters/digits).
+Codes are case-sensitive; old `PR-` links still work. Refresh and Back/Forward restore the selected page.
+Run `make migrate` before restarting with this update to assign codes to existing Prisms.
+See [dashboard navigation](docs/dashboard-navigation.md) for the route map and migration notes.
+
+Workspace Tasks supports search, agent/target filters, status counts, and list/board layouts.
+Runs groups sessions by date; Approvals includes pending decisions and decision history. Login
+and question approvals still open in the owning Prism's chat. Organization supports drag to pan,
+scroll to zoom, fit-to-view, department focus, and expanding/collapsing reports. It shows only your non-archived Prisms, including those
+that have not run yet. The connected user appears at the root, followed by the Chief of Staff
+and the Prism team. Saved reporting lines and departments define the chart; seeded roles,
+vacant seats, and standalone swarm agents are omitted. A Prism card opens its conversation.
+"Prism" and "agent" refer to the same user-created assistant. Usage filters query the engine for the selected
+agent and period. Task/run lists show the latest 200 records; their filters apply to that subset.
+
+New task, target, and secret forms save through explicit server-side API adapters. New Prisms
+appear in Organization automatically.
+Saving a task does not start a computer run; start work from its Prism conversation. New Prism
+uses the existing Create Prism flow. Secret values are write-only. Deletion requires confirmation,
+and approving a computer action uses the existing Prism approval checks. Bug email/Jira/manager
+integrations remain unavailable, matching the swarm's unfinished actions; their buttons are disabled.
+When v2.4 is disabled, the earlier Work and Approvals navigation remains available.
+
+### AI employee team
+
+Create Prism now collects **Role**, **Department**, and **Reports to**, along with its name and
+responsibilities. New team members default to reporting to Chief of Staff. The first Prism in a
+new team is offered as Chief of Staff, who reports directly to the user. Existing Prisms can be
+edited from their chat's **Settings → Profile → Edit role, department & reporting**.
+
+Migration `20261120_0045` preserves Prism identities and histories, assigns departments to
+existing Prisms from their roles, reuses the existing Chief of Staff (or Executive Assistant),
+and places the other existing team members beneath it. Apply pending migrations with
+`.venv/bin/alembic upgrade head` before using this release. See
+[Prism team organization](docs/prism-team-organization.md) for the local assignments and checks.
+
+The server rejects reporting cycles, self-reporting, archived managers, and a second Chief of
+Staff. Archiving a manager moves its reports to Chief of Staff; Chief of Staff cannot be archived
+while other team members remain. Roles and departments inform onboarding and working instructions;
+reporting lines do not expand tool permissions or grant access to another Prism's private memory.
+
 ### 6. Register the Microsoft Entra application
 
 Prism uses delegated Microsoft Graph permissions. Messages and email are sent as the

@@ -51,6 +51,7 @@ from app.models.message import Message
 from app.models.microsoft_connection import MicrosoftConnection
 from app.models.microsoft_oauth_state import MicrosoftOAuthState
 from app.models.microsoft_subscription import MicrosoftTeamsSubscription
+from app.models.prism_skill import PrismSkill, PrismSkillAssignment, PrismSkillSetup
 from app.models.prism_v22 import (
     Prism,
     PrismBudget,
@@ -131,6 +132,9 @@ __all__ = [
     "Project",
     "ProviderCredential",
     "Prism",
+    "PrismSkill",
+    "PrismSkillAssignment",
+    "PrismSkillSetup",
     "PrismExternalEvent",
     "PrismLifecycleEvent",
     "PrismOnboardingSession",

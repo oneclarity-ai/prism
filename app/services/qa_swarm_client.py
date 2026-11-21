@@ -103,6 +103,154 @@ class QaSwarmClient:
     def status(self) -> dict:
         return self._json("GET", "/runtime/status")
 
+    @staticmethod
+    def _workspace_run(row: dict) -> dict:
+        return {
+            key: row.get(key)
+            for key in (
+                "id",
+                "task_id",
+                "agent_id",
+                "task_title",
+                "agent_name",
+                "kind",
+                "trigger",
+                "runtime",
+                "model",
+                "status",
+                "cancel_requested",
+                "created_at",
+                "started_at",
+                "ended_at",
+                "input_tokens",
+                "output_tokens",
+                "total_tokens",
+                "cost_usd",
+                "total_cost_usd",
+                "summary",
+                "error",
+                "active_tool",
+            )
+        }
+
+    def workspace_data(
+        self, section: str, *, days: int = 30, agent_id: str | None = None
+    ) -> list[dict] | dict:
+        """Read-only console data through an explicit allowlist; never proxy arbitrary paths."""
+        paths = {
+            "agents": ("/agents", {}),
+            "tasks": ("/tasks", {"limit": 200}),
+            "runs": ("/runs", {"limit": 200, "top_level": True}),
+            "approvals": ("/approvals", {}),
+            "bugs": ("/bugs", {"limit": 200}),
+            "positions": ("/org/positions", {}),
+            "targets": ("/targets", {}),
+            "secrets": ("/secrets", {}),
+            "usage": ("/usage", {}),
+            "analytics": (
+                "/analytics",
+                {"days": days, **({"agent_id": agent_id} if agent_id else {})},
+            ),
+            "status": ("/runtime/status", {}),
+        }
+        if section not in paths:
+            raise ValueError("Unknown workspace section")
+        path, params = paths[section]
+        result = self._json("GET", path, params=params)
+        if section == "agents":
+            return [
+                {
+                    **{
+                        key: row.get(key)
+                        for key in (
+                            "id",
+                            "key",
+                            "name",
+                            "role",
+                            "description",
+                            "runtime",
+                            "model",
+                            "status",
+                            "reports_to_id",
+                            "run_budget_usd",
+                            "monthly_budget_usd",
+                            "created_at",
+                            "updated_at",
+                        )
+                    },
+                    "tool_count": sum(
+                        grant == "allowed" for grant in (row.get("tool_grants") or {}).values()
+                    ),
+                    "ask_first_count": sum(
+                        grant == "ask_first" for grant in (row.get("tool_grants") or {}).values()
+                    ),
+                }
+                for row in result
+            ]
+        if section == "runs":
+            return [self._workspace_run(row) for row in result]
+        if section == "approvals":
+            safe_args = ("site", "summary", "question", "title", "reason")
+            return [
+                {
+                    **{key: value for key, value in row.items() if key != "payload"},
+                    "payload": {"arguments": {key: args[key] for key in safe_args if key in args}},
+                }
+                for row in result
+                for payload in [row.get("payload")]
+                for raw_args in [payload.get("arguments") if isinstance(payload, dict) else None]
+                for args in [raw_args if isinstance(raw_args, dict) else {}]
+            ]
+        if section == "secrets":
+            return [
+                {key: row.get(key) for key in ("id", "name", "scope", "created_at")}
+                for row in result
+            ]
+        return result
+
+    def workspace_save(self, section: str, data: dict, record_id: str | None = None) -> dict:
+        paths = {
+            "tasks": "/tasks",
+            "positions": "/org/positions",
+            "targets": "/targets",
+            "secrets": "/secrets",
+        }
+        if section not in paths or (section == "secrets" and record_id is not None):
+            raise ValueError("Unsupported Workspace action")
+        if record_id is not None:
+            # IDs are validated again here for callers outside the HTTP adapter.
+            from uuid import UUID
+
+            path = f"{paths[section]}/{UUID(record_id)}"
+        else:
+            path = paths[section]
+        result = self._json("PATCH" if record_id else "POST", path, json=data)
+        if section == "secrets":
+            return {key: result.get(key) for key in ("id", "name", "scope", "created_at")}
+        return result
+
+    def workspace_delete(self, section: str, record_id: str) -> None:
+        from uuid import UUID
+
+        paths = {"positions": "/org/positions", "targets": "/targets", "secrets": "/secrets"}
+        if section not in paths:
+            raise ValueError("Unsupported Workspace action")
+        self._request("DELETE", f"{paths[section]}/{UUID(record_id)}")
+
+    def workspace_run_detail(self, run_id: str) -> dict:
+        """Gather the same run views used by the swarm console in one authenticated session."""
+        return {
+            "run": self._workspace_run(self.run(run_id)),
+            "events": self.events(run_id, 0)[-200:],
+            "subagents": self._json("GET", f"/runs/{run_id}/subagents"),
+            "test_cases": self.test_cases(run_id),
+            "bugs": self.bugs(run_id),
+            "artifacts": [
+                {key: row.get(key) for key in ("id", "kind", "mime", "created_at")}
+                for row in self.artifacts(run_id)
+            ],
+        }
+
     def agent_id(self) -> str:
         wanted = self.settings.qa_swarm_agent.strip().lower()
         agents = self._json("GET", "/agents")
@@ -110,6 +258,9 @@ class QaSwarmClient:
             if str(agent.get("name", "")).strip().lower() == wanted:
                 return agent["id"]
         raise SwarmError("My testing workspace doesn't have a tester set up yet.")
+
+    def list_agents(self) -> list[dict]:
+        return self._json("GET", "/agents")
 
     def find_agent(self, key: str) -> dict | None:
         return next((a for a in self._json("GET", "/agents") if a.get("key") == key), None)
@@ -180,8 +331,28 @@ class QaSwarmClient:
         )
         return created["id"]
 
+    def allow_target_origin(self, target_id: str, origin: str) -> None:
+        """Add only the login site the manager approved to this test target's browser scope."""
+
+        target = self._json("GET", f"/targets/{target_id}")
+        base_origin = _origin(str(target["base_url"]))
+        existing = list(target.get("extra_origins") or [])
+        if origin != base_origin and origin not in existing and "*" not in existing:
+            self._json(
+                "PATCH",
+                f"/targets/{target_id}",
+                json={"extra_origins": [*existing, origin]},
+            )
+
     def create_task(
-        self, *, title: str, goal: str, agent_id: str, target_id: str | None, scope: dict
+        self,
+        *,
+        title: str,
+        goal: str,
+        agent_id: str,
+        target_id: str | None,
+        scope: dict,
+        operation_key: str | None = None,
     ) -> str:
         body: dict[str, Any] = {
             "title": title[:300],
@@ -189,16 +360,26 @@ class QaSwarmClient:
             "agent_id": agent_id,
             "scope": scope,
         }
+        if operation_key:
+            body["operation_key"] = operation_key
         if target_id:
             body["target_app_id"] = target_id
         return self._json("POST", "/tasks", json=body)["id"]
 
     def start_run(
-        self, task_id: str, *, max_turns: int, budget_usd: float, pages: list[str]
+        self,
+        task_id: str,
+        *,
+        max_turns: int,
+        budget_usd: float,
+        pages: list[str],
+        operation_key: str | None = None,
     ) -> dict:
         body: dict[str, Any] = {"mode": "single", "max_turns": max_turns, "budget_usd": budget_usd}
         if pages:
             body["pages"] = pages
+        if operation_key:
+            body["operation_key"] = operation_key
         return self._json("POST", f"/tasks/{task_id}/runs", json=body)
 
     # ---------- runs ----------
@@ -237,9 +418,16 @@ class QaSwarmClient:
         return self._json("GET", "/approvals")
 
     def decide(
-        self, approval_id: str, decision: str, comment: str = "", payload: dict | None = None
+        self,
+        approval_id: str,
+        decision: str,
+        comment: str = "",
+        payload: dict | None = None,
+        operation_key: str | None = None,
     ) -> dict:
         body: dict[str, Any] = {"decision": decision, "comment": comment}
         if payload:
             body["payload"] = payload
+        if operation_key:
+            body["operation_key"] = operation_key
         return self._json("POST", f"/approvals/{approval_id}/decision", json=body)
