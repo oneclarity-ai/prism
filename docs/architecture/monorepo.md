@@ -120,6 +120,16 @@ make test-integration            # needs local PostgreSQL
 Secrets stay in `apps/prism/.env` and `apps/swarm/backend/.env` (git-ignored). Compose additionally reads
 `PRISM_DATABASE_PASSWORD` from a root `.env` or the shell.
 
+## Cutover notes
+
+- Existing Prism computers (Docker containers `prism-computer-*`) keep bind mounts to the swarm path they were
+  created under. When you stop using `~/Downloads/agentic swarm`, remove the stopped containers once with
+  `docker rm $(docker ps -aq --filter name=prism-computer)`. The swarm recreates each one on next use and keeps
+  its named browser-profile volume (logins survive). Do this before deleting the old folder.
+- Copy the git-ignored runtime data when moving a checkout: `apps/swarm/backend/var` (artifacts, computer work
+  directories, logs) and `apps/swarm/var`, plus both `.env` files.
+- Stop any dev servers started from the old folders before running `make dev-all` (ports 8000/8080).
+
 ## Rollback
 
 - Branch `v2` before the migration is commit `c8e0372` (checkpoint); the original layout is intact there.
