@@ -13,8 +13,9 @@ work is delegated to an external swarm engine. This is pre-release software.
 - PostgreSQL (not SQLite), synchronous SQLAlchemy 2 ORM, psycopg 3, Alembic migrations.
 - Static HTML/CSS and plain JavaScript ES modules; no Node package or frontend build pipeline.
 - HTTPX for integrations; cryptography/Fernet for stored credentials.
-- Microsoft Graph delegated OAuth; LLM adapters for Azure OpenAI, OpenAI and local Codex CLI,
-  plus a fake provider for tests. These are custom services, not an orchestration framework.
+- Microsoft Graph delegated OAuth; LLM adapters for Azure OpenAI, OpenAI, Anthropic (Claude),
+  DeepSeek, a generic OpenAI-compatible endpoint, and local Codex CLI, plus a fake provider for
+  tests. These are custom services, not an orchestration framework.
 - pytest, Playwright, Ruff, mypy, pip-audit; Docker/Compose for deployment.
 
 ## 3. Repository structure

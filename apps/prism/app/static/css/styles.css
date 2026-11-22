@@ -812,7 +812,11 @@ details[open] > summary::before { transform: rotate(90deg); }
 .provider-key-form { display: grid; gap: 14px; padding: 16px 0 4px; border-top: 1px solid var(--border); }
 .field { display: grid; gap: 4px; }
 .field label { color: var(--muted); font-size: 12px; font-weight: 500; }
-.provider-key-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.provider-key-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.provider-credential-list { display: grid; gap: 16px; margin-top: 16px; }
+.test-result { font-size: 13px; color: var(--muted); }
+.test-result.ok { color: var(--tag-green-fg); }
+.test-result.fail { color: var(--tag-orange-fg); }
 
 /* Agent: a chat window. Header, scrolling conversation, composer, drawer. - */
 .agent-workspace { flex: 1; min-width: 0; min-height: 0; }

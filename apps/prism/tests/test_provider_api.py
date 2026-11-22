@@ -6,9 +6,16 @@ from app.main import app
 
 
 def test_provider_status_api_never_returns_credentials(monkeypatch) -> None:
+    class _EmptyScalars:
+        def all(self):
+            return []
+
     class EmptySession:
         def scalar(self, _statement):
             return None
+
+        def scalars(self, _statement):
+            return _EmptyScalars()
 
     monkeypatch.setenv("INTELLIGENCE_LLM_ENABLED", "true")
     monkeypatch.setenv("LLM_PROVIDER", "openai")

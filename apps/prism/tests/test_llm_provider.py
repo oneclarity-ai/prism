@@ -9,13 +9,17 @@ from pydantic import BaseModel
 from app.core.config import Settings
 from app.services.errors import ExternalServiceError
 from app.services.llm.llm_provider import (
+    AnthropicProvider,
     AzureOpenAIProvider,
     CodexLocalProvider,
+    CustomProvider,
+    DeepSeekProvider,
     FakeLLMProvider,
     OpenAIProvider,
     ProviderResult,
     provider_from_settings,
     provider_status,
+    validate_credential,
 )
 
 DATABASE_URL = "postgresql+psycopg://test:test@localhost/test"
@@ -243,3 +247,179 @@ def test_reasoning_models_are_asked_to_think_briefly_and_others_are_left_alone()
     assert _azure(AZURE_OPENAI_REASONING_EFFORT="medium")._reasoning("gpt-5-nano") == {
         "reasoning_effort": "medium"
     }
+
+
+def test_deepseek_adapter_uses_bearer_auth_against_its_own_base_url(monkeypatch) -> None:
+    settings = Settings(
+        DATABASE_URL=DATABASE_URL,
+        LLM_PROVIDER="deepseek",
+        LLM_MODEL="deepseek-chat",
+        DEEPSEEK_API_KEY="server-secret",
+    )
+    provider = DeepSeekProvider(settings)
+    assert isinstance(provider_from_settings(settings), DeepSeekProvider)
+    captured = {}
+
+    def post(url, **kwargs):
+        captured.update(url=url, **kwargs)
+        return httpx.Response(
+            200,
+            json={
+                "model": "deepseek-chat",
+                "usage": {"prompt_tokens": 2, "completion_tokens": 1},
+                "choices": [{"message": {"content": json.dumps({"answer": "done"})}}],
+            },
+        )
+
+    monkeypatch.setattr("app.services.llm.llm_provider.httpx.post", post)
+    result = provider.generate_structured(
+        prompt="Return an answer",
+        context={"item": 1},
+        output_model=ExampleOutput,
+        model="deepseek-chat",
+        timeout_seconds=5,
+    )
+
+    assert captured["url"] == "https://api.deepseek.com/chat/completions"
+    assert captured["headers"]["Authorization"] == "Bearer server-secret"
+    assert result.text == '{"answer": "done"}'
+
+
+def test_custom_provider_requires_base_url_and_key() -> None:
+    settings = Settings(
+        DATABASE_URL=DATABASE_URL,
+        LLM_PROVIDER="custom",
+        LLM_MODEL="some-model",
+    )
+    assert isinstance(provider_from_settings(settings), CustomProvider)
+    assert CustomProvider(settings).is_configured() is False
+
+    configured = Settings(
+        DATABASE_URL=DATABASE_URL,
+        LLM_PROVIDER="custom",
+        LLM_MODEL="some-model",
+        CUSTOM_LLM_API_KEY="server-secret",
+        CUSTOM_LLM_BASE_URL="https://example.internal/v1",
+    )
+    assert CustomProvider(configured).is_configured() is True
+
+
+def test_anthropic_adapter_uses_tool_call_for_structured_output(monkeypatch) -> None:
+    settings = Settings(
+        DATABASE_URL=DATABASE_URL,
+        LLM_PROVIDER="anthropic",
+        LLM_MODEL="claude-sonnet-5-5",
+        ANTHROPIC_API_KEY="server-secret",
+    )
+    provider = AnthropicProvider(settings)
+    assert isinstance(provider_from_settings(settings), AnthropicProvider)
+    captured = {}
+
+    def post(url, **kwargs):
+        captured.update(url=url, **kwargs)
+        return httpx.Response(
+            200,
+            json={
+                "id": "msg_1",
+                "model": "claude-sonnet-5-5",
+                "usage": {"input_tokens": 3, "output_tokens": 2},
+                "content": [
+                    {"type": "tool_use", "name": "emit_result", "input": {"answer": "done"}}
+                ],
+            },
+        )
+
+    monkeypatch.setattr("app.services.llm.llm_provider.httpx.post", post)
+    result = provider.generate_structured(
+        prompt="Return an answer",
+        context={"item": 1},
+        output_model=ExampleOutput,
+        model="claude-sonnet-5-5",
+        timeout_seconds=5,
+    )
+
+    assert captured["url"] == "https://api.anthropic.com/v1/messages"
+    assert captured["headers"]["x-api-key"] == "server-secret"
+    assert captured["json"]["system"] == "Return an answer"
+    assert captured["json"]["tool_choice"] == {"type": "tool", "name": "emit_result"}
+    assert json.loads(result.text) == {"answer": "done"}
+    assert result.usage == {
+        "prompt_tokens": 3,
+        "completion_tokens": 2,
+        "total_tokens": 5,
+        "prompt_tokens_details": {"cached_tokens": 0},
+    }
+
+
+def test_anthropic_adapter_reads_plain_text_block_for_text_generation(monkeypatch) -> None:
+    settings = Settings(
+        DATABASE_URL=DATABASE_URL,
+        LLM_PROVIDER="anthropic",
+        LLM_MODEL="claude-sonnet-5-5",
+        ANTHROPIC_API_KEY="server-secret",
+    )
+    provider = AnthropicProvider(settings)
+
+    def post(_url, **_kwargs):
+        return httpx.Response(
+            200,
+            json={"model": "claude-sonnet-5-5", "content": [{"type": "text", "text": "hello"}]},
+        )
+
+    monkeypatch.setattr("app.services.llm.llm_provider.httpx.post", post)
+    result = provider.generate_text(
+        prompt="Say hello", context={}, model="claude-sonnet-5-5", timeout_seconds=5
+    )
+
+    assert result.text == "hello"
+
+
+def test_credential_rejects_an_unauthorized_key_without_raising(monkeypatch) -> None:
+    def get(_url, **_kwargs):
+        return httpx.Response(401, json={})
+
+    monkeypatch.setattr("app.services.llm.llm_provider.httpx.get", get)
+    ok, detail = validate_credential(
+        provider_id="openai", api_key="sk-not-a-real-key-but-long-enough", model="gpt-4o-mini"
+    )
+
+    assert ok is False
+    assert "rejected" in detail
+
+
+def test_credential_accepts_a_working_key_and_checks_the_model_list(monkeypatch) -> None:
+    def get(url, **kwargs):
+        assert kwargs["headers"]["Authorization"] == "Bearer sk-real-enough-key-0000000000"
+        return httpx.Response(200, json={"data": [{"id": "gpt-4o-mini"}]})
+
+    monkeypatch.setattr("app.services.llm.llm_provider.httpx.get", get)
+    ok, detail = validate_credential(
+        provider_id="openai",
+        api_key="sk-real-enough-key-0000000000",
+        model="gpt-4o-mini",
+    )
+
+    assert ok is True
+    assert detail == "Key is valid"
+
+
+def test_credential_requires_a_base_url_for_custom_providers() -> None:
+    ok, detail = validate_credential(
+        provider_id="custom", api_key="a-long-enough-fake-key-000000", model="anything"
+    )
+
+    assert ok is False
+    assert "base URL" in detail
+
+
+def test_credential_handles_transport_errors_without_raising(monkeypatch) -> None:
+    def get(_url, **_kwargs):
+        raise httpx.ConnectError("boom")
+
+    monkeypatch.setattr("app.services.llm.llm_provider.httpx.get", get)
+    ok, detail = validate_credential(
+        provider_id="anthropic", api_key="a-long-enough-fake-key-000000", model="claude"
+    )
+
+    assert ok is False
+    assert "reach" in detail

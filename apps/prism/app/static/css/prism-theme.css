@@ -318,8 +318,11 @@ dialog #prism-notify-permission, dialog .switch-row { border-radius: var(--radiu
 .settings-dialog .setting-row select { width: 180px; }
 .setting-actions { display: flex; flex: none; align-items: center; gap: 8px; }
 .setting-value { color: var(--muted); font-size: 14px; }
-.settings-dialog .settings-card, .settings-dialog .provider-key-form, .settings-dialog .settings-cost-summary { border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--callout); box-shadow: none; }
+.settings-dialog .settings-card, .settings-dialog .provider-key-form, .settings-dialog .settings-cost-summary, .settings-dialog .provider-card { border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--callout); box-shadow: none; }
 .settings-dialog .provider-key-form { margin-top: 16px; padding: 16px; }
+.settings-dialog .provider-card { padding: 16px; }
+.settings-dialog .provider-card .provider-key-form { margin: 0; padding: 16px 0 0; border: 0; border-radius: 0; background: transparent; }
+.settings-dialog .provider-card .setting-row { padding: 0 0 4px; }
 .settings-dialog .conn-list { margin-top: 8px; padding: 0 16px; }
 .settings-dialog .conn-list .setting-row { padding: 16px 0; border-bottom: 1px solid var(--border); }
 .settings-dialog .conn-list .setting-row:last-child { border-bottom: 0; }

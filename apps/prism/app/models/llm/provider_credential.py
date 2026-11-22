@@ -19,4 +19,9 @@ class ProviderCredential(TimestampMixin, Base):
     model: Mapped[str] = mapped_column(String(255), nullable=False)
     encrypted_api_key: Mapped[str] = mapped_column(Text, nullable=False)
     key_last_four: Mapped[str] = mapped_column(String(4), nullable=False)
+    # Azure OpenAI's endpoint, a custom OpenAI-compatible base URL, or an override for a
+    # provider's default base URL. Not secret: shown back to the dashboard as-is.
+    base_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # Azure OpenAI's api-version, or another provider's API version string. Not secret.
+    api_version: Mapped[str | None] = mapped_column(String(40), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)

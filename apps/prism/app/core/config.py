@@ -190,6 +190,21 @@ class Settings(BaseSettings):
     openai_base_url: str = Field(
         default="https://api.openai.com/v1", validation_alias="OPENAI_BASE_URL"
     )
+    anthropic_api_key: Optional[str] = Field(default=None, validation_alias="ANTHROPIC_API_KEY")
+    anthropic_base_url: str = Field(
+        default="https://api.anthropic.com", validation_alias="ANTHROPIC_BASE_URL"
+    )
+    anthropic_api_version: str = Field(
+        default="2023-06-01", validation_alias="ANTHROPIC_API_VERSION"
+    )
+    deepseek_api_key: Optional[str] = Field(default=None, validation_alias="DEEPSEEK_API_KEY")
+    deepseek_base_url: str = Field(
+        default="https://api.deepseek.com", validation_alias="DEEPSEEK_BASE_URL"
+    )
+    # A fifth, generic slot for any other OpenAI-compatible endpoint (self-hosted, a proxy,
+    # or a provider without a dedicated adapter). Selected with LLM_PROVIDER=custom.
+    custom_llm_api_key: Optional[str] = Field(default=None, validation_alias="CUSTOM_LLM_API_KEY")
+    custom_llm_base_url: Optional[str] = Field(default=None, validation_alias="CUSTOM_LLM_BASE_URL")
     codex_cli_path: str = Field(default="codex", validation_alias="CODEX_CLI_PATH")
     codex_auth_path: str = Field(
         default=str(Path.home() / ".codex" / "auth.json"),
