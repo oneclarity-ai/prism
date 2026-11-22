@@ -10,7 +10,7 @@ idna==3.19
 Mako==1.4.3
 MarkupSafe==3.0.3
 psycopg==3.2.13
-psycopg-binary==3.2.13
+psycopg-binary==3.3.9
 pydantic==2.13.5
 pydantic-settings==2.11.0
 pydantic_core==2.46.5
