@@ -43,7 +43,7 @@ jobs:
         working-directory: apps/prism/frontend
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: npm
@@ -69,7 +69,7 @@ jobs:
           cache-dependency-path: apps/prism/requirements.txt
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -r requirements-dev.txt
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: npm
@@ -112,7 +112,7 @@ jobs:
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -r requirements-dev.txt
       - run: alembic upgrade head
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: npm
