@@ -1,3 +1,11 @@
+FROM node:22-alpine AS dashboard
+
+WORKDIR /dashboard
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+COPY frontend/ ./
+RUN PRISM_BUILD_OUT=/dashboard-build npm run build
+
 FROM python:3.11-slim AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -14,6 +22,7 @@ RUN python -m pip install --no-cache-dir -r requirements.txt
 COPY alembic.ini ./
 COPY alembic ./alembic
 COPY app ./app
+COPY --from=dashboard /dashboard-build ./app/static
 
 USER prism
 EXPOSE 8000

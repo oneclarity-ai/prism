@@ -31,7 +31,7 @@ separate service that Prism calls over HTTP.
 - `app/agents`: construction and validation of bounded, structured AI decisions.
 - `app/models`: SQLAlchemy models for operational state and audit history.
 - `app/schemas`: Pydantic contracts for APIs and AI decisions.
-- `app/static`: browser dashboard using the same APIs as external clients.
+- `frontend`: the browser dashboard (React + TypeScript + Vite) using the same APIs as external clients; it builds into `app/static`, which FastAPI serves at `/dashboard/`.
 - `alembic`: the ordered PostgreSQL schema migration chain.
 
 Routes should stay thin. Business rules belong in services, persistence contracts in models,

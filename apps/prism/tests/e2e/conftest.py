@@ -244,6 +244,11 @@ def e2e_app():
         capture_output=True,
     )
 
+    if not (ROOT / "app" / "static" / "index.html").is_file():
+        raise RuntimeError(
+            "The dashboard is not built. Run `make frontend-build` before the e2e suite."
+        )
+
     import uvicorn
 
     from app.core.config import get_settings

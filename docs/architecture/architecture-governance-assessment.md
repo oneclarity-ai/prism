@@ -27,6 +27,9 @@ Two real issues this pass found, both **structural, not bugs**:
   (confirmed by method-prefix evidence below), the most significant being
   `services/management/response_service.py` (2929 lines, one class, 38 methods).
 
+> **Update:** the dashboard has since been rewritten as React + TypeScript under `apps/prism/frontend` with one
+> folder per feature (`src/features/*`). The frontend findings below describe the pre-rewrite `app/static/js/` layout.
+
 The static dashboard (`app/static/js/`) has no equivalent domain/feature split — it is 24 flat
 files, four of them 1,100+ lines, with all page wiring for a given area living in one file
 (`likely`: no module boundary enforcement exists there beyond file naming).

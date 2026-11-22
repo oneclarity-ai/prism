@@ -7,6 +7,15 @@ release. Dates use ISO 8601.
 
 ## [Unreleased]
 
+### Changed (dashboard)
+
+- **Dashboard rewritten in React 19 + TypeScript + Vite** (`apps/prism/frontend`). Same screens, URLs, CSS, element
+  ids and behavior; the old `app/static/js` modules are gone. The build goes to `app/static` (not committed):
+  run `make frontend-build` (or `make dev`, which builds when missing); `make frontend-dev` gives hot reload.
+  API types are generated from the OpenAPI schema (`make frontend-types`). The Docker image builds the dashboard in
+  a Node stage; CI runs typecheck, ESLint, Vitest and the build; Dependabot watches npm. The API answers 503 with
+  a hint when the dashboard has not been built.
+
 ### Changed (repository)
 
 - **Monorepo.** Prism moved to `apps/prism`; the agentic swarm is imported at `apps/swarm` with history.
