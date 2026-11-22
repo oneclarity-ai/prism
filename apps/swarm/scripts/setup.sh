@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-time setup: Python env (backend/.venv), Node env (frontend/node_modules), database, seed.
+# One-time setup: Python env (backend/.venv), database, seed.
 # Safe to run again.
 set -euo pipefail
 
@@ -8,8 +8,6 @@ DB_NAME="${DB_NAME:-oneclarity}"
 
 need() { command -v "$1" >/dev/null 2>&1 || { echo "Missing '$1'. $2"; exit 1; }; }
 need uv   "Install: brew install uv"
-need node "Install: brew install node@22"
-need npm  "Comes with Node.js"
 need psql "Install: brew install postgresql@16 && brew services start postgresql@16"
 need python3 "Install: brew install python@3.12 (also used to serve the Demo Shop)"
 
@@ -33,9 +31,5 @@ psql -lqt | cut -d '|' -f 1 | grep -qw "${DB_NAME}_test" || createdb "${DB_NAME}
 uv run alembic upgrade head
 uv run python -m app.db.seed
 
-echo "==> Frontend: Node packages (frontend/node_modules)"
-cd "$ROOT/frontend"
-npm install --no-audit --no-fund
-
 echo
-echo "Setup done. Start both apps with:  ./scripts/dev.sh"
+echo "Setup done. Start the API and worker with:  ./scripts/dev.sh"

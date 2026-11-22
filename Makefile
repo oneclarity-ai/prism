@@ -8,8 +8,8 @@ SWARM := apps/swarm
 help:
 	@echo "Prism targets (run in apps/prism): setup dev migrate test test-integration test-e2e lint format format-check typecheck secrets audit check release-check"
 	@echo "dev-all      Prism (8000) + swarm API (8080) + swarm worker, one command"
-	@echo "swarm-setup  Install swarm Python and Node dependencies"
-	@echo "swarm-dev    Run swarm API, worker, UI and demo shop on their own"
+	@echo "swarm-setup  Install swarm Python dependencies and set up its database"
+	@echo "swarm-dev    Run swarm API, worker and demo shop on their own"
 
 dev-all:
 	./scripts/dev.sh

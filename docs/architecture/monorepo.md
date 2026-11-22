@@ -23,7 +23,6 @@ prism/
 │   │   ├── Dockerfile, Makefile, pyproject.toml, requirements*.txt, .env.example
 │   └── swarm/                 Agentic swarm engine (own stack, own database)
 │       ├── backend/           FastAPI + worker + Alembic (API on port 8080 in dev)
-│       ├── frontend/          React console (diagnostics only; Prism is the UI)
 │       ├── eval-app/          Demo shop used by swarm evaluations
 │       ├── docs/, diagrams/   swarm documentation
 │       └── scripts/           swarm setup.sh / dev.sh
@@ -73,7 +72,7 @@ Shared kernel files stay at the layer root: `services/common.py`, `services/erro
    Everything else happened on branch `monorepo` in a separate worktree, so the running servers were never
    touched until the new tree was verified.
 2. **Import.** The swarm was imported with `git subtree add --prefix=apps/swarm`, which keeps its history.
-   Its `.env`, `.venv`, `node_modules`, `var/` and build output are not tracked.
+   Its `.env`, `.venv`, `var/` and build output are not tracked.
 3. **Move Prism** into `apps/prism` with `git mv` (history preserved), plus `.env.example`, Makefile,
    Dockerfile and `prism_admin.py`.
 4. **Tooling.** New root `Makefile`, `compose.yaml` (both stacks), `scripts/dev.sh` (replaces
@@ -107,7 +106,7 @@ Not changed: public HTTP APIs, database schema, environment variable names, port
 ```bash
 # first time
 make setup                       # Prism venv (apps/prism/.venv)
-make swarm-setup                 # swarm Python + Node dependencies
+make swarm-setup                 # swarm Python dependencies
 cp apps/prism/.env.example apps/prism/.env        # fill in
 cp apps/swarm/backend/.env.example apps/swarm/backend/.env
 

@@ -1,6 +1,6 @@
 # OneClarity Agent Platform
 
-A control plane for an "army" of AI agents (QA first; Sales, Marketing and Support planned), organised along the company's org chart. Backend: FastAPI + PostgreSQL + OpenAI Agents SDK on Azure OpenAI. Frontend: React + TypeScript.
+A control plane for an "army" of AI agents (QA first; Sales, Marketing and Support planned), organised along the company's org chart. Backend: FastAPI + PostgreSQL + OpenAI Agents SDK on Azure OpenAI. Backend only: the UI is Prism's dashboard (`apps/prism`).
 
 ## Start here
 
@@ -11,9 +11,9 @@ A control plane for an "army" of AI agents (QA first; Sales, Marketing and Suppo
 ## Quick start (macOS / Linux / WSL2)
 
 ```bash
-./scripts/setup.sh      # Python env, Node packages, databases, seed, backend/.env
+./scripts/setup.sh      # Python env, databases, seed, backend/.env
 # fill AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_KEY in backend/.env
-./scripts/dev.sh        # API :8080, worker, UI :5173, Demo Shop :4000
+./scripts/dev.sh        # API :8080, worker, Demo Shop :4000
 ```
 
-Sign in at http://localhost:5173 with `admin@oneclarity.local` / `change-me-now`.
+API login (used by Prism via `QA_SWARM_EMAIL`/`QA_SWARM_PASSWORD`): `admin@oneclarity.local` / `change-me-now`. API docs: http://localhost:8080/docs

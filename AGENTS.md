@@ -23,7 +23,7 @@ This is a monorepo (see `docs/architecture/monorepo.md`). Prism commands run in 
 (the root `Makefile` forwards `make dev`, `make check`, ... there); paths below are relative to it.
 
 - `apps/prism/`: Prism backend and dashboard. `apps/swarm/`: external swarm engine (own backend,
-  React console, demo shop, docs); Prism talks to it only through `qa_swarm_client.py` over HTTP.
+  demo shop, docs; no frontend, Prism is the UI); Prism talks to it only through `qa_swarm_client.py` over HTTP.
 - `app/main.py`: `create_app()`, exported `app`, middleware, routers, static mount and lifespan loops.
 - `app/core/`: cached environment settings and operator-token middleware.
 - `app/api/routes/<domain>/`: HTTP adapters; legacy `/api/v1`, agent/Prism `/api/v2`, engine bridge.
