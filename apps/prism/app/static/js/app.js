@@ -561,10 +561,25 @@ async function loadProviderCredentials() {
   }
 }
 
+const EYE_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>`;
+const EYE_OFF_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.73 5.08A10.94 10.94 0 0 1 12 5c7 0 11 7 11 7a13.16 13.16 0 0 1-3.11 4.1M6.1 6.1C3.4 7.9 1 12 1 12a13.16 13.16 0 0 0 5.17 5.39A10.94 10.94 0 0 0 12 19c1 0 1.95-.14 2.84-.4"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/></svg>`;
+
 function providerCredentialCard(credential) {
   const id = credential.provider;
-  const stateBadge = credential.configured ? `<span class="badge green">Saved</span>` : `<span class="badge">Not set</span>`;
+  // Not stored in Prism's database: whatever LLM_PROVIDER/*_API_KEY the server's own
+  // environment already has configured for the active provider (never the key itself).
+  const liveModel = credential.is_active_provider && !credential.configured ? state.provider?.model : null;
+  const stateBadge = credential.configured
+    ? `<span class="badge green">Saved</span>`
+    : liveModel
+      ? `<span class="badge blue">From server .env</span>`
+      : `<span class="badge">Not set</span>`;
   const activeBadge = credential.is_active_provider ? `<span class="badge blue">Active</span>` : "";
+  const subtitle = credential.configured
+    ? escapeHtml(credential.model)
+    : liveModel
+      ? `${escapeHtml(liveModel)} (from the server's environment, not saved here)`
+      : "No key saved";
   const helpText = credential.configured
     ? `${escapeHtml(credential.masked_key)} is stored encrypted on this Prism server. Enter a new key to replace it.`
     : credential.can_manage
@@ -577,17 +592,22 @@ function providerCredentialCard(credential) {
     ? `<div class="field"><label for="provider-api-version-${id}">API version</label><input id="provider-api-version-${id}" name="api_version" value="${escapeHtml(credential.api_version || "")}" placeholder="2024-10-21" autocomplete="off"></div>`
     : "";
   return `
-    <div class="provider-card">
+    <div class="provider-card${credential.is_active_provider ? " active" : ""}">
       <div class="setting-row">
-        <div><strong>${escapeHtml(credential.label)}</strong><p class="panel-note">${credential.configured && credential.model ? escapeHtml(credential.model) : "No key saved"}</p></div>
+        <div><strong>${escapeHtml(credential.label)}</strong><p class="panel-note">${subtitle}</p></div>
         <span class="setting-actions">${activeBadge}${stateBadge}</span>
       </div>
       <form class="provider-key-form" data-provider-form="${id}">
         <p class="panel-note">${helpText}</p>
-        <div class="field"><label for="provider-model-${id}">Model${id === "azure_openai" ? " (deployment name)" : ""}</label><input id="provider-model-${id}" name="model" value="${escapeHtml(credential.model || (credential.base_url_required ? "" : credential.default_model_hint))}" placeholder="${escapeHtml(credential.default_model_hint)}" autocomplete="off" required></div>
+        <div class="field"><label for="provider-model-${id}">Model${id === "azure_openai" ? " (deployment name)" : ""}</label><input id="provider-model-${id}" name="model" value="${escapeHtml(credential.model || liveModel || (credential.base_url_required ? "" : credential.default_model_hint))}" placeholder="${escapeHtml(credential.default_model_hint)}" autocomplete="off" required></div>
         ${baseUrlField}
         ${apiVersionField}
-        <div class="field"><label for="provider-key-${id}">API key</label><input id="provider-key-${id}" name="api_key" type="password" autocomplete="new-password" minlength="8" placeholder="Paste a new API key" required></div>
+        <div class="field"><label for="provider-key-${id}">API key</label>
+          <div class="field-with-action">
+            <input id="provider-key-${id}" name="api_key" type="password" autocomplete="new-password" minlength="8" placeholder="Paste a new API key" required>
+            <button type="button" class="icon-button small" data-provider-toggle-key="${id}" aria-label="Show API key">${EYE_SVG}</button>
+          </div>
+        </div>
         <div class="provider-key-actions">
           <button class="button secondary" type="button" data-provider-test="${id}">Test key</button>
           <span class="test-result" data-provider-test-result="${id}"></span>
@@ -602,6 +622,16 @@ function wireProviderCredentialCard(id) {
   document.querySelector(`[data-provider-form="${id}"]`)?.addEventListener("submit", (event) => saveProviderCredential(event, id));
   document.querySelector(`[data-provider-test="${id}"]`)?.addEventListener("click", () => testProviderCredential(id));
   document.querySelector(`[data-provider-remove="${id}"]`)?.addEventListener("click", () => removeProviderCredential(id));
+  document.querySelector(`[data-provider-toggle-key="${id}"]`)?.addEventListener("click", () => toggleProviderKeyVisibility(id));
+}
+
+function toggleProviderKeyVisibility(id) {
+  const input = document.querySelector(`#provider-key-${id}`);
+  const button = document.querySelector(`[data-provider-toggle-key="${id}"]`);
+  const show = input.type === "password";
+  input.type = show ? "text" : "password";
+  button.innerHTML = show ? EYE_OFF_SVG : EYE_SVG;
+  button.setAttribute("aria-label", show ? "Hide API key" : "Show API key");
 }
 
 function providerFormPayload(id) {
@@ -655,7 +685,8 @@ async function saveProviderCredential(event, id) {
       body: JSON.stringify(providerFormPayload(id)),
     });
     setStatus(`${providerLabel(id)} key saved securely.`);
-    await Promise.all([loadProviderCredentials(), refreshProviderStatus()]);
+    await refreshProviderStatus();
+    await loadProviderCredentials();
   } catch (error) {
     setStatus(error.message, true);
     submitButton.disabled = false;
@@ -673,7 +704,8 @@ async function removeProviderCredential(id) {
   try {
     await api(`/api/v1/provider/credentials/${id}`, { method: "DELETE" });
     setStatus(`Saved ${providerLabel(id)} key removed.`);
-    await Promise.all([loadProviderCredentials(), refreshProviderStatus()]);
+    await refreshProviderStatus();
+    await loadProviderCredentials();
   } catch (error) {
     setStatus(error.message, true);
   }
@@ -708,8 +740,8 @@ async function loadDashboard() {
   $("#refresh-button").classList.add("spinning");
   api("/api/v1/provider/status")
     .then(renderProviderStatus)
-    .catch(() => renderProviderStatus({ provider: "unknown", model: null, state: "unavailable", ready: false, detail: "Provider status is unavailable" }));
-  loadProviderCredentials();
+    .catch(() => renderProviderStatus({ provider: "unknown", model: null, state: "unavailable", ready: false, detail: "Provider status is unavailable" }))
+    .finally(loadProviderCredentials);
   api("/api/v2/agent/foundation")
     .then((foundation) => {
       applyV21Mode(true);
