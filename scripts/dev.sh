@@ -19,7 +19,7 @@ if ! command -v uv >/dev/null 2>&1; then
   exit 2
 fi
 if command -v lsof >/dev/null 2>&1; then
-  for port in 8000 8080 5173; do
+  for port in 8000 8080; do
     if lsof -nP -iTCP:"$port" -sTCP:LISTEN -t 2>/dev/null | grep -q .; then
       printf 'Port %s is in use. Stop the existing Prism or swarm dev session before starting the unified workspace.\n' "$port" >&2
       exit 2

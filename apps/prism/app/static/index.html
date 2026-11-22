@@ -644,15 +644,8 @@
                       <div><strong id="provider-status-name">Checking provider…</strong><p id="provider-status-detail" class="panel-note" aria-live="polite">Loading safe configuration status.</p></div>
                       <span id="provider-status-badge" class="badge">Checking</span>
                     </div>
-                    <form id="openai-key-form" class="provider-key-form">
-                      <div><strong>OpenAI API key</strong><p id="provider-key-help" class="panel-note">Stored encrypted on this Prism server. The key is never shown again.</p></div>
-                      <div class="field"><label for="openai-model-input">Model</label><input id="openai-model-input" name="model" value="gpt-4o-mini" autocomplete="off" required></div>
-                      <div class="field"><label for="openai-key-input">API key</label><input id="openai-key-input" name="api_key" type="password" autocomplete="new-password" minlength="20" placeholder="Paste a new API key" required></div>
-                      <div class="provider-key-actions">
-                        <button id="save-openai-key-button" class="button" type="submit">Save OpenAI key</button>
-                        <button id="remove-openai-key-button" class="button secondary" type="button" hidden>Remove saved key</button>
-                      </div>
-                    </form>
+                    <p class="settings-intro">Prism runs whichever provider is selected on the server. Save a key below for that provider to use it; keys saved for other providers stay encrypted and ready for when you switch.</p>
+                    <div id="provider-credential-list" class="provider-credential-list"><p class="panel-note">Loading providers…</p></div>
                   </section>
                   <section data-subtab-group="settings" data-subtab="access" hidden>
                     <h2 class="settings-title">Access</h2>

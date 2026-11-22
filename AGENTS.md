@@ -13,8 +13,9 @@ work is delegated to an external swarm engine. This is pre-release software.
 - PostgreSQL (not SQLite), synchronous SQLAlchemy 2 ORM, psycopg 3, Alembic migrations.
 - Static HTML/CSS and plain JavaScript ES modules; no Node package or frontend build pipeline.
 - HTTPX for integrations; cryptography/Fernet for stored credentials.
-- Microsoft Graph delegated OAuth; LLM adapters for Azure OpenAI, OpenAI and local Codex CLI,
-  plus a fake provider for tests. These are custom services, not an orchestration framework.
+- Microsoft Graph delegated OAuth; LLM adapters for Azure OpenAI, OpenAI, Anthropic (Claude),
+  DeepSeek, a generic OpenAI-compatible endpoint, and local Codex CLI, plus a fake provider for
+  tests. These are custom services, not an orchestration framework.
 - pytest, Playwright, Ruff, mypy, pip-audit; Docker/Compose for deployment.
 
 ## 3. Repository structure
@@ -23,7 +24,7 @@ This is a monorepo (see `docs/architecture/monorepo.md`). Prism commands run in 
 (the root `Makefile` forwards `make dev`, `make check`, ... there); paths below are relative to it.
 
 - `apps/prism/`: Prism backend and dashboard. `apps/swarm/`: external swarm engine (own backend,
-  React console, demo shop, docs); Prism talks to it only through `qa_swarm_client.py` over HTTP.
+  demo shop, docs; no frontend, Prism is the UI); Prism talks to it only through `qa_swarm_client.py` over HTTP.
 - `app/main.py`: `create_app()`, exported `app`, middleware, routers, static mount and lifespan loops.
 - `app/core/`: cached environment settings and operator-token middleware.
 - `app/api/routes/<domain>/`: HTTP adapters; legacy `/api/v1`, agent/Prism `/api/v2`, engine bridge.

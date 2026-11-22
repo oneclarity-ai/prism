@@ -287,16 +287,14 @@ make dev-all
 The swarm now lives in this repository at `apps/swarm`; set `SWARM_ROOT` only to run a swarm checkout
 from another location.
 
-Stop any earlier swarm `scripts/dev.sh` session first; that older launcher also starts its
-separate frontend and occupies the swarm API port. The unified command checks ports 8000, 8080,
-and 5173 before starting.
+Stop any earlier swarm `scripts/dev.sh` session first; that older launcher occupies the swarm
+API port. The unified command checks ports 8000 and 8080 before starting.
 
 Open <http://127.0.0.1:8000/dashboard/>. **Workspace** in the Prism sidebar contains three groups:
 **Organization** (org chart and its departments), **Work** (Dashboard, Tasks, Runs, Approvals,
 Bugs), and **Setup** (Agents, Target apps, Secrets, Usage & analytics). These pages follow the
-swarm interface while using Prism's shared neutral design system. The launcher does not start
-the old swarm React UI on port `5173`; that frontend remains
-in its own repository for development and debugging. Prism calls the swarm API from the server, so
+swarm interface while using Prism's shared neutral design system. The swarm has no frontend of its
+own. Prism calls the swarm API from the server, so
 the browser needs only the Prism URL and operator token when configured. Browser workers still need
 the swarm project's Docker setup.
 

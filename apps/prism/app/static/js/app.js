@@ -206,6 +206,7 @@ function setSubtab(group, name) {
   if (group === "settings" && name === "skills") {
     import("./prism-skills.js").then(({ skillLibrary }) => skillLibrary($("#settings-skills-library"))).catch((error) => setStatus(error.message, true));
   }
+  if (group === "settings" && name === "provider") loadProviderCredentials();
   if (group === "settings" && $("#settings-dialog").open) window.prismRoutes?.settings(name);
 }
 
@@ -535,55 +536,183 @@ function renderProviderStatus(provider) {
   badge.textContent = provider.ready ? "Ready" : humanize(provider.state);
   badge.className = `badge ${provider.ready ? "green" : provider.state === "disabled" ? "blue" : "orange"}`;
   $("#provider-nav-dot").hidden = provider.ready || provider.state === "unavailable";
+  const connDetail = $("#conn-provider-detail");
+  if (connDetail) connDetail.textContent = provider.model ? `${label} · ${provider.model} · ${provider.detail}` : `${label} · ${provider.detail}`;
+  const connBadge = $("#conn-provider-badge");
+  if (connBadge) {
+    connBadge.textContent = provider.ready ? "Connected" : humanize(provider.state);
+    connBadge.className = `badge ${provider.ready ? "green" : provider.state === "disabled" ? "blue" : "orange"}`;
+  }
   renderSetup();
-  const savedKey = provider.credential_source === "database";
-  $("#provider-key-help").textContent = savedKey
-    ? `${provider.masked_key} is stored encrypted on this Prism server. Enter a new key to replace it.`
-    : provider.can_manage
-      ? "Stored encrypted on this Prism server. The key is never shown again."
-      : "Configure a provider credential encryption key before saving a key.";
-  $("#openai-model-input").value = savedKey && provider.model ? provider.model : ($("#openai-model-input").value || "gpt-4o-mini");
-  $("#save-openai-key-button").disabled = !provider.can_manage;
-  $("#remove-openai-key-button").hidden = !savedKey;
 }
 
-async function saveOpenAIKey(event) {
-  event.preventDefault();
-  const keyInput = $("#openai-key-input");
-  const modelInput = $("#openai-model-input");
-  const button = $("#save-openai-key-button");
-  button.disabled = true;
+// The AI provider section lists every provider Prism can store a BYOK key for (see
+// app/services/llm/provider_registry.py). Only the one LLM_PROVIDER already selects on the
+// server is actually used; saving a key elsewhere just keeps it ready for later.
+async function loadProviderCredentials() {
+  const container = $("#provider-credential-list");
   try {
-    const provider = await api("/api/v1/provider/openai", {
-      method: "PUT",
-      body: JSON.stringify({ api_key: keyInput.value, model: modelInput.value }),
-    });
-    keyInput.value = "";
-    renderProviderStatus(provider);
-    setStatus("OpenAI key saved securely. Prism is now using OpenAI.");
+    const credentials = await api("/api/v1/provider/credentials");
+    state.providerCredentials = credentials;
+    container.innerHTML = credentials.map(providerCredentialCard).join("");
+    credentials.forEach((credential) => wireProviderCredentialCard(credential.provider));
   } catch (error) {
-    setStatus(error.message, true);
-  } finally {
-    button.disabled = !state.provider?.can_manage;
+    container.innerHTML = `<p class="panel-note">Could not load providers: ${escapeHtml(error.message)}</p>`;
   }
 }
 
-async function removeOpenAIKey() {
+const EYE_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>`;
+const EYE_OFF_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.73 5.08A10.94 10.94 0 0 1 12 5c7 0 11 7 11 7a13.16 13.16 0 0 1-3.11 4.1M6.1 6.1C3.4 7.9 1 12 1 12a13.16 13.16 0 0 0 5.17 5.39A10.94 10.94 0 0 0 12 19c1 0 1.95-.14 2.84-.4"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/></svg>`;
+
+function providerCredentialCard(credential) {
+  const id = credential.provider;
+  // Not stored in Prism's database: whatever LLM_PROVIDER/*_API_KEY the server's own
+  // environment already has configured for the active provider (never the key itself).
+  const liveModel = credential.is_active_provider && !credential.configured ? state.provider?.model : null;
+  const stateBadge = credential.configured
+    ? `<span class="badge green">Saved</span>`
+    : liveModel
+      ? `<span class="badge blue">From server .env</span>`
+      : `<span class="badge">Not set</span>`;
+  const activeBadge = credential.is_active_provider ? `<span class="badge blue">Active</span>` : "";
+  const subtitle = credential.configured
+    ? escapeHtml(credential.model)
+    : liveModel
+      ? `${escapeHtml(liveModel)} (from the server's environment, not saved here)`
+      : "No key saved";
+  const helpText = credential.configured
+    ? `${escapeHtml(credential.masked_key)} is stored encrypted on this Prism server. Enter a new key to replace it.`
+    : credential.can_manage
+      ? "Stored encrypted on this Prism server. The key is never shown again."
+      : "Configure a provider credential encryption key on the server before saving a key.";
+  const baseUrlField = credential.needs_base_url
+    ? `<div class="field"><label for="provider-base-url-${id}">${id === "azure_openai" ? "Endpoint" : "Base URL"}</label><input id="provider-base-url-${id}" name="base_url" type="url" value="${escapeHtml(credential.base_url || "")}" placeholder="${id === "azure_openai" ? "https://<resource>.openai.azure.com" : "https://api.example.com/v1"}" autocomplete="off" ${credential.base_url_required ? "required" : ""}></div>`
+    : "";
+  const apiVersionField = credential.needs_api_version
+    ? `<div class="field"><label for="provider-api-version-${id}">API version</label><input id="provider-api-version-${id}" name="api_version" value="${escapeHtml(credential.api_version || "")}" placeholder="2024-10-21" autocomplete="off"></div>`
+    : "";
+  return `
+    <div class="provider-card${credential.is_active_provider ? " active" : ""}">
+      <div class="setting-row">
+        <div><strong>${escapeHtml(credential.label)}</strong><p class="panel-note">${subtitle}</p></div>
+        <span class="setting-actions">${activeBadge}${stateBadge}</span>
+      </div>
+      <form class="provider-key-form" data-provider-form="${id}">
+        <p class="panel-note">${helpText}</p>
+        <div class="field"><label for="provider-model-${id}">Model${id === "azure_openai" ? " (deployment name)" : ""}</label><input id="provider-model-${id}" name="model" value="${escapeHtml(credential.model || liveModel || (credential.base_url_required ? "" : credential.default_model_hint))}" placeholder="${escapeHtml(credential.default_model_hint)}" autocomplete="off" required></div>
+        ${baseUrlField}
+        ${apiVersionField}
+        <div class="field"><label for="provider-key-${id}">API key</label>
+          <div class="field-with-action">
+            <input id="provider-key-${id}" name="api_key" type="password" autocomplete="new-password" minlength="8" placeholder="Paste a new API key" required>
+            <button type="button" class="icon-button small" data-provider-toggle-key="${id}" aria-label="Show API key">${EYE_SVG}</button>
+          </div>
+        </div>
+        <div class="provider-key-actions">
+          <button class="button secondary" type="button" data-provider-test="${id}">Test key</button>
+          <span class="test-result" data-provider-test-result="${id}"></span>
+          <button class="button" type="submit" ${credential.can_manage ? "" : "disabled"}>Save</button>
+          ${credential.configured ? `<button class="button secondary" type="button" data-provider-remove="${id}">Remove saved key</button>` : ""}
+        </div>
+      </form>
+    </div>`;
+}
+
+function wireProviderCredentialCard(id) {
+  document.querySelector(`[data-provider-form="${id}"]`)?.addEventListener("submit", (event) => saveProviderCredential(event, id));
+  document.querySelector(`[data-provider-test="${id}"]`)?.addEventListener("click", () => testProviderCredential(id));
+  document.querySelector(`[data-provider-remove="${id}"]`)?.addEventListener("click", () => removeProviderCredential(id));
+  document.querySelector(`[data-provider-toggle-key="${id}"]`)?.addEventListener("click", () => toggleProviderKeyVisibility(id));
+}
+
+function toggleProviderKeyVisibility(id) {
+  const input = document.querySelector(`#provider-key-${id}`);
+  const button = document.querySelector(`[data-provider-toggle-key="${id}"]`);
+  const show = input.type === "password";
+  input.type = show ? "text" : "password";
+  button.innerHTML = show ? EYE_OFF_SVG : EYE_SVG;
+  button.setAttribute("aria-label", show ? "Hide API key" : "Show API key");
+}
+
+function providerFormPayload(id) {
+  const form = document.querySelector(`[data-provider-form="${id}"]`);
+  const payload = {
+    api_key: form.querySelector('[name="api_key"]').value,
+    model: form.querySelector('[name="model"]').value,
+  };
+  const baseUrl = form.querySelector('[name="base_url"]');
+  if (baseUrl) payload.base_url = baseUrl.value || null;
+  const apiVersion = form.querySelector('[name="api_version"]');
+  if (apiVersion) payload.api_version = apiVersion.value || null;
+  return payload;
+}
+
+function providerLabel(id) {
+  return state.providerCredentials?.find((credential) => credential.provider === id)?.label || humanize(id);
+}
+
+async function testProviderCredential(id) {
+  const form = document.querySelector(`[data-provider-form="${id}"]`);
+  if (!form.reportValidity()) return;
+  const resultEl = document.querySelector(`[data-provider-test-result="${id}"]`);
+  const button = document.querySelector(`[data-provider-test="${id}"]`);
+  button.disabled = true;
+  resultEl.textContent = "Testing…";
+  resultEl.className = "test-result";
+  try {
+    const result = await api(`/api/v1/provider/credentials/${id}/test`, {
+      method: "POST",
+      body: JSON.stringify(providerFormPayload(id)),
+    });
+    resultEl.textContent = result.detail;
+    resultEl.className = `test-result ${result.ok ? "ok" : "fail"}`;
+  } catch (error) {
+    resultEl.textContent = error.message;
+    resultEl.className = "test-result fail";
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function saveProviderCredential(event, id) {
+  event.preventDefault();
+  const form = document.querySelector(`[data-provider-form="${id}"]`);
+  const submitButton = form.querySelector('button[type="submit"]');
+  submitButton.disabled = true;
+  try {
+    await api(`/api/v1/provider/credentials/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(providerFormPayload(id)),
+    });
+    setStatus(`${providerLabel(id)} key saved securely.`);
+    await refreshProviderStatus();
+    await loadProviderCredentials();
+  } catch (error) {
+    setStatus(error.message, true);
+    submitButton.disabled = false;
+  }
+}
+
+async function removeProviderCredential(id) {
   const confirmed = await askDialog({
-    title: "Remove saved OpenAI key?",
-    message: "Prism will return to the provider configured on this server.",
+    title: `Remove saved ${providerLabel(id)} key?`,
+    message: "Prism will fall back to the provider credential configured on this server, if any.",
     confirmLabel: "Remove key",
     danger: true,
   });
   if (!confirmed) return;
   try {
-    await api("/api/v1/provider/openai", { method: "DELETE" });
-    const provider = await api("/api/v1/provider/status");
-    renderProviderStatus(provider);
-    setStatus("Saved OpenAI key removed.");
+    await api(`/api/v1/provider/credentials/${id}`, { method: "DELETE" });
+    setStatus(`Saved ${providerLabel(id)} key removed.`);
+    await refreshProviderStatus();
+    await loadProviderCredentials();
   } catch (error) {
     setStatus(error.message, true);
   }
+}
+
+function refreshProviderStatus() {
+  return api("/api/v1/provider/status").then(renderProviderStatus).catch(() => {});
 }
 
 function renderAgentFoundation(foundation) {
@@ -611,7 +740,8 @@ async function loadDashboard() {
   $("#refresh-button").classList.add("spinning");
   api("/api/v1/provider/status")
     .then(renderProviderStatus)
-    .catch(() => renderProviderStatus({ provider: "unknown", model: null, state: "unavailable", ready: false, detail: "Provider status is unavailable" }));
+    .catch(() => renderProviderStatus({ provider: "unknown", model: null, state: "unavailable", ready: false, detail: "Provider status is unavailable" }))
+    .finally(loadProviderCredentials);
   api("/api/v2/agent/foundation")
     .then((foundation) => {
       applyV21Mode(true);
@@ -1177,8 +1307,6 @@ $("#scrim").addEventListener("click", () => toggleSidebar(false));
 $("#confirm-cancel").addEventListener("click", () => $("#confirm-dialog").close("cancel"));
 $("#refresh-button").addEventListener("click", loadDashboard);
 $("#operator-token-button").addEventListener("click", setOperatorToken);
-$("#openai-key-form").addEventListener("submit", saveOpenAIKey);
-$("#remove-openai-key-button").addEventListener("click", removeOpenAIKey);
 document.querySelectorAll("[data-connect-microsoft]").forEach((button) => button.addEventListener("click", connectMicrosoft));
 $("#new-record-button").addEventListener("click", () => $("#record-dialog").showModal());
 $("#record-close").addEventListener("click", () => $("#record-dialog").close());
