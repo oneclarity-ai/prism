@@ -1,4 +1,4 @@
-FROM node:22-alpine AS dashboard
+FROM node:26-alpine AS dashboard
 
 WORKDIR /dashboard
 COPY frontend/package.json frontend/package-lock.json ./
