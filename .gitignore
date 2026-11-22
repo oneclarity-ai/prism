@@ -44,3 +44,9 @@ compose.override.yaml
 /V*_TEST_CASES.md
 /V*_ARCHITECTURE.md
 /plan.md
+
+# Dashboard: build output (apps/prism/frontend builds into app/static) and Node tooling
+apps/prism/app/static/
+apps/prism/frontend/node_modules/
+apps/prism/frontend/dist/
+apps/prism/frontend/openapi.json

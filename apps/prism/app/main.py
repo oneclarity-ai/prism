@@ -199,9 +199,11 @@ def create_app() -> FastAPI:
     app.include_router(prism_v22_router)
     app.include_router(qa_router)
     app.include_router(brain_router)
+    dashboard_dir = Path(__file__).parent / "static"
+    # The dashboard is built from frontend/ into app/static; a fresh clone has no build yet.
     app.mount(
         "/dashboard",
-        StaticFiles(directory=Path(__file__).parent / "static", html=True),
+        StaticFiles(directory=dashboard_dir, html=True, check_dir=False),
         name="dashboard",
     )
 
@@ -209,7 +211,13 @@ def create_app() -> FastAPI:
     def dashboard_document(client_path: str):
         if not is_dashboard_path(client_path):
             raise HTTPException(status_code=404, detail="Not Found")
-        return FileResponse(Path(__file__).parent / "static" / "index.html")
+        index = dashboard_dir / "index.html"
+        if not index.is_file():
+            raise HTTPException(
+                status_code=503,
+                detail="The dashboard is not built. Run `make frontend-build` in apps/prism.",
+            )
+        return FileResponse(index)
 
     return app
 

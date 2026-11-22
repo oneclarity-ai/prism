@@ -62,8 +62,9 @@ who wants "how do Prisms work" opens `prisms/` in each layer.
 | `engine` | Prism computers, work bridge, work planning |
 
 Shared kernel files stay at the layer root: `services/common.py`, `services/errors.py`,
-`models/enums.py`, `schemas/common.py`, `api/routes/health.py`. The dashboard lives in
-`app/static/` as `index.html`, `css/` and `js/` (`js/app.js` plus one module per feature).
+`models/enums.py`, `schemas/common.py`, `api/routes/health.py`. The dashboard source lives in
+`frontend/` (React + TypeScript + Vite, one folder per feature under `src/features/`) and builds
+into `app/static/`, which the API serves at `/dashboard/`.
 
 ## What changed in the migration
 

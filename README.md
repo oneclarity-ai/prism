@@ -256,6 +256,10 @@ make migrate
 make dev
 ```
 
+`make dev` builds the dashboard (React + TypeScript + Vite in `apps/prism/frontend`, needs Node 22+) into
+`app/static` the first time. For hot reload while editing the dashboard, run `make frontend-dev` next to
+`make dev` and open <http://localhost:5173/dashboard/>.
+
 Open these URLs in the same computer:
 
 - Dashboard: <http://127.0.0.1:8000/dashboard/>
@@ -730,7 +734,8 @@ app/
   models/       PostgreSQL ORM models
   schemas/      API and decision validation models
   services/     Business logic and external integrations
-  static/       Manager dashboard
+  static/       Built dashboard (generated from frontend/)
+frontend/       Dashboard source: React, TypeScript, Vite
 alembic/        Database migration chain
 scripts/        Repository maintenance checks
 tests/          Unit and opt-in PostgreSQL integration tests

@@ -13,3 +13,7 @@ __pycache__
 htmlcov
 tests
 *.md
+app/static
+frontend/node_modules
+frontend/dist
+frontend/openapi.json

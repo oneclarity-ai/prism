@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Prism</title>
+    <script>
+      // Resolve the saved theme and display size before first paint (the app module takes over afterwards).
+      (function () {
+        try {
+          var saved = localStorage.getItem("manager-agent-theme");
+          var dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+          var theme = saved === "light" || saved === "dark" ? saved : dark ? "dark" : "light";
+          document.documentElement.dataset.theme = theme;
+          document.documentElement.style.colorScheme = theme;
+          var size = localStorage.getItem("prism-pref-ui-size");
+          document.documentElement.style.setProperty("--ui-scale", size === "compact" ? "0.786" : size === "large" ? "1" : "0.893");
+        } catch (error) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

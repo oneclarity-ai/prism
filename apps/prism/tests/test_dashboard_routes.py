@@ -1,8 +1,15 @@
+from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 
 from app.core.dashboard_routes import is_dashboard_path
 from app.main import app
+
+INDEX = Path(__file__).resolve().parents[1] / "app" / "static" / "index.html"
+needs_build = pytest.mark.skipif(
+    not INDEX.is_file(), reason="Dashboard not built (make frontend-build)"
+)
 
 
 @pytest.mark.parametrize(
@@ -18,12 +25,13 @@ from app.main import app
         "runs/12345678-1234-1234-1234-123456789abc",
     ],
 )
+@needs_build
 def test_deep_links_serve_the_dashboard_document(path):
     response = TestClient(app).get(f"/{path}")
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/html")
-    assert "/dashboard/js/navigation.js" in response.text
-    assert "/dashboard/css/styles.css" in response.text
+    assert '<div id="root"></div>' in response.text
+    assert "/dashboard/assets/" in response.text
 
 
 @pytest.mark.parametrize(

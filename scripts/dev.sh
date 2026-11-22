@@ -27,6 +27,11 @@ if command -v lsof >/dev/null 2>&1; then
   done
 fi
 
+if [[ ! -f "$prism_root/app/static/index.html" ]]; then
+  printf 'Building the Prism dashboard (first run)...\n'
+  (cd "$prism_root" && make frontend-build)
+fi
+
 (cd "$swarm_root/backend" && uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8080) &
 swarm_api_pid=$!
 (cd "$swarm_root/backend" && LOG_JSON=false uv run python -m app.worker.main) &
