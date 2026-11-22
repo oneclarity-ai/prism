@@ -23,6 +23,7 @@ SENSITIVE_ASSIGNMENT_KEYS = {
 SAFE_PLACEHOLDERS = {
     "",
     "change-me",
+    "...",
     "replace-with-a-local-password",
 }
 

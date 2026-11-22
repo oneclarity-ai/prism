@@ -20,6 +20,11 @@ or worker service. Azure OpenAI is optional; PostgreSQL and the core management 
 
 ## Components
 
+Paths are relative to `apps/prism`. Routes, services, models and schemas are grouped into domain packages
+(`prisms`, `management`, `people`, `memory`, `llm`, `teams`, `qa`, `engine`); see
+[docs/architecture/monorepo.md](docs/architecture/monorepo.md). The swarm engine (`apps/swarm`) is a
+separate service that Prism calls over HTTP.
+
 - `app/api/routes`: HTTP transport, request validation, and response schemas.
 - `app/services`: business rules, Microsoft Graph operations, automation, intelligence,
   memory, and deterministic validation.

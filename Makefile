@@ -1,41 +1,25 @@
-PYTHON ?= python3.11
-VENV ?= .venv
+# Monorepo entry point. Prism targets run inside apps/prism; swarm helpers live in apps/swarm.
+PRISM := apps/prism
+SWARM := apps/swarm
 
-.PHONY: setup dev migrate test test-integration lint format format-check typecheck secrets audit check
+.PHONY: help dev dev-all setup check release-check swarm-setup swarm-dev \
+	setup dev migrate test test-integration test-e2e lint format format-check typecheck secrets audit
 
-setup:
-	$(PYTHON) -m venv $(VENV)
-	$(VENV)/bin/python -m pip install --upgrade pip
-	$(VENV)/bin/python -m pip install -r requirements-dev.txt
+help:
+	@echo "Prism targets (run in apps/prism): setup dev migrate test test-integration test-e2e lint format format-check typecheck secrets audit check release-check"
+	@echo "dev-all      Prism (8000) + swarm API (8080) + swarm worker, one command"
+	@echo "swarm-setup  Install swarm Python and Node dependencies"
+	@echo "swarm-dev    Run swarm API, worker, UI and demo shop on their own"
 
-dev:
-	$(VENV)/bin/uvicorn app.main:app --reload
+dev-all:
+	./scripts/dev.sh
 
-migrate:
-	$(VENV)/bin/alembic upgrade head
+swarm-setup:
+	cd $(SWARM) && ./scripts/setup.sh
 
-test:
-	$(VENV)/bin/pytest -q
+swarm-dev:
+	cd $(SWARM) && ./scripts/dev.sh
 
-test-integration:
-	RUN_DB_TESTS=1 $(VENV)/bin/pytest -q
-
-lint:
-	$(VENV)/bin/ruff check .
-
-format:
-	$(VENV)/bin/ruff format app tests
-
-format-check:
-	$(VENV)/bin/ruff format --check app tests
-
-typecheck:
-	$(VENV)/bin/mypy
-
-secrets:
-	$(VENV)/bin/python scripts/check_secrets.py
-
-audit:
-	$(VENV)/bin/pip-audit -r requirements.txt
-
-check: lint format-check typecheck test secrets
+# Everything else is forwarded to apps/prism/Makefile.
+setup dev migrate test test-integration test-e2e lint format format-check typecheck secrets audit check release-check:
+	$(MAKE) -C $(PRISM) $@

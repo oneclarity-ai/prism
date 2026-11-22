@@ -1,10 +1,12 @@
+# Whole platform: Prism (user-facing, :8000) plus the swarm engine (API :8080 and worker).
+# Prism secrets: apps/prism/.env  ·  swarm secrets: apps/swarm/backend/.env
 services:
   db:
     image: postgres:16-alpine
     environment:
       POSTGRES_DB: prism
       POSTGRES_USER: prism
-      POSTGRES_PASSWORD: ${PRISM_DATABASE_PASSWORD:?Set PRISM_DATABASE_PASSWORD in .env before starting Compose}
+      POSTGRES_PASSWORD: ${PRISM_DATABASE_PASSWORD:?Set PRISM_DATABASE_PASSWORD in the environment or a root .env before starting Compose}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U prism -d prism"]
       interval: 5s
@@ -14,11 +16,12 @@ services:
       - prism-postgres:/var/lib/postgresql/data
 
   app:
-    build: .
+    build: ./apps/prism
     env_file:
-      - .env
+      - ./apps/prism/.env
     environment:
-      DATABASE_URL: postgresql+psycopg://prism:${PRISM_DATABASE_PASSWORD:?Set PRISM_DATABASE_PASSWORD in .env before starting Compose}@db:5432/prism
+      DATABASE_URL: postgresql+psycopg://prism:${PRISM_DATABASE_PASSWORD:?Set PRISM_DATABASE_PASSWORD in the environment or a root .env before starting Compose}@db:5432/prism
+      QA_SWARM_URL: http://swarm-api:8000
     command: >-
       sh -c "alembic upgrade head &&
       uvicorn app.main:app --host 0.0.0.0 --port 8000"
@@ -29,5 +32,37 @@ services:
       - "8000:8000"
     restart: unless-stopped
 
+  swarm-db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: oc
+      POSTGRES_PASSWORD: oc
+      POSTGRES_DB: oneclarity
+    ports: ["5433:5432"]  # 5433 so it does not clash with a local Postgres on 5432
+    volumes: [swarm-pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "oc"]
+      interval: 5s
+
+  swarm-api:
+    build: ./apps/swarm/backend
+    env_file: ./apps/swarm/backend/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://oc:oc@swarm-db:5432/oneclarity
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    depends_on:
+      swarm-db: { condition: service_healthy }
+    ports: ["8080:8000"]
+
+  swarm-worker:
+    build: ./apps/swarm/backend
+    env_file: ./apps/swarm/backend/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://oc:oc@swarm-db:5432/oneclarity
+    command: python -m app.worker.main
+    depends_on:
+      swarm-db: { condition: service_healthy }
+
 volumes:
   prism-postgres:
+  swarm-pgdata:

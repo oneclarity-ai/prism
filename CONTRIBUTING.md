@@ -18,9 +18,12 @@ Requirements are Python 3.11+, PostgreSQL 14+, and Make.
 ```bash
 git clone https://github.com/oneclarity-ai/prism.git
 cd prism
-cp .env.example .env
+cp apps/prism/.env.example apps/prism/.env
 make setup
 ```
+
+Prism lives in `apps/prism` and the swarm engine in `apps/swarm`; the root `Makefile` forwards Prism
+targets (`make dev`, `make check`, ...) to `apps/prism`. Run `.venv/bin/...` commands below from `apps/prism`.
 
 Create a dedicated local database, update `DATABASE_URL`, then run:
 

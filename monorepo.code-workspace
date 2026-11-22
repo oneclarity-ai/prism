@@ -1,0 +1,8 @@
+{
+	"folders": [
+		{ "name": "monorepo", "path": "." },
+		{ "name": "prism", "path": "apps/prism" },
+		{ "name": "swarm", "path": "apps/swarm" }
+	],
+	"settings": {}
+}

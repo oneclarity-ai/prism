@@ -81,6 +81,31 @@ Manager memory is supporting context, not unrestricted instruction. Prism still 
 recipient-scope checks, structured decision validation, and audit logging before changing
 state or sending a Teams message.
 
+## Prism v2.1: one manager conversation
+
+With `PRISM_V21_ENABLED=true`, the **Agent** workspace is the main way to use Prism. You talk to one
+continuing Prism conversation, ask for an outcome ("What needs my attention across the release
+team?"), and Prism resolves, reads, and discloses the relevant Teams chats. Teams people and groups
+are sources and destinations, never separate Prism chats, and Prism is not a second Teams inbox.
+
+- **Auto by default.** Prism picks relevant authorized chats and shows what it read as source chips,
+  with a "Why these sources" view. The source filter only limits a request when you set it.
+- **Evidence you can open.** Every claim cites stored Teams messages, grouped by source.
+- **One card per action.** A request can prepare several replies. You edit, approve, or reject each
+  card on its own, and Prism sends only the exact approved text from your connected account.
+- **Clear recovery.** Reconnect, permission, throttling, and unconfirmed-delivery states say what
+  to do next and never imply a message was sent.
+- **One searchable history.** Day and topic separators, search, and "load earlier" navigate the
+  conversation.
+
+![What needs my attention, with disclosed sources](docs/screenshots/v2.1-attention-sources-desktop.png)
+
+![Coordinated approval cards on a narrow screen](docs/screenshots/v2.1-coordinated-approvals-narrow.png)
+
+See the [v2.2 runbook](docs/releases/v2.2-release-runbook.md) for multiple Prisms, monitoring, upgrade, and
+recovery, and the [v2.1 release runbook](docs/releases/v2.1-release-runbook.md) for setup, safe live testing, recovery, and
+the release gate.
+
 ## Product screenshots
 
 These screenshots show the main workflows available to a manager.
@@ -132,6 +157,9 @@ the webhook listener.
 
 ## Local setup guide
 
+For the manager-only Agent Chat release workflow, recovery behavior, safe live-send checklist, and
+backup guidance, see [the Prism v2.1 local release runbook](docs/releases/v2.1-release-runbook.md).
+
 This section takes you from a fresh checkout to a local Prism instance connected to
 Microsoft Teams. Start with automation disabled, verify the dashboard, and only then expose
 the webhook and message selected people.
@@ -162,13 +190,17 @@ Docker](#run-with-docker).
 
 ```bash
 git clone https://github.com/oneclarity-ai/prism.git
-cd prism
+cd prism/apps/prism
 cp .env.example .env
 python3.11 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -r requirements-dev.txt
 ```
+
+This repository is a monorepo: Prism lives in `apps/prism` and the swarm execution engine in
+`apps/swarm`. Prism commands run from `apps/prism` (or from the repository root through the root
+`Makefile`, for example `make dev`). See [docs/architecture/monorepo.md](docs/architecture/monorepo.md).
 
 If your shell does not support `source`, activate the environment using the equivalent
 command for your platform. Every later command using `python`, `alembic`, or `uvicorn`
@@ -233,6 +265,104 @@ Open these URLs in the same computer:
 
 At this stage, the dashboard and core API should work without Microsoft credentials. Do not
 start automation yet.
+
+### Unified Prism + computer workspace (local development)
+
+QA Prisms now discover internal website pages automatically. Say “Test https://example.com”;
+you do not need to list routes. New plans show **Discover pages automatically**, request
+separate approvals for new sites and secure logins, and ask before extending testing limits.
+Reports distinguish tested pages from discovered pages left untested. See the
+[website testing runbook](docs/releases/v2.4-release-runbook.md#website-testing-automatic-page-discovery)
+for dummy-data rules, limits and restart instructions.
+
+Prism needs `PRISM_V22_ENABLED=true`, `PRISM_V24_ENABLED=true`, and the `QA_SWARM_*` connection
+settings from `.env.example` for Operations to appear and load data. After both projects are
+configured and migrated, start the Prism UI, the swarm API, and its worker together from the
+repository root with:
+
+```bash
+make dev-all
+```
+
+The swarm now lives in this repository at `apps/swarm`; set `SWARM_ROOT` only to run a swarm checkout
+from another location.
+
+Stop any earlier swarm `scripts/dev.sh` session first; that older launcher also starts its
+separate frontend and occupies the swarm API port. The unified command checks ports 8000, 8080,
+and 5173 before starting.
+
+Open <http://127.0.0.1:8000/dashboard/>. **Workspace** in the Prism sidebar contains three groups:
+**Organization** (org chart and its departments), **Work** (Dashboard, Tasks, Runs, Approvals,
+Bugs), and **Setup** (Agents, Target apps, Secrets, Usage & analytics). These pages follow the
+swarm interface while using Prism's shared neutral design system. The launcher does not start
+the old swarm React UI on port `5173`; that frontend remains
+in its own repository for development and debugging. Prism calls the swarm API from the server, so
+the browser needs only the Prism URL and operator token when configured. Browser workers still need
+the swarm project's Docker setup.
+
+The sidebar has **Chat** (your Prisms), **Workspace** (the pages above), and **Search**.
+The selected control shows its icon and title; the other controls stay icon-only. Search opens a
+field above the Prism list, finds non-archived Prism names and private conversation messages, and
+keeps the list visible while you search. Selecting a message opens that point in its Prism's chat.
+
+The dashboard uses one Notion-style design system across chat, approvals, computer work, and
+Workspace pages, with System, Light, and Dark preferences. The sidebar's top row switches between
+Chats and Workspace, with a Search button at the right edge; the new **Spending** page and
+the Prisms page (cards or org chart view) live under Workspace. There is no Home page when Prisms are on. There is no top bar. The profile menu at the bottom of the
+sidebar offers Settings, Theme, System status and Log out; Settings is a modal with Account,
+Preferences, Notifications, Workspace, Connections and Developer sections and a settings search.
+Menus support keyboard navigation and the theme menu fits to the viewport. The app opens on Chats. Search (or Ctrl/Cmd+K) opens a universal search across Prisms, chats, pages, settings and actions.
+See [the design system guide](docs/guides/prism-design-system.md) for tokens, components, and verification.
+
+Prisms can have role-specific, instruction-only skills for any department. Manage reusable
+definitions in **Workspace → Skills** or **Settings → Workspace → Skills**. Confirming chat
+onboarding automatically creates three private skills and posts a notification in the chat.
+Edit them on the Prism's **Skills** tab; manage permissions separately on **Tools**.
+There is no second questionnaire, and generated skills never change tool access.
+See [Prism skills](docs/guides/prism-skills.md) for setup, permissions, revisions and migration notes.
+
+Dashboard pages now have direct URLs, including `/spending`, `/run-analytics` and `/tasks`.
+Each Prism receives a permanent code during creation, visible in its onboarding/chat header
+and its URL, such as `/prisms/pA7xQ2` (lowercase `p` plus five random letters/digits).
+Codes are case-sensitive; old `PR-` links still work. Refresh and Back/Forward restore the selected page.
+Run `make migrate` before restarting with this update to assign codes to existing Prisms.
+See [dashboard navigation](docs/guides/dashboard-navigation.md) for the route map and migration notes.
+
+Workspace Tasks supports search, agent/target filters, status counts, and list/board layouts.
+Runs groups sessions by date; Approvals includes pending decisions and decision history. Login
+and question approvals still open in the owning Prism's chat. Organization supports drag to pan,
+scroll to zoom, fit-to-view, department focus, and expanding/collapsing reports. It shows only your non-archived Prisms, including those
+that have not run yet. The connected user appears at the root, followed by the Chief of Staff
+and the Prism team. Saved reporting lines and departments define the chart; seeded roles,
+vacant seats, and standalone swarm agents are omitted. A Prism card opens its conversation.
+"Prism" and "agent" refer to the same user-created assistant. Usage filters query the engine for the selected
+agent and period. Task/run lists show the latest 200 records; their filters apply to that subset.
+
+New task, target, and secret forms save through explicit server-side API adapters. New Prisms
+appear in Organization automatically.
+Saving a task does not start a computer run; start work from its Prism conversation. New Prism
+uses the existing Create Prism flow. Secret values are write-only. Deletion requires confirmation,
+and approving a computer action uses the existing Prism approval checks. Bug email/Jira/manager
+integrations remain unavailable, matching the swarm's unfinished actions; their buttons are disabled.
+When v2.4 is disabled, the earlier Work and Approvals navigation remains available.
+
+### AI employee team
+
+Create Prism now collects **Role**, **Department**, and **Reports to**, along with its name and
+responsibilities. New team members default to reporting to Chief of Staff. The first Prism in a
+new team is offered as Chief of Staff, who reports directly to the user. Existing Prisms can be
+edited from their chat's **Settings → Profile → Edit role, department & reporting**.
+
+Migration `20261120_0045` preserves Prism identities and histories, assigns departments to
+existing Prisms from their roles, reuses the existing Chief of Staff (or Executive Assistant),
+and places the other existing team members beneath it. Apply pending migrations with
+`.venv/bin/alembic upgrade head` before using this release. See
+[Prism team organization](docs/guides/prism-team-organization.md) for the local assignments and checks.
+
+The server rejects reporting cycles, self-reporting, archived managers, and a second Chief of
+Staff. Archiving a manager moves its reports to Chief of Staff; Chief of Staff cannot be archived
+while other team members remain. Roles and departments inform onboarding and working instructions;
+reporting lines do not expand tool permissions or grant access to another Prism's private memory.
 
 ### 6. Register the Microsoft Entra application
 
@@ -482,15 +612,18 @@ correct, and migrations have been applied with `make migrate`.
 ## Run with Docker
 
 ```bash
-cp .env.example .env
-# Set a unique local-only database password in .env before continuing.
+cp apps/prism/.env.example apps/prism/.env
+cp apps/swarm/backend/.env.example apps/swarm/backend/.env
+# Set a unique local-only database password in a root .env (read by Compose) before continuing.
 # For example: PRISM_DATABASE_PASSWORD=choose-a-long-local-password
 docker compose up --build
 ```
 
-Compose starts PostgreSQL, applies Alembic migrations, and starts Prism on port `8000`.
-Compose deliberately refuses to start until `PRISM_DATABASE_PASSWORD` is set in `.env`.
-Choose a unique local password; do not use a default value or commit `.env`.
+Run these from the repository root. Compose starts Prism's PostgreSQL, applies Alembic migrations and
+starts Prism on port `8000`, then starts the swarm database, API (port `8080`) and worker. Prism reaches
+the swarm at `http://swarm-api:8000` inside Compose. Compose deliberately refuses to start until
+`PRISM_DATABASE_PASSWORD` is set. Choose a unique local password; do not use a default value or commit
+any `.env` file.
 
 Stop the services with `docker compose down`. Add `--volumes` only when you intentionally
 want to delete the local PostgreSQL data volume.
@@ -498,7 +631,7 @@ want to delete the local PostgreSQL data volume.
 ## Configuration
 
 All configuration is read from environment variables or an ignored `.env` file. The
-complete, commented list is in [.env.example](.env.example).
+complete, commented list is in [apps/prism/.env.example](apps/prism/.env.example).
 
 | Variable | Purpose | Default/safe state |
 | --- | --- | --- |
