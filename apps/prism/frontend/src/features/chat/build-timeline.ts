@@ -20,7 +20,14 @@ function topicSeparator(state: ChatState, message: Message, previous: Message | 
   const previousJob = previous ? state.turns.get(previous.job_id ?? "")?.job : undefined;
   const newTopic = Boolean(previous && job?.sources?.length && previousJob?.sources?.length && scopeKey(job) !== scopeKey(previousJob));
   if (!newTopic || !job) return null;
-  return `New topic · ${job.sources.map((source) => source.label || "Teams chat").join(", ")}`;
+  return `New topic · ${sourceSummary(job.sources.map((source) => source.label || "Teams chat"))}`;
+}
+
+/** Chats that share a label (e.g. several chats with the same person) collapse to "Name (3 chats)". */
+export function sourceSummary(labels: string[]): string {
+  const counts = new Map<string, number>();
+  labels.forEach((label) => counts.set(label, (counts.get(label) ?? 0) + 1));
+  return [...counts].map(([label, count]) => (count > 1 ? `${label} (${count} chats)` : label)).join(", ");
 }
 
 /** The old `renderStream` decision tree as a pure function of the chat state. */
