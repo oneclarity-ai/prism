@@ -258,14 +258,44 @@ def test_attention_source_provenance_is_derived_from_citations() -> None:
     assert annotated.attention_items[0].source_external_ids == ["chat-parv"]
 
 
-def test_attention_cannot_claim_an_uncited_source() -> None:
+def test_attention_uncited_source_claim_is_replaced_by_cited_provenance() -> None:
     evidence_id = str(uuid.uuid4())
     output = review(evidence_id)
     output.attention_items[0].source_external_ids = ["chat-meera"]
     evidence = [SimpleNamespace(id=uuid.UUID(evidence_id), external_conversation_id="chat-parv")]
 
-    with pytest.raises(RuleViolationError, match="source it did not cite"):
-        ConversationReviewService._annotate_source_provenance(output, evidence)
+    annotated = ConversationReviewService._annotate_source_provenance(output, evidence)
+
+    assert annotated.attention_items[0].source_external_ids == ["chat-parv"]
+
+
+def test_evidence_ids_pasted_into_prose_are_removed_but_citations_stay() -> None:
+    first, second = str(uuid.uuid4()), str(uuid.uuid4())
+    output = review(first)
+    output.summary = f"Fixes shipped last week. ({first}) Evidence: {second} and more."
+    output.attention_items[0].detail = f"Needs a decision [evidence id: {first}, {second}] soon."
+    evidence = [
+        SimpleNamespace(id=uuid.UUID(first), external_conversation_id="chat-parv"),
+        SimpleNamespace(id=uuid.UUID(second), external_conversation_id="chat-parv"),
+    ]
+
+    scrubbed = ConversationReviewService._scrub_evidence_ids(output, evidence)
+
+    assert first not in scrubbed.summary and second not in scrubbed.summary
+    assert scrubbed.summary.startswith("Fixes shipped last week.")
+    assert first not in scrubbed.attention_items[0].detail
+    assert scrubbed.attention_items[0].detail == "Needs a decision soon."
+    assert scrubbed.attention_items[0].evidence_ids == output.attention_items[0].evidence_ids
+
+
+def test_scrub_leaves_unrelated_uuids_and_text_alone() -> None:
+    cited = str(uuid.uuid4())
+    other = str(uuid.uuid4())
+    output = review(cited)
+    output.summary = f"Ticket {other} is still open."
+    evidence = [SimpleNamespace(id=uuid.UUID(cited), external_conversation_id="chat-parv")]
+
+    assert ConversationReviewService._scrub_evidence_ids(output, evidence).summary == output.summary
 
 
 def test_duplicate_external_message_id_is_not_an_ambiguous_citation_alias() -> None:

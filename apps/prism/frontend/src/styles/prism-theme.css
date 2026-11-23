@@ -153,6 +153,9 @@ input.toggle[type="checkbox"]:focus-visible { outline: 2px solid var(--ds-focus)
 .qa-report, .work-plan, .work-result, .callout, .health-card {
   border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--callout); box-shadow: none;
 }
+.qa-report { max-width: 720px; padding: 14px 16px; }
+.qa-table th { white-space: nowrap; }
+.qa-table td { word-break: normal; overflow-wrap: break-word; }
 .workspace-metric:hover, .workspace-panel:hover, .unified-work-card:hover, .stat-card:hover, .chat-card:hover { transform: none; box-shadow: none; background: var(--callout); }
 .prism-card:hover { background: var(--hover); transform: none; box-shadow: none; }
 .workspace-panel, .unified-work-card, .cost-source { padding: 16px; }
@@ -176,7 +179,7 @@ input.toggle[type="checkbox"]:focus-visible { outline: 2px solid var(--ds-focus)
 .agent-composer.pill textarea { border: 0; background: transparent; }
 .agent-composer.pill .send-button { width: 36px; height: 36px; padding: 0; }
 .agent-composer.pill .source-chip, .agent-composer.pill .source-chip.empty, .agent-composer.pill .source-chip:not(.empty) { color: var(--text); background: var(--ds-inset); border-radius: var(--radius-control); box-shadow: none; border: 1px solid var(--border-strong); }
-.turn.user .bubble { max-width: min(80%, 720px); color: var(--text); background: var(--bubble-user); border-radius: var(--radius-panel); }
+.turn.user .bubble { max-width: min(80%, 720px); padding: 10px 18px; color: var(--text); background: var(--bubble-user); border-radius: 22px; }
 .turn .answer, .turn-body, .review-summary { max-width: 75ch; line-height: 1.6; overflow-wrap: anywhere; }
 .draft-body, .draft-card textarea.draft-body { min-height: 112px; border-radius: var(--radius-control); line-height: 1.6; }
 .draft-card.rejected .draft-body, .draft-card.expired .draft-body, .pref-item.inactive .pref-copy, .proactive-update.resolved { opacity: 1; color: var(--muted); }

@@ -240,7 +240,7 @@ div.account-chip:hover { background: transparent; }
 .msg.in + .msg.out, .msg.out + .msg.in { margin-top: 12px; }
 .msg-bubble { max-width: min(680px, 78%); padding: 6px 12px; border-radius: 14px; }
 .msg.in .msg-bubble { border-bottom-left-radius: 4px; background: var(--callout); }
-.msg.out .msg-bubble { border-bottom-right-radius: 4px; color: var(--tag-blue-fg); background: var(--tag-blue-bg); }
+.msg.out .msg-bubble { border-bottom-right-radius: 4px; background: var(--callout); }
 .msg-text { margin: 0; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; white-space: pre-wrap; }
 .msg-time { position: relative; top: 6px; float: right; margin-left: 12px; color: var(--faint); font-size: 11px; line-height: 1.5; white-space: nowrap; }
 .msg.out .msg-time { color: inherit; opacity: .6; }

@@ -548,6 +548,7 @@ class ConversationReviewService:
         result = ConversationReviewService._normalize_citations(result, evidence)
         ConversationReviewService._validate_citations(result, evidence)
         result = ConversationReviewService._annotate_source_provenance(result, evidence)
+        result = ConversationReviewService._scrub_evidence_ids(result, evidence)
         ConversationReviewService._validate_preferences(db, job, result)
         if result.proposed_actions:
             CoordinatedActionService.validate(db, job, result.proposed_actions)
@@ -833,6 +834,41 @@ class ConversationReviewService:
         return ConversationReviewOutput.model_validate(data)
 
     @staticmethod
+    def _scrub_evidence_ids(
+        result: ConversationReviewOutput, evidence: list[AgentSourceMessage]
+    ) -> ConversationReviewOutput:
+        """Remove raw evidence ids the model pasted into prose; citations live in `evidence_ids`."""
+
+        ids = [str(item.id) for item in evidence]
+        if not ids:
+            return result
+        alternation = "|".join(re.escape(value) for value in ids)
+        grouped = re.compile(
+            rf"\s*[(\[]\s*(?:evidence[\w ]*[:#=]?\s*)?(?:(?:{alternation})\s*[,;]?\s*)+[)\]]",
+            re.IGNORECASE,
+        )
+        bare = re.compile(rf"\s*(?:{alternation})", re.IGNORECASE)
+
+        def clean(text: str) -> str:
+            scrubbed = bare.sub("", grouped.sub("", text)).strip()
+            return scrubbed or text
+
+        data = result.model_dump()
+        data["summary"] = clean(result.summary)
+        for index, item in enumerate(result.attention_items):
+            data["attention_items"][index]["title"] = clean(item.title)
+            data["attention_items"][index]["detail"] = clean(item.detail)
+        for index, item in enumerate(result.manager_questions):
+            data["manager_questions"][index]["question"] = clean(item.question)
+        if result.proposed_reply:
+            data["proposed_reply"]["body"] = clean(result.proposed_reply.body)
+            data["proposed_reply"]["reason"] = clean(result.proposed_reply.reason)
+        for index, item in enumerate(result.proposed_actions):
+            data["proposed_actions"][index]["body"] = clean(item.body)
+            data["proposed_actions"][index]["reason"] = clean(item.reason)
+        return ConversationReviewOutput.model_validate(data)
+
+    @staticmethod
     def _annotate_source_provenance(
         result: ConversationReviewOutput, evidence: list[AgentSourceMessage]
     ) -> ConversationReviewOutput:
@@ -842,12 +878,13 @@ class ConversationReviewService:
             cited_sources = list(
                 dict.fromkeys(source_by_evidence[value] for value in item.evidence_ids)
             )
+            # The model's own source list is a redundant guess (and unreliable when several chats share
+            # a label); provenance is always the sources of the evidence it cited. A mismatch is
+            # dropped rather than failing a review whose citations were all valid.
             if item.source_external_ids and not set(item.source_external_ids).issubset(
                 cited_sources
             ):
-                raise RuleViolationError(
-                    "An insight attributed evidence to a Teams source it did not cite"
-                )
+                logger.info("v21_review_unsupported_source_claim_dropped insight=%s", index)
             data["attention_items"][index]["source_external_ids"] = cited_sources
         return ConversationReviewOutput.model_validate(data)
 

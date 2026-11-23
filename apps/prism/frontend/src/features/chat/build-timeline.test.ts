@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTimeline } from "./build-timeline";
+import { buildTimeline, sourceSummary } from "./build-timeline";
 import { initialState } from "./store";
 import { job, message, thread } from "./testkit";
 import { newTurn } from "./store";
@@ -50,5 +50,16 @@ describe("buildTimeline", () => {
   it("adds history and load-earlier controls", () => {
     const state = base({ activeThread: thread(), anchor: "a", hasEarlier: true, messages: [message("a", "manager", "q", null, 1)] });
     expect(kinds(state).slice(0, 2)).toEqual(["history-banner", "load-earlier"]);
+  });
+});
+
+describe("sourceSummary", () => {
+  it("lists distinct labels as before", () => {
+    expect(sourceSummary(["Budget chat", "Release group"])).toBe("Budget chat, Release group");
+  });
+  it("collapses chats that share a label", () => {
+    expect(sourceSummary(["Sanjay Vitkare", "Sanjay Vitkare", "Sanjay Vitkare", "Release group"])).toBe(
+      "Sanjay Vitkare (3 chats), Release group",
+    );
   });
 });
