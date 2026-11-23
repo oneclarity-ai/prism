@@ -917,7 +917,7 @@ def test_the_bridge_only_accepts_the_engine(engine) -> None:
     stamp = str(int(time.time()))
     good = hmac.new(secret.encode(), stamp.encode() + b"." + body, hashlib.sha256).hexdigest()
     assert verify(secret, stamp, body, good)
-    assert not verify(secret, stamp, body, good[:-1] + "0")
+    assert not verify(secret, stamp, body, good[:-1] + ("1" if good[-1] == "0" else "0"))
     assert not verify(secret, stamp, b"{ }", good)  # changed body
     assert not verify(secret, str(int(time.time()) - 3600), body, good)  # stale
     assert not verify(None, stamp, body, good)  # no secret configured: nothing is accepted

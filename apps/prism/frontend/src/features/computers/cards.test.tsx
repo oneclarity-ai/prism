@@ -174,7 +174,7 @@ describe("approval cards", () => {
   it("outward action: Allow/Don't post decisions; decided text afterwards", async () => {
     const net = setup({
       "POST /api/v2/qa/approvals/a1/decision": () => makeRun({ approvals: [{ id: "a1", kind: "outward_action", status: "approved" }] }),
-      "GET /api/v2/qa/runs/run-1/frame": () => new Response(new Blob(["x"])),
+      "GET /api/v2/qa/runs/run-1/frame": () => new Response("x"),
     });
     withApproval({ id: "a1", kind: "outward_action", status: "pending", view: { summary: "send the form", site: "example.com", details: "name=Test", frame: true } }, { frame: 3 });
     show(approvalMessage("a1"));
@@ -320,7 +320,7 @@ describe("report cards", () => {
     });
 
   it("renders chips, coverage, issues, checks and the footer", () => {
-    setup({ "GET /api/v2/qa/runs/run-1/screens/1": () => new Response(new Blob(["x"])) });
+    setup({ "GET /api/v2/qa/runs/run-1/screens/1": () => new Response("x") });
     seed(qaReport());
     show(message("qa_report"));
     const chips = Array.from(document.querySelectorAll(".qa-counts .qa-chip")).map((chip) => `${chip.textContent}|${chip.className}`);
@@ -362,7 +362,7 @@ describe("report cards", () => {
 
   it("thumbnails fetch the screenshot, open a lightbox dialog and remove themselves on failure", async () => {
     setup({
-      "GET /api/v2/qa/runs/run-1/screens/1": () => new Response(new Blob(["x"])),
+      "GET /api/v2/qa/runs/run-1/screens/1": () => new Response("x"),
       "GET /api/v2/qa/runs/run-1/screens/9": () => json({ detail: "gone" }, 404),
     });
     seed(qaReport({ bugs: [], cases: [{ title: "Shot", status: "fail", screens: [1, 9] }], coverage: undefined }));
@@ -391,7 +391,7 @@ describe("report cards", () => {
     const work = (report: object) => makeWorkRun({ state: "succeeded", report: { kind: "work", outcome: "succeeded", ...report } });
 
     it("shows counts, a results table, sections, downloads and the footer", async () => {
-      const net = setup({ "GET /api/v2/qa/runs/work-1/files/0": () => new Response(new Blob(["a,b"])) });
+      const net = setup({ "GET /api/v2/qa/runs/work-1/files/0": () => new Response("a,b") });
       const clicked: string[] = [];
       const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
         clicked.push(`${this.download}|${this.href}`);
