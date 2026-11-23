@@ -1,0 +1,19 @@
+assistant : Here’s the ranking and the lead list based on the available ICp and the partial verification notes. Data is partially verified due to rate limits, and “unverified” labels are noted where relevant.
+
+Top 3 outreach priorities (based on engineering-led focus and potential platform fit):
+1) BrowserStack — https://www.browserstack.com — strong engineering-centric product with widespread developer usage; high likelihood of needing orchestration/visibility across engineering work and deployments.
+2) Postman — https://www.postman.com — deep developer tooling platform with broad engineering adoption; clear relevance for improving cross-team delivery visibility and integrations.
+3) Razorpay — https://www.razorpay.com — fintech/engineering-enabled company with sizable tech integrations and cross-functional delivery needs; potential fit for orchestration and risk visibility in delivery.
+
+Other leads (for reference):
+- Freshworks — https://www.freshworks.com
+- Zoho — https://www.zoho.com
+- InMobi — https://www.inmobi.com
+- Flipkart — https://www.flipkart.com
+- Swiggy — https://www.swiggy.com
+- Ola — https://www.olacabs.com
+- Unacademy — https://unacademy.com
+
+Notes:
+- All results are partially verified; leadership emails and some company details require fuller verification (rate limits blocked some lookups).
+- If you want, I can proceed with deeper verification for the top 5 and prepare outreach drafts specific to each company.

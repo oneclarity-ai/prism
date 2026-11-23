@@ -1,0 +1,1075 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="14" skipped="2" tests="90" time="261.359" timestamp="2026-11-22T17:50:17.518536+05:30" hostname="Yashs-MacBook-Air.local"><testcase classname="tests.e2e.test_design_system" name="test_keyboard_theme_menu_persistence_and_system_preference[desktop]" time="5.051"><failure message="assert (None)">page = &lt;Page url='http://127.0.0.1:63815/assistant'&gt;
+
+    def test_keyboard_theme_menu_persistence_and_system_preference(page: Page) -&gt; None:
+        page.emulate_media(color_scheme="dark", reduced_motion="reduce")
+        page.evaluate("window.prismTheme.set('system')")
+        expect(page.locator("html")).to_have_attribute("data-theme", "dark")
+        trigger = page.locator("#profile-menu-trigger")
+        trigger.focus()
+        page.keyboard.press("ArrowDown")
+        expect(page.get_by_role("menuitem", name="Settings", exact=True)).to_be_focused()
+        page.keyboard.press("ArrowDown")
+        expect(page.get_by_role("radio", name="System", exact=True)).to_be_focused()
+        bounds = page.locator(".profile-theme-options").bounding_box()
+&gt;       assert bounds and bounds["x"] &gt;= 0
+E       assert (None)
+
+tests/e2e/test_design_system.py:39: AssertionError</failure></testcase><testcase classname="tests.e2e.test_design_system" name="test_keyboard_theme_menu_persistence_and_system_preference[narrow]" time="5.426"><failure message="AssertionError: Locator expected to be focused&#10;Actual value: None&#10;Error: element(s) not found &#10;Call log:&#10;  - Expect &quot;to_be_focused&quot; get_by_role(&quot;menuitem&quot;, name=&quot;Settings&quot;, exact=True) with timeout 5000ms&#10;  - waiting for get_by_role(&quot;menuitem&quot;, name=&quot;Settings&quot;, exact=True)&#10;&#10;Aria snapshot:&#10;- complementary &quot;Primary&quot;:&#10;  - text: Prism&#10;  - button &quot;Create Prism&quot;&#10;  - button &quot;Close sidebar&quot;&#10;  - tablist &quot;Sidebar view&quot;:&#10;    - tab &quot;Chats&quot; [selected]&#10;    - tab &quot;Workspace&quot;&#10;    - tab &quot;Notifications&quot;&#10;  - button &quot;Search&quot;&#10;  - navigation &quot;Dashboard sections&quot;:&#10;    - tabpanel &quot;Chats&quot;:&#10;      - text: Prisms&#10;      - button &quot;Show archived Prisms&quot;: Show archived&#10;      - paragraph: No Prisms yet.&#10;  - button &quot;Open profile menu&quot;: M Microsoft account&#10;  - button &quot;Settings&quot;&#10;- main:&#10;  - status&#10;  - button &quot;Open sidebar&quot;&#10;  - strong: Prism&#10;  - button &quot;Search&quot;&#10;  - button &quot;Preferences and settings&quot;: Preferences&#10;  - strong: Finish setting up Prism&#10;  - list:&#10;    - listitem: Add the Microsoft settings to .env and restart the API to connect Teams.&#10;    - listitem:&#10;      - text: &quot;AI provider: Intelligence is disabled&quot;&#10;      - button &quot;Open settings&quot;&#10;  - text: P&#10;  - heading &quot;Talk to your manager Prism&quot; [level=2]&#10;  - paragraph: Ask naturally and Prism will disclose which Teams chats it reads. Use the chat selector in the message box to limit a request to one chat.&#10;  - list:&#10;    - listitem: Ask naturally and Prism will choose the relevant chats&#10;    - listitem: Select a chat only when you want a hard one-chat limit&#10;    - listitem: Check the evidence and approve only actions you requested&#10;  - text: Message Prism&#10;  - textbox &quot;Message Prism&quot;&#10;  - button &quot;All chats&quot;&#10;  - button &quot;Ask Prism&quot; [disabled]">page = &lt;Page url='http://127.0.0.1:63815/assistant'&gt;
+
+    def test_keyboard_theme_menu_persistence_and_system_preference(page: Page) -&gt; None:
+        page.emulate_media(color_scheme="dark", reduced_motion="reduce")
+        page.evaluate("window.prismTheme.set('system')")
+        expect(page.locator("html")).to_have_attribute("data-theme", "dark")
+        trigger = page.locator("#profile-menu-trigger")
+        trigger.focus()
+        page.keyboard.press("ArrowDown")
+&gt;       expect(page.get_by_role("menuitem", name="Settings", exact=True)).to_be_focused()
+E       AssertionError: Locator expected to be focused
+E       Actual value: None
+E       Error: element(s) not found 
+E       Call log:
+E         - Expect "to_be_focused" get_by_role("menuitem", name="Settings", exact=True) with timeout 5000ms
+E         - waiting for get_by_role("menuitem", name="Settings", exact=True)
+E       
+E       Aria snapshot:
+E       - complementary "Primary":
+E         - text: Prism
+E         - button "Create Prism"
+E         - button "Close sidebar"
+E         - tablist "Sidebar view":
+E           - tab "Chats" [selected]
+E           - tab "Workspace"
+E           - tab "Notifications"
+E         - button "Search"
+E         - navigation "Dashboard sections":
+E           - tabpanel "Chats":
+E             - text: Prisms
+E             - button "Show archived Prisms": Show archived
+E             - paragraph: No Prisms yet.
+E         - button "Open profile menu": M Microsoft account
+E         - button "Settings"
+E       - main:
+E         - status
+E         - button "Open sidebar"
+E         - strong: Prism
+E         - button "Search"
+E         - button "Preferences and settings": Preferences
+E         - strong: Finish setting up Prism
+E         - list:
+E           - listitem: Add the Microsoft settings to .env and restart the API to connect Teams.
+E           - listitem:
+E             - text: "AI provider: Intelligence is disabled"
+E             - button "Open settings"
+E         - text: P
+E         - heading "Talk to your manager Prism" [level=2]
+E         - paragraph: Ask naturally and Prism will disclose which Teams chats it reads. Use the chat selector in the message box to limit a request to one chat.
+E         - list:
+E           - listitem: Ask naturally and Prism will choose the relevant chats
+E           - listitem: Select a chat only when you want a hard one-chat limit
+E           - listitem: Check the evidence and approve only actions you requested
+E         - text: Message Prism
+E         - textbox "Message Prism"
+E         - button "All chats"
+E         - button "Ask Prism" [disabled]
+
+tests/e2e/test_design_system.py:35: AssertionError</failure></testcase><testcase classname="tests.e2e.test_design_system" name="test_visual_matrix_and_keyboard_approval_with_evidence[desktop]" time="3.217" /><testcase classname="tests.e2e.test_design_system" name="test_visual_matrix_and_keyboard_approval_with_evidence[narrow]" time="2.268" /><testcase classname="tests.e2e.test_design_system" name="test_workspace_surfaces_and_semantic_contrast[desktop]" time="0.632"><failure message="playwright._impl._errors.Error: Locator.evaluate: Error: strict mode violation: locator(&quot;[data-workspace-page='approvals']&quot;) resolved to 2 elements:&#10;    1) &lt;button type=&quot;button&quot; data-workspace-page=&quot;approvals&quot; class=&quot;nav-item workspace-nav-item&quot;&gt;…&lt;/button&gt; aka get_by_role(&quot;button&quot;, name=&quot;Approvals&quot;)&#10;    2) &lt;button type=&quot;button&quot; data-workspace-page=&quot;approvals&quot; class=&quot;nav-item workspace-nav-item&quot;&gt;…&lt;/button&gt; aka locator(&quot;button&quot;).filter(has_text=&quot;Approvals waiting&quot;)&#10;&#10;Call log:&#10;  - waiting for locator(&quot;[data-workspace-page='approvals']&quot;)">page = &lt;Page url='http://127.0.0.1:63815/runs'&gt;
+
+    def test_workspace_surfaces_and_semantic_contrast(page: Page) -&gt; None:
+        now = datetime.now(timezone.utc).isoformat()
+        page.route(
+            "**/api/v2/qa/status",
+            lambda route: route.fulfill(json={"available": True, "computers": True, "reason": ""}),
+        )
+        page.route(
+            "**/api/v2/operations/overview",
+            lambda route: route.fulfill(
+                json={
+                    "agents": [{"id": "synthetic-agent", "name": "Research Prism", "status": "active"}],
+                    "tasks": [
+                        {
+                            "id": "synthetic-task",
+                            "title": "Review release readiness",
+                            "goal": "Check the release with evidence",
+                            "agent_id": "synthetic-agent",
+                            "status": "todo",
+                            "created_at": now,
+                        }
+                    ],
+                    "runs": [
+                        {
+                            "id": "synthetic-run",
+                            "task_title": "Review release readiness",
+                            "agent_id": "synthetic-agent",
+                            "status": "succeeded",
+                            "created_at": now,
+                            "started_at": now,
+                            "ended_at": now,
+                            "total_tokens": 1200,
+                            "cost_usd": 0.03,
+                        }
+                    ],
+                    "targets": [],
+                    "approvals": [],
+                    "bugs": [],
+                    "positions": [],
+                }
+            ),
+        )
+        page.route("**/api/v2/operations/secrets", lambda route: route.fulfill(json=[]))
+        page.route("**/api/v2/work/approvals?**", lambda route: route.fulfill(json=[]))
+        page.route(
+            "**/api/v2/operations/analytics?**",
+            lambda route: route.fulfill(
+                json={"totals": {}, "by_day": [], "by_agent": [], "by_model": []}
+            ),
+        )
+        page.reload()
+        expect(page.locator("#sidebar-workspace-tab")).to_be_visible()
+        page.evaluate("window.prism.setSidebarSection('workspace')")
+        # The desktop invocation also covers the tablet breakpoint.
+        widths = [1440, 900, 720] if page.viewport_size["width"] &gt; 700 else [390, 320]
+        for width in widths:
+            page.set_viewport_size({"width": width, "height": 960 if width &gt; 700 else 844})
+            for theme in ("dark", "light"):
+                page.evaluate("theme =&gt; window.prismTheme.set(theme)", theme)
+                for target in (
+                    "overview",
+                    "tasks",
+                    "runs",
+                    "approvals",
+                    "bugs",
+                    "agents",
+                    "positions",
+                    "targets",
+                    "secrets",
+                    "usage",
+                ):
+&gt;                   page.locator(f"[data-workspace-page='{target}']").evaluate(
+                        "button =&gt; button.click()"
+                    )
+
+tests/e2e/test_design_system.py:199: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.11/site-packages/playwright/sync_api/_generated.py:11491: in evaluate
+    self._sync(
+.venv/lib/python3.11/site-packages/playwright/_impl/_locator.py:204: in evaluate
+    return await self._with_element(
+.venv/lib/python3.11/site-packages/playwright/_impl/_locator.py:123: in _with_element
+    handle = await self.element_handle(timeout=timeout)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.11/site-packages/playwright/_impl/_locator.py:334: in element_handle
+    handle = await self._frame.wait_for_selector(
+.venv/lib/python3.11/site-packages/playwright/_impl/_frame.py:395: in wait_for_selector
+    await self._channel.send(
+.venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:78: in send
+    return await self._connection.wrap_api_call(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;playwright._impl._connection.Connection object at 0x107d5ec90&gt;
+cb = &lt;function Channel.send.&lt;locals&gt;.&lt;lambda&gt; at 0x11135af20&gt;
+is_internal = False, title = None
+
+    async def wrap_api_call(
+        self, cb: Callable[[], Any], is_internal: bool = False, title: str = None
+    ) -&gt; Any:
+        if self._api_zone.get():
+            return await cb()
+        task = asyncio.current_task(self._loop)
+        parsed_st = _attach_api_call_information(
+            getattr(task, "__pw_stack__", None) or _capture_stack_trace(),
+            is_internal,
+            title,
+        )
+        self._api_zone.set(parsed_st)
+        try:
+            return await cb()
+        except Exception as error:
+&gt;           raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+E           playwright._impl._errors.Error: Locator.evaluate: Error: strict mode violation: locator("[data-workspace-page='approvals']") resolved to 2 elements:
+E               1) &lt;button type="button" data-workspace-page="approvals" class="nav-item workspace-nav-item"&gt;…&lt;/button&gt; aka get_by_role("button", name="Approvals")
+E               2) &lt;button type="button" data-workspace-page="approvals" class="nav-item workspace-nav-item"&gt;…&lt;/button&gt; aka locator("button").filter(has_text="Approvals waiting")
+E           
+E           Call log:
+E             - waiting for locator("[data-workspace-page='approvals']")
+
+.venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:636: Error</failure></testcase><testcase classname="tests.e2e.test_design_system" name="test_workspace_surfaces_and_semantic_contrast[narrow]" time="0.636"><failure message="playwright._impl._errors.Error: Locator.evaluate: Error: strict mode violation: locator(&quot;[data-workspace-page='approvals']&quot;) resolved to 2 elements:&#10;    1) &lt;button type=&quot;button&quot; data-workspace-page=&quot;approvals&quot; class=&quot;nav-item workspace-nav-item&quot;&gt;…&lt;/button&gt; aka get_by_role(&quot;button&quot;, name=&quot;Approvals&quot;)&#10;    2) &lt;button type=&quot;button&quot; data-workspace-page=&quot;approvals&quot; class=&quot;nav-item workspace-nav-item&quot;&gt;…&lt;/button&gt; aka locator(&quot;button&quot;).filter(has_text=&quot;Approvals waiting&quot;)&#10;&#10;Call log:&#10;  - waiting for locator(&quot;[data-workspace-page='approvals']&quot;)">page = &lt;Page url='http://127.0.0.1:63815/runs'&gt;
+
+    def test_workspace_surfaces_and_semantic_contrast(page: Page) -&gt; None:
+        now = datetime.now(timezone.utc).isoformat()
+        page.route(
+            "**/api/v2/qa/status",
+            lambda route: route.fulfill(json={"available": True, "computers": True, "reason": ""}),
+        )
+        page.route(
+            "**/api/v2/operations/overview",
+            lambda route: route.fulfill(
+                json={
+                    "agents": [{"id": "synthetic-agent", "name": "Research Prism", "status": "active"}],
+                    "tasks": [
+                        {
+                            "id": "synthetic-task",
+                            "title": "Review release readiness",
+                            "goal": "Check the release with evidence",
+                            "agent_id": "synthetic-agent",
+                            "status": "todo",
+                            "created_at": now,
+                        }
+                    ],
+                    "runs": [
+                        {
+                            "id": "synthetic-run",
+                            "task_title": "Review release readiness",
+                            "agent_id": "synthetic-agent",
+                            "status": "succeeded",
+                            "created_at": now,
+                            "started_at": now,
+                            "ended_at": now,
+                            "total_tokens": 1200,
+                            "cost_usd": 0.03,
+                        }
+                    ],
+                    "targets": [],
+                    "approvals": [],
+                    "bugs": [],
+                    "positions": [],
+                }
+            ),
+        )
+        page.route("**/api/v2/operations/secrets", lambda route: route.fulfill(json=[]))
+        page.route("**/api/v2/work/approvals?**", lambda route: route.fulfill(json=[]))
+        page.route(
+            "**/api/v2/operations/analytics?**",
+            lambda route: route.fulfill(
+                json={"totals": {}, "by_day": [], "by_agent": [], "by_model": []}
+            ),
+        )
+        page.reload()
+        expect(page.locator("#sidebar-workspace-tab")).to_be_visible()
+        page.evaluate("window.prism.setSidebarSection('workspace')")
+        # The desktop invocation also covers the tablet breakpoint.
+        widths = [1440, 900, 720] if page.viewport_size["width"] &gt; 700 else [390, 320]
+        for width in widths:
+            page.set_viewport_size({"width": width, "height": 960 if width &gt; 700 else 844})
+            for theme in ("dark", "light"):
+                page.evaluate("theme =&gt; window.prismTheme.set(theme)", theme)
+                for target in (
+                    "overview",
+                    "tasks",
+                    "runs",
+                    "approvals",
+                    "bugs",
+                    "agents",
+                    "positions",
+                    "targets",
+                    "secrets",
+                    "usage",
+                ):
+&gt;                   page.locator(f"[data-workspace-page='{target}']").evaluate(
+                        "button =&gt; button.click()"
+                    )
+
+tests/e2e/test_design_system.py:199: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.11/site-packages/playwright/sync_api/_generated.py:11491: in evaluate
+    self._sync(
+.venv/lib/python3.11/site-packages/playwright/_impl/_locator.py:204: in evaluate
+    return await self._with_element(
+.venv/lib/python3.11/site-packages/playwright/_impl/_locator.py:123: in _with_element
+    handle = await self.element_handle(timeout=timeout)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.11/site-packages/playwright/_impl/_locator.py:334: in element_handle
+    handle = await self._frame.wait_for_selector(
+.venv/lib/python3.11/site-packages/playwright/_impl/_frame.py:395: in wait_for_selector
+    await self._channel.send(
+.venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:78: in send
+    return await self._connection.wrap_api_call(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;playwright._impl._connection.Connection object at 0x107d5ec90&gt;
+cb = &lt;function Channel.send.&lt;locals&gt;.&lt;lambda&gt; at 0x1112c5c60&gt;
+is_internal = False, title = None
+
+    async def wrap_api_call(
+        self, cb: Callable[[], Any], is_internal: bool = False, title: str = None
+    ) -&gt; Any:
+        if self._api_zone.get():
+            return await cb()
+        task = asyncio.current_task(self._loop)
+        parsed_st = _attach_api_call_information(
+            getattr(task, "__pw_stack__", None) or _capture_stack_trace(),
+            is_internal,
+            title,
+        )
+        self._api_zone.set(parsed_st)
+        try:
+            return await cb()
+        except Exception as error:
+&gt;           raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+E           playwright._impl._errors.Error: Locator.evaluate: Error: strict mode violation: locator("[data-workspace-page='approvals']") resolved to 2 elements:
+E               1) &lt;button type="button" data-workspace-page="approvals" class="nav-item workspace-nav-item"&gt;…&lt;/button&gt; aka get_by_role("button", name="Approvals")
+E               2) &lt;button type="button" data-workspace-page="approvals" class="nav-item workspace-nav-item"&gt;…&lt;/button&gt; aka locator("button").filter(has_text="Approvals waiting")
+E           
+E           Call log:
+E             - waiting for locator("[data-workspace-page='approvals']")
+
+.venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:636: Error</failure></testcase><testcase classname="tests.e2e.test_design_system" name="test_loading_and_unavailable_states[desktop]" time="0.526" /><testcase classname="tests.e2e.test_design_system" name="test_loading_and_unavailable_states[narrow]" time="0.559" /><testcase classname="tests.e2e.test_design_system" name="test_failed_and_uncertain_send_states[desktop]" time="1.994" /><testcase classname="tests.e2e.test_design_system" name="test_failed_and_uncertain_send_states[narrow]" time="2.006" /><testcase classname="tests.e2e.test_dynamic_prism" name="test_a_custom_prism_plans_works_asks_and_reports[desktop]" time="6.542" /><testcase classname="tests.e2e.test_dynamic_prism" name="test_a_custom_prism_plans_works_asks_and_reports[narrow]" time="5.641" /><testcase classname="tests.e2e.test_navigation" name="test_page_urls_refresh_and_history[desktop]" time="5.501"><failure message="AssertionError: Page URL expected to be 're.compile('/tasks$')'&#10;Actual value: http://127.0.0.1:63815/workspace &#10;Call log:&#10;  - Expect &quot;to_have_url&quot; with timeout 5000ms&#10;    14 × locator resolved to &lt;html lang=&quot;en&quot; data-theme=&quot;light&quot; data-contrast=&quot;normal&quot; data-notify-approvals=&quot;on&quot;&gt;…&lt;/html&gt;&#10;       - unexpected value &quot;http://127.0.0.1:63815/workspace&quot;&#10;&#10;Aria snapshot:&#10;- complementary &quot;Primary&quot;:&#10;  - text: Prism&#10;  - button &quot;Create Prism&quot;&#10;  - button &quot;Close sidebar&quot;&#10;  - tablist &quot;Sidebar view&quot;:&#10;    - tab &quot;Chats&quot;&#10;    - tab &quot;Workspace&quot; [selected]&#10;    - tab &quot;Notifications&quot;&#10;  - button &quot;Search&quot;&#10;  - navigation &quot;Dashboard sections&quot;:&#10;    - tabpanel &quot;Workspace&quot;:&#10;      - text: Overview&#10;      - button &quot;Dashboard&quot;&#10;      - button &quot;Spending&quot;&#10;      - button &quot;Run analytics&quot;&#10;      - text: Work&#10;      - button &quot;Tasks&quot;&#10;      - button &quot;Runs&quot;&#10;      - button &quot;Approvals&quot;&#10;      - button &quot;Bugs&quot;&#10;      - text: Team&#10;      - button &quot;Prisms&quot;&#10;      - text: Setup&#10;      - button &quot;Target apps&quot;&#10;      - button &quot;Secrets&quot;&#10;      - text: Knowledge&#10;      - button &quot;Skills&quot;&#10;      - button &quot;Brain&quot;&#10;  - button &quot;Open profile menu&quot;: M Microsoft account&#10;  - button &quot;Settings&quot;&#10;- banner:&#10;  - heading &quot;Good evening&quot; [level=1]&#10;  - paragraph: Here is what your Prism team is working on.&#10;  - combobox &quot;Date range&quot;:&#10;    - option &quot;Last 7 days&quot; [selected]&#10;    - option &quot;Last 30 days&quot;&#10;    - option &quot;Last 90 days&quot;&#10;    - option &quot;Last year&quot;&#10;    - option &quot;All available&quot;&#10;  - button &quot;New task&quot;&#10;  - button &quot;Refresh workspace&quot;&#10;- main:&#10;  - status&#10;  - article:&#10;    - text: Active Prisms&#10;    - strong: &quot;0&quot;&#10;    - text: 0 open tasks&#10;  - article:&#10;    - text: Runs · Last 7 days&#10;    - strong: &quot;0&quot;&#10;    - text: 0 succeeded · 0 failed&#10;  - article:&#10;    - text: Needs approval&#10;    - strong: &quot;0&quot;&#10;    - text: Computer actions waiting on you&#10;  - article:&#10;    - text: Cost&#10;    - strong: $0.00&#10;    - text: $0.00 per run&#10;  - heading &quot;Recent runs&quot; [level=3]&#10;  - paragraph: Last 7 days · newest first&#10;  - button &quot;View all&quot;&#10;  - strong: No runs in this period&#10;  - paragraph: Start a task from a Prism conversation.&#10;  - heading &quot;Latest bugs&quot; [level=3]&#10;  - paragraph: Last 7 days&#10;  - button &quot;View all&quot;&#10;  - strong: No bugs in this period.&#10;  - heading &quot;Your Prisms&quot; [level=3]&#10;  - button &quot;Manage&quot;&#10;  - strong: No Prisms yet&#10;  - paragraph: Create a Prism to get started.">page = &lt;Page url='http://127.0.0.1:63815/workspace'&gt;
+
+    def test_page_urls_refresh_and_history(page: Page):
+        workspace_fakes(page)
+        errors = []
+        page.on("pageerror", lambda error: errors.append(str(error)))
+        page.goto("/workspace")
+        expect(page).to_have_url(re.compile(r"/workspace$"))
+        expect(page.locator("#app")).to_have_attribute("data-view", "operations")
+        for key, path in (
+            ("tasks", "tasks"),
+            ("runs", "runs"),
+            ("approvals", "approvals"),
+            ("bugs", "bugs"),
+            ("agents", "prisms"),
+            ("positions", "organization"),
+            ("targets", "target-apps"),
+            ("secrets", "secrets"),
+            ("brain", "brain"),
+            ("skills", "skills"),
+            ("usage", "run-analytics"),
+        ):
+            page.evaluate(
+                "page =&gt; document.dispatchEvent(new CustomEvent('prism:workspace-navigate', {detail: {page}}))",
+                key,
+            )
+&gt;           expect(page).to_have_url(re.compile(f"/{path}$"))
+E           AssertionError: Page URL expected to be 're.compile('/tasks$')'
+E           Actual value: http://127.0.0.1:63815/workspace 
+E           Call log:
+E             - Expect "to_have_url" with timeout 5000ms
+E               14 × locator resolved to &lt;html lang="en" data-theme="light" data-contrast="normal" data-notify-approvals="on"&gt;…&lt;/html&gt;
+E                  - unexpected value "http://127.0.0.1:63815/workspace"
+E           
+E           Aria snapshot:
+E           - complementary "Primary":
+E             - text: Prism
+E             - button "Create Prism"
+E             - button "Close sidebar"
+E             - tablist "Sidebar view":
+E               - tab "Chats"
+E               - tab "Workspace" [selected]
+E               - tab "Notifications"
+E             - button "Search"
+E             - navigation "Dashboard sections":
+E               - tabpanel "Workspace":
+E                 - text: Overview
+E                 - button "Dashboard"
+E                 - button "Spending"
+E                 - button "Run analytics"
+E                 - text: Work
+E                 - button "Tasks"
+E                 - button "Runs"
+E                 - button "Approvals"
+E                 - button "Bugs"
+E                 - text: Team
+E                 - button "Prisms"
+E                 - text: Setup
+E                 - button "Target apps"
+E                 - button "Secrets"
+E                 - text: Knowledge
+E                 - button "Skills"
+E                 - button "Brain"
+E             - button "Open profile menu": M Microsoft account
+E             - button "Settings"
+E           - banner:
+E             - heading "Good evening" [level=1]
+E             - paragraph: Here is what your Prism team is working on.
+E             - combobox "Date range":
+E               - option "Last 7 days" [selected]
+E               - option "Last 30 days"
+E               - option "Last 90 days"
+E               - option "Last year"
+E               - option "All available"
+E             - button "New task"
+E             - button "Refresh workspace"
+E           - main:
+E             - status
+E             - article:
+E               - text: Active Prisms
+E               - strong: "0"
+E               - text: 0 open tasks
+E             - article:
+E               - text: Runs · Last 7 days
+E               - strong: "0"
+E               - text: 0 succeeded · 0 failed
+E             - article:
+E               - text: Needs approval
+E               - strong: "0"
+E               - text: Computer actions waiting on you
+E             - article:
+E               - text: Cost
+E               - strong: $0.00
+E               - text: $0.00 per run
+E             - heading "Recent runs" [level=3]
+E             - paragraph: Last 7 days · newest first
+E             - button "View all"
+E             - strong: No runs in this period
+E             - paragraph: Start a task from a Prism conversation.
+E             - heading "Latest bugs" [level=3]
+E             - paragraph: Last 7 days
+E             - button "View all"
+E             - strong: No bugs in this period.
+E             - heading "Your Prisms" [level=3]
+E             - button "Manage"
+E             - strong: No Prisms yet
+E             - paragraph: Create a Prism to get started.
+
+tests/e2e/test_navigation.py:60: AssertionError</failure></testcase><testcase classname="tests.e2e.test_navigation" name="test_page_urls_refresh_and_history[narrow]" time="5.460"><failure message="AssertionError: Page URL expected to be 're.compile('/tasks$')'&#10;Actual value: http://127.0.0.1:63815/workspace &#10;Call log:&#10;  - Expect &quot;to_have_url&quot; with timeout 5000ms&#10;    13 × locator resolved to &lt;html lang=&quot;en&quot; data-theme=&quot;light&quot; data-contrast=&quot;normal&quot; data-notify-approvals=&quot;on&quot;&gt;…&lt;/html&gt;&#10;       - unexpected value &quot;http://127.0.0.1:63815/workspace&quot;&#10;&#10;Aria snapshot:&#10;- complementary &quot;Primary&quot;:&#10;  - text: Prism&#10;  - button &quot;Create Prism&quot;&#10;  - button &quot;Close sidebar&quot;&#10;  - tablist &quot;Sidebar view&quot;:&#10;    - tab &quot;Chats&quot;&#10;    - tab &quot;Workspace&quot; [selected]&#10;    - tab &quot;Notifications&quot;&#10;  - button &quot;Search&quot;&#10;  - navigation &quot;Dashboard sections&quot;:&#10;    - tabpanel &quot;Workspace&quot;:&#10;      - text: Overview&#10;      - button &quot;Dashboard&quot;&#10;      - button &quot;Spending&quot;&#10;      - button &quot;Run analytics&quot;&#10;      - text: Work&#10;      - button &quot;Tasks&quot;&#10;      - button &quot;Runs&quot;&#10;      - button &quot;Approvals&quot;&#10;      - button &quot;Bugs&quot;&#10;      - text: Team&#10;      - button &quot;Prisms&quot;&#10;      - text: Setup&#10;      - button &quot;Target apps&quot;&#10;      - button &quot;Secrets&quot;&#10;      - text: Knowledge&#10;      - button &quot;Skills&quot;&#10;      - button &quot;Brain&quot;&#10;  - button &quot;Open profile menu&quot;: M Microsoft account&#10;  - button &quot;Settings&quot;&#10;- button &quot;Open sidebar&quot;&#10;- banner:&#10;  - heading &quot;Good evening&quot; [level=1]&#10;  - paragraph: Here is what your Prism team is working on.&#10;  - combobox &quot;Date range&quot;:&#10;    - option &quot;Last 7 days&quot; [selected]&#10;    - option &quot;Last 30 days&quot;&#10;    - option &quot;Last 90 days&quot;&#10;    - option &quot;Last year&quot;&#10;    - option &quot;All available&quot;&#10;  - button &quot;New task&quot;&#10;  - button &quot;Refresh workspace&quot;&#10;- main:&#10;  - status&#10;  - article:&#10;    - text: Active Prisms&#10;    - strong: &quot;0&quot;&#10;    - text: 0 open tasks&#10;  - article:&#10;    - text: Runs · Last 7 days&#10;    - strong: &quot;0&quot;&#10;    - text: 0 succeeded · 0 failed&#10;  - article:&#10;    - text: Needs approval&#10;    - strong: &quot;0&quot;&#10;    - text: Computer actions waiting on you&#10;  - article:&#10;    - text: Cost&#10;    - strong: $0.00&#10;    - text: $0.00 per run&#10;  - heading &quot;Recent runs&quot; [level=3]&#10;  - paragraph: Last 7 days · newest first&#10;  - button &quot;View all&quot;&#10;  - strong: No runs in this period&#10;  - paragraph: Start a task from a Prism conversation.&#10;  - heading &quot;Latest bugs&quot; [level=3]&#10;  - paragraph: Last 7 days&#10;  - button &quot;View all&quot;&#10;  - strong: No bugs in this period.&#10;  - heading &quot;Your Prisms&quot; [level=3]&#10;  - button &quot;Manage&quot;&#10;  - strong: No Prisms yet&#10;  - paragraph: Create a Prism to get started.">page = &lt;Page url='http://127.0.0.1:63815/workspace'&gt;
+
+    def test_page_urls_refresh_and_history(page: Page):
+        workspace_fakes(page)
+        errors = []
+        page.on("pageerror", lambda error: errors.append(str(error)))
+        page.goto("/workspace")
+        expect(page).to_have_url(re.compile(r"/workspace$"))
+        expect(page.locator("#app")).to_have_attribute("data-view", "operations")
+        for key, path in (
+            ("tasks", "tasks"),
+            ("runs", "runs"),
+            ("approvals", "approvals"),
+            ("bugs", "bugs"),
+            ("agents", "prisms"),
+            ("positions", "organization"),
+            ("targets", "target-apps"),
+            ("secrets", "secrets"),
+            ("brain", "brain"),
+            ("skills", "skills"),
+            ("usage", "run-analytics"),
+        ):
+            page.evaluate(
+                "page =&gt; document.dispatchEvent(new CustomEvent('prism:workspace-navigate', {detail: {page}}))",
+                key,
+            )
+&gt;           expect(page).to_have_url(re.compile(f"/{path}$"))
+E           AssertionError: Page URL expected to be 're.compile('/tasks$')'
+E           Actual value: http://127.0.0.1:63815/workspace 
+E           Call log:
+E             - Expect "to_have_url" with timeout 5000ms
+E               13 × locator resolved to &lt;html lang="en" data-theme="light" data-contrast="normal" data-notify-approvals="on"&gt;…&lt;/html&gt;
+E                  - unexpected value "http://127.0.0.1:63815/workspace"
+E           
+E           Aria snapshot:
+E           - complementary "Primary":
+E             - text: Prism
+E             - button "Create Prism"
+E             - button "Close sidebar"
+E             - tablist "Sidebar view":
+E               - tab "Chats"
+E               - tab "Workspace" [selected]
+E               - tab "Notifications"
+E             - button "Search"
+E             - navigation "Dashboard sections":
+E               - tabpanel "Workspace":
+E                 - text: Overview
+E                 - button "Dashboard"
+E                 - button "Spending"
+E                 - button "Run analytics"
+E                 - text: Work
+E                 - button "Tasks"
+E                 - button "Runs"
+E                 - button "Approvals"
+E                 - button "Bugs"
+E                 - text: Team
+E                 - button "Prisms"
+E                 - text: Setup
+E                 - button "Target apps"
+E                 - button "Secrets"
+E                 - text: Knowledge
+E                 - button "Skills"
+E                 - button "Brain"
+E             - button "Open profile menu": M Microsoft account
+E             - button "Settings"
+E           - button "Open sidebar"
+E           - banner:
+E             - heading "Good evening" [level=1]
+E             - paragraph: Here is what your Prism team is working on.
+E             - combobox "Date range":
+E               - option "Last 7 days" [selected]
+E               - option "Last 30 days"
+E               - option "Last 90 days"
+E               - option "Last year"
+E               - option "All available"
+E             - button "New task"
+E             - button "Refresh workspace"
+E           - main:
+E             - status
+E             - article:
+E               - text: Active Prisms
+E               - strong: "0"
+E               - text: 0 open tasks
+E             - article:
+E               - text: Runs · Last 7 days
+E               - strong: "0"
+E               - text: 0 succeeded · 0 failed
+E             - article:
+E               - text: Needs approval
+E               - strong: "0"
+E               - text: Computer actions waiting on you
+E             - article:
+E               - text: Cost
+E               - strong: $0.00
+E               - text: $0.00 per run
+E             - heading "Recent runs" [level=3]
+E             - paragraph: Last 7 days · newest first
+E             - button "View all"
+E             - strong: No runs in this period
+E             - paragraph: Start a task from a Prism conversation.
+E             - heading "Latest bugs" [level=3]
+E             - paragraph: Last 7 days
+E             - button "View all"
+E             - strong: No bugs in this period.
+E             - heading "Your Prisms" [level=3]
+E             - button "Manage"
+E             - strong: No Prisms yet
+E             - paragraph: Create a Prism to get started.
+
+tests/e2e/test_navigation.py:60: AssertionError</failure></testcase><testcase classname="tests.e2e.test_navigation" name="test_prism_codes_draft_active_rename_and_direct_links[desktop]" time="1.031" /><testcase classname="tests.e2e.test_navigation" name="test_prism_codes_draft_active_rename_and_direct_links[narrow]" time="1.272" /><testcase classname="tests.e2e.test_navigation" name="test_prism_settings_and_modal_subroutes_preserve_draft[desktop]" time="6.043"><failure message="AssertionError: Locator expected to have attribute 'true'&#10;Actual value: false &#10;Call log:&#10;  - Expect &quot;to_have_attribute&quot; get_by_role(&quot;tab&quot;, name=&quot;Skills&quot;, exact=True) with timeout 5000ms&#10;  - waiting for get_by_role(&quot;tab&quot;, name=&quot;Skills&quot;, exact=True)&#10;    14 × locator resolved to &lt;button role=&quot;tab&quot; type=&quot;button&quot; class=&quot;pd-tab&quot; aria-selected=&quot;false&quot;&gt;…&lt;/button&gt;&#10;       - unexpected value &quot;false&quot;&#10;&#10;Aria snapshot:&#10;- tab &quot;Skills&quot;">page = &lt;Page url='http://127.0.0.1:63815/prisms/pj5Ika/settings/tools'&gt;
+
+    def test_prism_settings_and_modal_subroutes_preserve_draft(page: Page):
+        workspace_fakes(page)
+        prism = create_prism(page)
+        page.goto(f"/prisms/{prism['code']}/settings/skills")
+        expect(page.get_by_role("tab", name="Skills", exact=True)).to_have_attribute(
+            "aria-selected", "true"
+        )
+        page.get_by_role("tab", name="Tools").click()
+        expect(page).to_have_url(re.compile(f"/prisms/{prism['code']}/settings/tools$"))
+        page.reload()
+        expect(page.get_by_role("tab", name="Tools")).to_have_attribute("aria-selected", "true")
+        page.go_back()
+&gt;       expect(page.get_by_role("tab", name="Skills", exact=True)).to_have_attribute(
+            "aria-selected", "true"
+        )
+E       AssertionError: Locator expected to have attribute 'true'
+E       Actual value: false 
+E       Call log:
+E         - Expect "to_have_attribute" get_by_role("tab", name="Skills", exact=True) with timeout 5000ms
+E         - waiting for get_by_role("tab", name="Skills", exact=True)
+E           14 × locator resolved to &lt;button role="tab" type="button" class="pd-tab" aria-selected="false"&gt;…&lt;/button&gt;
+E              - unexpected value "false"
+E       
+E       Aria snapshot:
+E       - tab "Skills"
+
+tests/e2e/test_navigation.py:127: AssertionError</failure></testcase><testcase classname="tests.e2e.test_navigation" name="test_prism_settings_and_modal_subroutes_preserve_draft[narrow]" time="1.492" /><testcase classname="tests.e2e.test_navigation" name="test_missing_prism_does_not_open_cached_other_prism[desktop]" time="0.727" /><testcase classname="tests.e2e.test_navigation" name="test_missing_prism_does_not_open_cached_other_prism[narrow]" time="0.939" /><testcase classname="tests.e2e.test_navigation" name="test_run_detail_has_a_refreshable_subroute[desktop]" time="0.963" /><testcase classname="tests.e2e.test_navigation" name="test_run_detail_has_a_refreshable_subroute[narrow]" time="0.696" /><testcase classname="tests.e2e.test_navigation" name="test_legacy_thread_link_does_not_open_cached_prism[desktop]" time="0.837" /><testcase classname="tests.e2e.test_navigation" name="test_legacy_thread_link_does_not_open_cached_prism[narrow]" time="1.021" /><testcase classname="tests.e2e.test_navigation" name="test_deep_links_respect_disabled_feature_flags[desktop]" time="1.110" /><testcase classname="tests.e2e.test_navigation" name="test_deep_links_respect_disabled_feature_flags[narrow]" time="0.711" /><testcase classname="tests.e2e.test_navigation" name="test_old_codes_and_uuids_open_the_new_case_sensitive_code[desktop]" time="0.604" /><testcase classname="tests.e2e.test_navigation" name="test_old_codes_and_uuids_open_the_new_case_sensitive_code[narrow]" time="1.034" /><testcase classname="tests.e2e.test_navigation" name="test_random_codes_are_unique_during_concurrent_creation" time="0.051" /><testcase classname="tests.e2e.test_one_chat_journey" name="test_manager_asks_without_choosing_a_chat_and_sees_disclosed_sources[desktop]" time="1.145" /><testcase classname="tests.e2e.test_one_chat_journey" name="test_manager_asks_without_choosing_a_chat_and_sees_disclosed_sources[narrow]" time="0.740" /><testcase classname="tests.e2e.test_one_chat_journey" name="test_two_coordinated_replies_are_edited_then_one_approved_and_one_rejected[desktop]" time="2.580" /><testcase classname="tests.e2e.test_one_chat_journey" name="test_two_coordinated_replies_are_edited_then_one_approved_and_one_rejected[narrow]" time="2.533" /><testcase classname="tests.e2e.test_one_chat_states" name="test_microsoft_failures_show_a_recovery_step_and_never_claim_a_send[desktop-reconnect]" time="0.699" /><testcase classname="tests.e2e.test_one_chat_states" name="test_microsoft_failures_show_a_recovery_step_and_never_claim_a_send[desktop-permission]" time="0.711" /><testcase classname="tests.e2e.test_one_chat_states" name="test_microsoft_failures_show_a_recovery_step_and_never_claim_a_send[desktop-throttled]" time="0.721" /><testcase classname="tests.e2e.test_one_chat_states" name="test_microsoft_failures_show_a_recovery_step_and_never_claim_a_send[narrow-reconnect]" time="0.709" /><testcase classname="tests.e2e.test_one_chat_states" name="test_microsoft_failures_show_a_recovery_step_and_never_claim_a_send[narrow-permission]" time="0.777" /><testcase classname="tests.e2e.test_one_chat_states" name="test_microsoft_failures_show_a_recovery_step_and_never_claim_a_send[narrow-throttled]" time="0.754" /><testcase classname="tests.e2e.test_one_chat_states" name="test_hostile_teams_and_model_text_never_becomes_markup[desktop]" time="0.977" /><testcase classname="tests.e2e.test_one_chat_states" name="test_hostile_teams_and_model_text_never_becomes_markup[narrow]" time="0.753" /><testcase classname="tests.e2e.test_one_chat_states" name="test_double_clicking_approve_sends_exactly_once[desktop]" time="2.064" /><testcase classname="tests.e2e.test_one_chat_states" name="test_double_clicking_approve_sends_exactly_once[narrow]" time="2.128" /><testcase classname="tests.e2e.test_one_chat_states" name="test_failed_delivery_is_shown_as_failed_and_not_as_sent[desktop]" time="1.793" /><testcase classname="tests.e2e.test_one_chat_states" name="test_failed_delivery_is_shown_as_failed_and_not_as_sent[narrow]" time="1.857" /><testcase classname="tests.e2e.test_one_chat_states" name="test_search_jumps_into_history_and_returns_to_latest[desktop]" time="1.116" /><testcase classname="tests.e2e.test_one_chat_states" name="test_search_jumps_into_history_and_returns_to_latest[narrow]" time="1.096" /><testcase classname="tests.e2e.test_one_chat_states" name="test_auto_resolves_ambiguous_request_without_source_picker[desktop]" time="0.586" /><testcase classname="tests.e2e.test_one_chat_states" name="test_auto_resolves_ambiguous_request_without_source_picker[narrow]" time="0.616" /><testcase classname="tests.e2e.test_one_chat_states" name="test_search_without_matches_says_so[desktop]" time="0.978" /><testcase classname="tests.e2e.test_one_chat_states" name="test_search_without_matches_says_so[narrow]" time="0.966" /><testcase classname="tests.e2e.test_one_chat_states" name="test_workspace_has_no_horizontal_scroll_and_exposes_a_live_region[desktop]" time="1.724" /><testcase classname="tests.e2e.test_one_chat_states" name="test_workspace_has_no_horizontal_scroll_and_exposes_a_live_region[narrow]" time="1.742" /><testcase classname="tests.e2e.test_one_chat_states" name="test_source_filter_defaults_to_auto_and_can_limit_requests[desktop]" time="1.290" /><testcase classname="tests.e2e.test_one_chat_states" name="test_source_filter_defaults_to_auto_and_can_limit_requests[narrow]" time="1.269" /><testcase classname="tests.e2e.test_one_chat_states" name="test_empty_chat_review_ends_with_a_clear_message_and_no_spinner[desktop]" time="0.644" /><testcase classname="tests.e2e.test_one_chat_states" name="test_empty_chat_review_ends_with_a_clear_message_and_no_spinner[narrow]" time="0.533" /><testcase classname="tests.e2e.test_one_chat_states" name="test_draft_from_instruction_in_an_empty_chat_is_labelled_and_still_needs_approval[desktop]" time="1.875" /><testcase classname="tests.e2e.test_one_chat_states" name="test_draft_from_instruction_in_an_empty_chat_is_labelled_and_still_needs_approval[narrow]" time="1.852" /><testcase classname="tests.e2e.test_one_chat_states" name="test_single_empty_group_chat_drafts_one_labelled_reply_to_that_group[desktop]" time="1.650" /><testcase classname="tests.e2e.test_one_chat_states" name="test_single_empty_group_chat_drafts_one_labelled_reply_to_that_group[narrow]" time="1.658" /><testcase classname="tests.e2e.test_one_chat_states" name="test_small_talk_is_answered_without_reading_teams[desktop]" time="1.252" /><testcase classname="tests.e2e.test_one_chat_states" name="test_small_talk_is_answered_without_reading_teams[narrow]" time="1.222" /><testcase classname="tests.e2e.test_opencode_theme" name="test_profile_menu_theme_and_provider_spend[desktop]" time="15.504"><failure message="playwright._impl._errors.TimeoutError: Locator.click: Timeout 15000ms exceeded.&#10;Call log:&#10;  - waiting for locator(&quot;[data-profile-action='settings']&quot;)&#10;    - locator resolved to &lt;button type=&quot;button&quot; role=&quot;menuitem&quot; data-profile-action=&quot;settings&quot;&gt;…&lt;/button&gt;&#10;  - attempting click action&#10;    2 × waiting for element to be visible, enabled and stable&#10;      - element is not visible&#10;    - retrying click action&#10;    - waiting 20ms&#10;    2 × waiting for element to be visible, enabled and stable&#10;      - element is not visible&#10;    - retrying click action&#10;      - waiting 100ms&#10;    29 × waiting for element to be visible, enabled and stable&#10;       - element is not visible&#10;     - retrying click action&#10;       - waiting 500ms">page = &lt;Page url='http://127.0.0.1:63815/assistant'&gt;
+
+    def test_profile_menu_theme_and_provider_spend(page: Page) -&gt; None:
+        page.route(
+            "https://open.er-api.com/v6/latest/USD",
+            lambda route: route.fulfill(json={"rates": {"INR": 83}}),
+        )
+    
+        def usage(route):
+            item = {
+                "calls": 1,
+                "estimated_cost_usd": "0.12",
+                "unpriced_calls": 0,
+                "input_tokens": 100,
+                "cached_input_tokens": 0,
+                "output_tokens": 20,
+            }
+            periods = {
+                name: {"prism": item, "swarm": {**item, "estimated_cost_usd": "0.08"}}
+                for name in ("today", "week", "month", "total")
+            }
+            route.fulfill(
+                json={
+                    "timezone": "Asia/Kolkata",
+                    "range": {"from": "2026-11-01", "to": "2026-11-21"},
+                    "periods": periods,
+                    "by_feature": {
+                        "prism": [{**item, "group": "prism_work_plan"}],
+                        "swarm": [
+                            {**item, "estimated_cost_usd": "0.08", "group": "qa_tester_test_runs"}
+                        ],
+                    },
+                    "by_model": {
+                        "prism": [{**item, "group": "test-model"}],
+                        "swarm": [{**item, "estimated_cost_usd": "0.08", "group": "test-model"}],
+                    },
+                    "by_provider": [
+                        {**item, "group": "openai"},
+                        {**item, "group": "qa_workspace", "estimated_cost_usd": "0.08"},
+                    ],
+                }
+            )
+    
+        page.route("**/api/v1/usage/llm/sources?**", usage)
+        page.route(
+            "**/api/v1/usage/llm/azure-billed?**",
+            lambda route: route.fulfill(json={"configured": False}),
+        )
+    
+        page.locator("#profile-menu-trigger").click()
+        expect(page.locator("#profile-menu")).to_be_visible()
+        page.locator("[data-profile-theme='dark']").click()
+        expect(page.locator("html")).to_have_attribute("data-theme", "dark")
+    
+        page.locator("#profile-menu-trigger").click()
+&gt;       page.locator("[data-profile-action='settings']").click()
+
+tests/e2e/test_opencode_theme.py:61: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.11/site-packages/playwright/sync_api/_generated.py:11021: in click
+    self._sync(
+.venv/lib/python3.11/site-packages/playwright/_impl/_locator.py:174: in click
+    return await self._frame._click(self._selector, strict=True, **params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.11/site-packages/playwright/_impl/_frame.py:598: in _click
+    await self._channel.send("click", self._timeout, locals_to_params(locals()))
+.venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:78: in send
+    return await self._connection.wrap_api_call(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;playwright._impl._connection.Connection object at 0x107d5ec90&gt;
+cb = &lt;function Channel.send.&lt;locals&gt;.&lt;lambda&gt; at 0x1120f3c40&gt;
+is_internal = False, title = None
+
+    async def wrap_api_call(
+        self, cb: Callable[[], Any], is_internal: bool = False, title: str = None
+    ) -&gt; Any:
+        if self._api_zone.get():
+            return await cb()
+        task = asyncio.current_task(self._loop)
+        parsed_st = _attach_api_call_information(
+            getattr(task, "__pw_stack__", None) or _capture_stack_trace(),
+            is_internal,
+            title,
+        )
+        self._api_zone.set(parsed_st)
+        try:
+            return await cb()
+        except Exception as error:
+&gt;           raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+E           playwright._impl._errors.TimeoutError: Locator.click: Timeout 15000ms exceeded.
+E           Call log:
+E             - waiting for locator("[data-profile-action='settings']")
+E               - locator resolved to &lt;button type="button" role="menuitem" data-profile-action="settings"&gt;…&lt;/button&gt;
+E             - attempting click action
+E               2 × waiting for element to be visible, enabled and stable
+E                 - element is not visible
+E               - retrying click action
+E               - waiting 20ms
+E               2 × waiting for element to be visible, enabled and stable
+E                 - element is not visible
+E               - retrying click action
+E                 - waiting 100ms
+E               29 × waiting for element to be visible, enabled and stable
+E                  - element is not visible
+E                - retrying click action
+E                  - waiting 500ms
+
+.venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:636: TimeoutError</failure></testcase><testcase classname="tests.e2e.test_opencode_theme" name="test_profile_menu_theme_and_provider_spend[narrow]" time="15.314"><failure message="playwright._impl._errors.TimeoutError: Locator.click: Timeout 15000ms exceeded.&#10;Call log:&#10;  - waiting for locator(&quot;#profile-menu-trigger&quot;)&#10;    - locator resolved to &lt;button type=&quot;button&quot; class=&quot;account-chip&quot; aria-haspopup=&quot;menu&quot; aria-expanded=&quot;false&quot; id=&quot;profile-menu-trigger&quot; aria-controls=&quot;profile-menu&quot; aria-label=&quot;Open profile menu&quot;&gt;…&lt;/button&gt;&#10;  - attempting click action&#10;    2 × waiting for element to be visible, enabled and stable&#10;      - element is visible, enabled and stable&#10;      - scrolling into view if needed&#10;      - done scrolling&#10;      - element is outside of the viewport&#10;    - retrying click action&#10;    - waiting 20ms&#10;    2 × waiting for element to be visible, enabled and stable&#10;      - element is visible, enabled and stable&#10;      - scrolling into view if needed&#10;      - done scrolling&#10;      - element is outside of the viewport&#10;    - retrying click action&#10;      - waiting 100ms&#10;    29 × waiting for element to be visible, enabled and stable&#10;       - element is visible, enabled and stable&#10;       - scrolling into view if needed&#10;       - done scrolling&#10;       - element is outside of the viewport&#10;     - retrying click action&#10;       - waiting 500ms">page = &lt;Page url='http://127.0.0.1:63815/assistant'&gt;
+
+    def test_profile_menu_theme_and_provider_spend(page: Page) -&gt; None:
+        page.route(
+            "https://open.er-api.com/v6/latest/USD",
+            lambda route: route.fulfill(json={"rates": {"INR": 83}}),
+        )
+    
+        def usage(route):
+            item = {
+                "calls": 1,
+                "estimated_cost_usd": "0.12",
+                "unpriced_calls": 0,
+                "input_tokens": 100,
+                "cached_input_tokens": 0,
+                "output_tokens": 20,
+            }
+            periods = {
+                name: {"prism": item, "swarm": {**item, "estimated_cost_usd": "0.08"}}
+                for name in ("today", "week", "month", "total")
+            }
+            route.fulfill(
+                json={
+                    "timezone": "Asia/Kolkata",
+                    "range": {"from": "2026-11-01", "to": "2026-11-21"},
+                    "periods": periods,
+                    "by_feature": {
+                        "prism": [{**item, "group": "prism_work_plan"}],
+                        "swarm": [
+                            {**item, "estimated_cost_usd": "0.08", "group": "qa_tester_test_runs"}
+                        ],
+                    },
+                    "by_model": {
+                        "prism": [{**item, "group": "test-model"}],
+                        "swarm": [{**item, "estimated_cost_usd": "0.08", "group": "test-model"}],
+                    },
+                    "by_provider": [
+                        {**item, "group": "openai"},
+                        {**item, "group": "qa_workspace", "estimated_cost_usd": "0.08"},
+                    ],
+                }
+            )
+    
+        page.route("**/api/v1/usage/llm/sources?**", usage)
+        page.route(
+            "**/api/v1/usage/llm/azure-billed?**",
+            lambda route: route.fulfill(json={"configured": False}),
+        )
+    
+&gt;       page.locator("#profile-menu-trigger").click()
+
+tests/e2e/test_opencode_theme.py:55: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.11/site-packages/playwright/sync_api/_generated.py:11021: in click
+    self._sync(
+.venv/lib/python3.11/site-packages/playwright/_impl/_locator.py:174: in click
+    return await self._frame._click(self._selector, strict=True, **params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.11/site-packages/playwright/_impl/_frame.py:598: in _click
+    await self._channel.send("click", self._timeout, locals_to_params(locals()))
+.venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:78: in send
+    return await self._connection.wrap_api_call(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;playwright._impl._connection.Connection object at 0x107d5ec90&gt;
+cb = &lt;function Channel.send.&lt;locals&gt;.&lt;lambda&gt; at 0x11180af20&gt;
+is_internal = False, title = None
+
+    async def wrap_api_call(
+        self, cb: Callable[[], Any], is_internal: bool = False, title: str = None
+    ) -&gt; Any:
+        if self._api_zone.get():
+            return await cb()
+        task = asyncio.current_task(self._loop)
+        parsed_st = _attach_api_call_information(
+            getattr(task, "__pw_stack__", None) or _capture_stack_trace(),
+            is_internal,
+            title,
+        )
+        self._api_zone.set(parsed_st)
+        try:
+            return await cb()
+        except Exception as error:
+&gt;           raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+E           playwright._impl._errors.TimeoutError: Locator.click: Timeout 15000ms exceeded.
+E           Call log:
+E             - waiting for locator("#profile-menu-trigger")
+E               - locator resolved to &lt;button type="button" class="account-chip" aria-haspopup="menu" aria-expanded="false" id="profile-menu-trigger" aria-controls="profile-menu" aria-label="Open profile menu"&gt;…&lt;/button&gt;
+E             - attempting click action
+E               2 × waiting for element to be visible, enabled and stable
+E                 - element is visible, enabled and stable
+E                 - scrolling into view if needed
+E                 - done scrolling
+E                 - element is outside of the viewport
+E               - retrying click action
+E               - waiting 20ms
+E               2 × waiting for element to be visible, enabled and stable
+E                 - element is visible, enabled and stable
+E                 - scrolling into view if needed
+E                 - done scrolling
+E                 - element is outside of the viewport
+E               - retrying click action
+E                 - waiting 100ms
+E               29 × waiting for element to be visible, enabled and stable
+E                  - element is visible, enabled and stable
+E                  - scrolling into view if needed
+E                  - done scrolling
+E                  - element is outside of the viewport
+E                - retrying click action
+E                  - waiting 500ms
+
+.venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:636: TimeoutError</failure></testcase><testcase classname="tests.e2e.test_people_directory" name="test_people_page_shows_me_the_team_and_keeps_edits[desktop]" time="1.731" /><testcase classname="tests.e2e.test_people_directory" name="test_people_page_shows_me_the_team_and_keeps_edits[narrow]" time="16.780"><failure message="playwright._impl._errors.TimeoutError: Locator.click: Timeout 15000ms exceeded.&#10;Call log:&#10;  - waiting for locator(&quot;#nav-settings&quot;)&#10;    - locator resolved to &lt;button type=&quot;button&quot; id=&quot;nav-settings&quot; class=&quot;icon-button&quot; aria-label=&quot;Settings&quot; data-tooltip=&quot;Settings&quot; data-tab-target=&quot;settings&quot;&gt;…&lt;/button&gt;&#10;  - attempting click action&#10;    2 × waiting for element to be visible, enabled and stable&#10;      - element is not stable&#10;    - retrying click action&#10;    - waiting 20ms&#10;    - waiting for element to be visible, enabled and stable&#10;    - element is not stable&#10;  2 × retrying click action&#10;      - waiting 100ms&#10;      - waiting for element to be visible, enabled and stable&#10;      - element is visible, enabled and stable&#10;      - scrolling into view if needed&#10;      - done scrolling&#10;      - &lt;div class=&quot;settings-body&quot;&gt;…&lt;/div&gt; from &lt;dialog open=&quot;&quot; id=&quot;settings-dialog&quot; class=&quot;settings-dialog&quot; aria-labelledby=&quot;settings-dialog-title&quot;&gt;…&lt;/dialog&gt; subtree intercepts pointer events&#10;  28 × retrying click action&#10;       - waiting 500ms&#10;       - waiting for element to be visible, enabled and stable&#10;       - element is visible, enabled and stable&#10;       - scrolling into view if needed&#10;       - done scrolling&#10;       - &lt;div class=&quot;settings-body&quot;&gt;…&lt;/div&gt; from &lt;dialog open=&quot;&quot; id=&quot;settings-dialog&quot; class=&quot;settings-dialog&quot; aria-labelledby=&quot;settings-dialog-title&quot;&gt;…&lt;/dialog&gt; subtree intercepts pointer events&#10;  - retrying click action&#10;    - waiting 500ms">page = &lt;Page url='http://127.0.0.1:63815/settings/teams'&gt;
+e2e_app = namespace(url='http://127.0.0.1:63815', graph=&lt;class 'conftest.FakeGraph'&gt;)
+
+    def test_people_page_shows_me_the_team_and_keeps_edits(page: Page, e2e_app) -&gt; None:
+        seed_org()
+        page.reload()
+        open_people(page)
+    
+        me = page.locator("#people-me")
+        expect(me).to_contain_text("Yash Mandi")
+        expect(me).to_contain_text("Engineering Manager · Engineering")
+        expect(me).to_contain_text("Reports to Bela Boss")
+        expect(me).to_contain_text("1 direct report")
+    
+        expect(page.locator(".people-group-title", has_text="Your manager")).to_be_visible()
+        expect(page.locator(".people-group-title", has_text="Reports to you")).to_be_visible()
+        expect(page.locator(".person-row", has_text="Asha Rao")).to_contain_text(
+            "Reports to Yash Mandi"
+        )
+        # Bela is only there so the tree connects.
+        expect(page.locator(".person-row", has_text="Bela Boss")).to_contain_text("Org link")
+    
+        # Tell Prism what I do; it is saved against me.
+        page.get_by_role("button", name="Edit about me").click()
+        page.locator("#person-edit-responsibilities").fill("I run engineering delivery.")
+        page.get_by_role("button", name="Save").click()
+        expect(page.locator("#people-me")).to_contain_text("I run engineering delivery.")
+    
+        # Edit Asha: a hand-set title is marked as edited and survives a reload.
+        page.locator(".person-row", has_text="Asha Rao").click()
+        page.locator("#person-edit-title").fill("Tech Lead")
+        page.get_by_role("button", name="Save").click()
+        expect(page.locator(".person-row", has_text="Asha Rao")).to_contain_text("Tech Lead")
+        expect(page.locator(".person-row", has_text="Asha Rao")).to_contain_text("Edited")
+        page.reload()
+&gt;       open_people(page)
+
+tests/e2e/test_people_directory.py:101: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/e2e/test_people_directory.py:65: in open_people
+    page.locator("#nav-settings").click()
+.venv/lib/python3.11/site-packages/playwright/sync_api/_generated.py:11021: in click
+    self._sync(
+.venv/lib/python3.11/site-packages/playwright/_impl/_locator.py:174: in click
+    return await self._frame._click(self._selector, strict=True, **params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.11/site-packages/playwright/_impl/_frame.py:598: in _click
+    await self._channel.send("click", self._timeout, locals_to_params(locals()))
+.venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:78: in send
+    return await self._connection.wrap_api_call(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;playwright._impl._connection.Connection object at 0x107d5ec90&gt;
+cb = &lt;function Channel.send.&lt;locals&gt;.&lt;lambda&gt; at 0x1123ce840&gt;
+is_internal = False, title = None
+
+    async def wrap_api_call(
+        self, cb: Callable[[], Any], is_internal: bool = False, title: str = None
+    ) -&gt; Any:
+        if self._api_zone.get():
+            return await cb()
+        task = asyncio.current_task(self._loop)
+        parsed_st = _attach_api_call_information(
+            getattr(task, "__pw_stack__", None) or _capture_stack_trace(),
+            is_internal,
+            title,
+        )
+        self._api_zone.set(parsed_st)
+        try:
+            return await cb()
+        except Exception as error:
+&gt;           raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+E           playwright._impl._errors.TimeoutError: Locator.click: Timeout 15000ms exceeded.
+E           Call log:
+E             - waiting for locator("#nav-settings")
+E               - locator resolved to &lt;button type="button" id="nav-settings" class="icon-button" aria-label="Settings" data-tooltip="Settings" data-tab-target="settings"&gt;…&lt;/button&gt;
+E             - attempting click action
+E               2 × waiting for element to be visible, enabled and stable
+E                 - element is not stable
+E               - retrying click action
+E               - waiting 20ms
+E               - waiting for element to be visible, enabled and stable
+E               - element is not stable
+E             2 × retrying click action
+E                 - waiting 100ms
+E                 - waiting for element to be visible, enabled and stable
+E                 - element is visible, enabled and stable
+E                 - scrolling into view if needed
+E                 - done scrolling
+E                 - &lt;div class="settings-body"&gt;…&lt;/div&gt; from &lt;dialog open="" id="settings-dialog" class="settings-dialog" aria-labelledby="settings-dialog-title"&gt;…&lt;/dialog&gt; subtree intercepts pointer events
+E             28 × retrying click action
+E                  - waiting 500ms
+E                  - waiting for element to be visible, enabled and stable
+E                  - element is visible, enabled and stable
+E                  - scrolling into view if needed
+E                  - done scrolling
+E                  - &lt;div class="settings-body"&gt;…&lt;/div&gt; from &lt;dialog open="" id="settings-dialog" class="settings-dialog" aria-labelledby="settings-dialog-title"&gt;…&lt;/dialog&gt; subtree intercepts pointer events
+E             - retrying click action
+E               - waiting 500ms
+
+.venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:636: TimeoutError</failure></testcase><testcase classname="tests.e2e.test_prism_directory" name="test_create_activate_and_resume_a_private_prism_conversation[desktop]" time="15.455"><failure message="playwright._impl._errors.TimeoutError: Locator.fill: Timeout 15000ms exceeded.&#10;Call log:&#10;  - waiting for locator(&quot;#prism-editor-dialog&quot;).get_by_label(&quot;What is this Prism responsible for?&quot;)">page = &lt;Page url='http://127.0.0.1:63815/assistant'&gt;
+
+    def test_create_activate_and_resume_a_private_prism_conversation(page: Page) -&gt; None:
+        open_sidebar_if_narrow(page)
+        page.get_by_role("button", name="Create Prism").click()
+        dialog = page.locator("#prism-editor-dialog")
+        dialog.get_by_label("Name").fill("Executive Updates")
+&gt;       dialog.get_by_label("What is this Prism responsible for?").fill(
+            "Keep me informed about important Teams work in a friendly tone."
+        )
+
+tests/e2e/test_prism_directory.py:38: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.11/site-packages/playwright/sync_api/_generated.py:11640: in fill
+    self._sync(
+.venv/lib/python3.11/site-packages/playwright/_impl/_locator.py:228: in fill
+    return await self._frame.fill(self._selector, strict=True, **params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.11/site-packages/playwright/_impl/_frame.py:641: in fill
+    await self._fill(**locals_to_params(locals()))
+.venv/lib/python3.11/site-packages/playwright/_impl/_frame.py:653: in _fill
+    await self._channel.send("fill", self._timeout, locals_to_params(locals()))
+.venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:78: in send
+    return await self._connection.wrap_api_call(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;playwright._impl._connection.Connection object at 0x107d5ec90&gt;
+cb = &lt;function Channel.send.&lt;locals&gt;.&lt;lambda&gt; at 0x111180720&gt;
+is_internal = False, title = None
+
+    async def wrap_api_call(
+        self, cb: Callable[[], Any], is_internal: bool = False, title: str = None
+    ) -&gt; Any:
+        if self._api_zone.get():
+            return await cb()
+        task = asyncio.current_task(self._loop)
+        parsed_st = _attach_api_call_information(
+            getattr(task, "__pw_stack__", None) or _capture_stack_trace(),
+            is_internal,
+            title,
+        )
+        self._api_zone.set(parsed_st)
+        try:
+            return await cb()
+        except Exception as error:
+&gt;           raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+E           playwright._impl._errors.TimeoutError: Locator.fill: Timeout 15000ms exceeded.
+E           Call log:
+E             - waiting for locator("#prism-editor-dialog").get_by_label("What is this Prism responsible for?")
+
+.venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:636: TimeoutError</failure></testcase><testcase classname="tests.e2e.test_prism_directory" name="test_create_activate_and_resume_a_private_prism_conversation[narrow]" time="15.691"><failure message="playwright._impl._errors.TimeoutError: Locator.fill: Timeout 15000ms exceeded.&#10;Call log:&#10;  - waiting for locator(&quot;#prism-editor-dialog&quot;).get_by_label(&quot;What is this Prism responsible for?&quot;)">page = &lt;Page url='http://127.0.0.1:63815/assistant'&gt;
+
+    def test_create_activate_and_resume_a_private_prism_conversation(page: Page) -&gt; None:
+        open_sidebar_if_narrow(page)
+        page.get_by_role("button", name="Create Prism").click()
+        dialog = page.locator("#prism-editor-dialog")
+        dialog.get_by_label("Name").fill("Executive Updates")
+&gt;       dialog.get_by_label("What is this Prism responsible for?").fill(
+            "Keep me informed about important Teams work in a friendly tone."
+        )
+
+tests/e2e/test_prism_directory.py:38: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.11/site-packages/playwright/sync_api/_generated.py:11640: in fill
+    self._sync(
+.venv/lib/python3.11/site-packages/playwright/_impl/_locator.py:228: in fill
+    return await self._frame.fill(self._selector, strict=True, **params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.11/site-packages/playwright/_impl/_frame.py:641: in fill
+    await self._fill(**locals_to_params(locals()))
+.venv/lib/python3.11/site-packages/playwright/_impl/_frame.py:653: in _fill
+    await self._channel.send("fill", self._timeout, locals_to_params(locals()))
+.venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:78: in send
+    return await self._connection.wrap_api_call(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;playwright._impl._connection.Connection object at 0x107d5ec90&gt;
+cb = &lt;function Channel.send.&lt;locals&gt;.&lt;lambda&gt; at 0x11208c680&gt;
+is_internal = False, title = None
+
+    async def wrap_api_call(
+        self, cb: Callable[[], Any], is_internal: bool = False, title: str = None
+    ) -&gt; Any:
+        if self._api_zone.get():
+            return await cb()
+        task = asyncio.current_task(self._loop)
+        parsed_st = _attach_api_call_information(
+            getattr(task, "__pw_stack__", None) or _capture_stack_trace(),
+            is_internal,
+            title,
+        )
+        self._api_zone.set(parsed_st)
+        try:
+            return await cb()
+        except Exception as error:
+&gt;           raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+E           playwright._impl._errors.TimeoutError: Locator.fill: Timeout 15000ms exceeded.
+E           Call log:
+E             - waiting for locator("#prism-editor-dialog").get_by_label("What is this Prism responsible for?")
+
+.venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:636: TimeoutError</failure></testcase><testcase classname="tests.e2e.test_prism_directory" name="test_browser_tab_title_follows_the_open_prism[desktop]" time="15.423"><failure message="playwright._impl._errors.TimeoutError: Locator.fill: Timeout 15000ms exceeded.&#10;Call log:&#10;  - waiting for locator(&quot;#prism-editor-dialog&quot;).get_by_label(&quot;What is this Prism responsible for?&quot;)">page = &lt;Page url='http://127.0.0.1:63815/assistant'&gt;
+
+    def test_browser_tab_title_follows_the_open_prism(page: Page) -&gt; None:
+        open_sidebar_if_narrow(page)
+        page.get_by_role("button", name="Create Prism").click()
+        dialog = page.locator("#prism-editor-dialog")
+        dialog.get_by_label("Name").fill("Tab Tester")
+&gt;       dialog.get_by_label("What is this Prism responsible for?").fill("Checks the tab title.")
+
+tests/e2e/test_prism_directory.py:87: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.11/site-packages/playwright/sync_api/_generated.py:11640: in fill
+    self._sync(
+.venv/lib/python3.11/site-packages/playwright/_impl/_locator.py:228: in fill
+    return await self._frame.fill(self._selector, strict=True, **params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.11/site-packages/playwright/_impl/_frame.py:641: in fill
+    await self._fill(**locals_to_params(locals()))
+.venv/lib/python3.11/site-packages/playwright/_impl/_frame.py:653: in _fill
+    await self._channel.send("fill", self._timeout, locals_to_params(locals()))
+.venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:78: in send
+    return await self._connection.wrap_api_call(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;playwright._impl._connection.Connection object at 0x107d5ec90&gt;
+cb = &lt;function Channel.send.&lt;locals&gt;.&lt;lambda&gt; at 0x112090180&gt;
+is_internal = False, title = None
+
+    async def wrap_api_call(
+        self, cb: Callable[[], Any], is_internal: bool = False, title: str = None
+    ) -&gt; Any:
+        if self._api_zone.get():
+            return await cb()
+        task = asyncio.current_task(self._loop)
+        parsed_st = _attach_api_call_information(
+            getattr(task, "__pw_stack__", None) or _capture_stack_trace(),
+            is_internal,
+            title,
+        )
+        self._api_zone.set(parsed_st)
+        try:
+            return await cb()
+        except Exception as error:
+&gt;           raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+E           playwright._impl._errors.TimeoutError: Locator.fill: Timeout 15000ms exceeded.
+E           Call log:
+E             - waiting for locator("#prism-editor-dialog").get_by_label("What is this Prism responsible for?")
+
+.venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:636: TimeoutError</failure></testcase><testcase classname="tests.e2e.test_prism_directory" name="test_browser_tab_title_follows_the_open_prism[narrow]" time="15.704"><failure message="playwright._impl._errors.TimeoutError: Locator.fill: Timeout 15000ms exceeded.&#10;Call log:&#10;  - waiting for locator(&quot;#prism-editor-dialog&quot;).get_by_label(&quot;What is this Prism responsible for?&quot;)">page = &lt;Page url='http://127.0.0.1:63815/assistant'&gt;
+
+    def test_browser_tab_title_follows_the_open_prism(page: Page) -&gt; None:
+        open_sidebar_if_narrow(page)
+        page.get_by_role("button", name="Create Prism").click()
+        dialog = page.locator("#prism-editor-dialog")
+        dialog.get_by_label("Name").fill("Tab Tester")
+&gt;       dialog.get_by_label("What is this Prism responsible for?").fill("Checks the tab title.")
+
+tests/e2e/test_prism_directory.py:87: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.11/site-packages/playwright/sync_api/_generated.py:11640: in fill
+    self._sync(
+.venv/lib/python3.11/site-packages/playwright/_impl/_locator.py:228: in fill
+    return await self._frame.fill(self._selector, strict=True, **params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.11/site-packages/playwright/_impl/_frame.py:641: in fill
+    await self._fill(**locals_to_params(locals()))
+.venv/lib/python3.11/site-packages/playwright/_impl/_frame.py:653: in _fill
+    await self._channel.send("fill", self._timeout, locals_to_params(locals()))
+.venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:78: in send
+    return await self._connection.wrap_api_call(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;playwright._impl._connection.Connection object at 0x107d5ec90&gt;
+cb = &lt;function Channel.send.&lt;locals&gt;.&lt;lambda&gt; at 0x112183240&gt;
+is_internal = False, title = None
+
+    async def wrap_api_call(
+        self, cb: Callable[[], Any], is_internal: bool = False, title: str = None
+    ) -&gt; Any:
+        if self._api_zone.get():
+            return await cb()
+        task = asyncio.current_task(self._loop)
+        parsed_st = _attach_api_call_information(
+            getattr(task, "__pw_stack__", None) or _capture_stack_trace(),
+            is_internal,
+            title,
+        )
+        self._api_zone.set(parsed_st)
+        try:
+            return await cb()
+        except Exception as error:
+&gt;           raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+E           playwright._impl._errors.TimeoutError: Locator.fill: Timeout 15000ms exceeded.
+E           Call log:
+E             - waiting for locator("#prism-editor-dialog").get_by_label("What is this Prism responsible for?")
+
+.venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:636: TimeoutError</failure></testcase><testcase classname="tests.e2e.test_prism_skills" name="test_skills_are_isolated_versioned_and_do_not_grant_tools[desktop]" time="0.456" /><testcase classname="tests.e2e.test_prism_skills" name="test_skills_are_isolated_versioned_and_do_not_grant_tools[narrow]" time="0.469" /><testcase classname="tests.e2e.test_prism_skills" name="test_interview_resumes_keeps_answers_private_and_requires_explicit_approval[desktop]" time="1.993" /><testcase classname="tests.e2e.test_prism_skills" name="test_interview_resumes_keeps_answers_private_and_requires_explicit_approval[narrow]" time="2.000" /><testcase classname="tests.e2e.test_prism_skills" name="test_missing_connections_limits_archived_prisms_and_library_restore[desktop]" time="0.527" /><testcase classname="tests.e2e.test_prism_skills" name="test_missing_connections_limits_archived_prisms_and_library_restore[narrow]" time="0.684" /><testcase classname="tests.e2e.test_prism_skills" name="test_skills_and_tools_are_separate_and_onboarding_skills_are_editable[desktop]" time="4.053" /><testcase classname="tests.e2e.test_prism_skills" name="test_skills_and_tools_are_separate_and_onboarding_skills_are_editable[narrow]" time="3.996" /><testcase classname="tests.e2e.test_prism_skills" name="test_automatic_skills_are_private_idempotent_and_do_not_reenable_disabled_skills[desktop]" time="2.079" /><testcase classname="tests.e2e.test_prism_skills" name="test_automatic_skills_are_private_idempotent_and_do_not_reenable_disabled_skills[narrow]" time="2.072" /><testcase classname="tests.e2e.test_prism_skills" name="test_generation_reuses_chat_answers_without_an_extra_interview[desktop]" time="1.539" /><testcase classname="tests.e2e.test_prism_skills" name="test_generation_reuses_chat_answers_without_an_extra_interview[narrow]" time="1.421" /><testcase classname="tests.e2e.test_prism_skills" name="test_model_tailors_questions_then_suggests_only_after_answers[desktop]" time="0.416" /><testcase classname="tests.e2e.test_prism_skills" name="test_model_tailors_questions_then_suggests_only_after_answers[narrow]" time="0.311" /><testcase classname="tests.e2e.test_prism_skills" name="test_skill_migration_roundtrip_preserves_preexisting_prism" time="5.219" /><testcase classname="tests.e2e.test_qa_tester" name="test_qa_tester_plans_runs_shows_its_screen_and_reports[desktop]" time="6.753" /><testcase classname="tests.e2e.test_qa_tester" name="test_qa_tester_plans_runs_shows_its_screen_and_reports[narrow]" time="6.828" /><testcase classname="tests.e2e.test_screenshots" name="test_capture_one_conversation_screens[desktop]" time="0.000"><skipped type="pytest.skip" message="Set E2E_SCREENSHOTS=1 to regenerate screenshots">/Users/yashmandi/code/prism-monorepo/apps/prism/tests/e2e/test_screenshots.py:18: Set E2E_SCREENSHOTS=1 to regenerate screenshots</skipped></testcase><testcase classname="tests.e2e.test_screenshots" name="test_capture_one_conversation_screens[narrow]" time="0.353"><skipped type="pytest.skip" message="Set E2E_SCREENSHOTS=1 to regenerate screenshots">/Users/yashmandi/code/prism-monorepo/apps/prism/tests/e2e/test_screenshots.py:18: Set E2E_SCREENSHOTS=1 to regenerate screenshots</skipped></testcase></testsuite></testsuites>

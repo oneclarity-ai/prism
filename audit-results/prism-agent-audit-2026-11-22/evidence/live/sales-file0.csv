@@ -1,0 +1,51 @@
+company name,website,industry,location,company size (estimate, unverified),relevant engineering signals,potential OneClarity use case,decision-maker name,decision-maker title,public profile link,verified public business email,personalised outreach message,research source links,validation status,confidence level
+Freshworks,https://www.freshworks.com,Customer engagement software,Chennai/Bangalore,1000-3000 (unverified),Uses multiple engineering and collaboration tools (product company, public engineering org),Visibility into delivery risks, blockers and cross-team dependencies,,,,"Hi [Name],
+
+I’m with OneClarity — we help engineering-led organisations connect signals from tools like Slack, GitHub and project trackers to surface blockers, risks and dependencies. Freshworks’ scale of product development makes proactive visibility valuable; I’d love to share a short 20-min example of what we’ve learned working with similar teams.
+
+Would you be open to a quick call next week?",https://www.freshworks.com,unverified,medium
+Zoho,https://www.zoho.com,Software suites and SaaS,Chennai/India,5000+ (unverified),Large product and engineering teams across many products,Centralised view of progress and cross-product dependencies,,,,"Hi [Name],
+
+OneClarity creates an intelligent layer over existing workplace and engineering tools to proactively highlight at-risk commitments and hidden blockers. Given Zoho’s multiple product lines and distributed teams, a short demo could show where OneClarity reduces coordination overhead.
+
+Are you available for 20 minutes?",https://www.zoho.com,unverified,medium
+BrowserStack,https://www.browserstack.com,Cross-browser testing platform,Bangalore,500-1000 (unverified),Engineering-heavy product company with CI/CD and integrations,Track release progress, surface flaky or blocked PRs and cross-team dependencies,,,,"Hi [Name],
+
+I’m reaching from OneClarity — we help engineering teams get early warnings on delivery risk by combining signals from GitHub, CI systems and chat. BrowserStack’s engineering workflows could gain value from automated visibility into which releases or PRs are blocked and why.
+
+Could we schedule a 20-min call?",https://www.browserstack.com,unverified,medium
+Postman,https://www.postman.com,API development platform,Bangalore/San Francisco,500-1000 (unverified),API product with distributed engineering and many integrations,Surface API release blockers, ownership gaps and dependency chains,,,,"Hi [Name],
+
+OneClarity helps engineering leaders understand what’s progressing, what’s blocked, and where dependencies create delivery risk — without manual status updates. Postman’s engineering scale and integrations make it a fit for contextualised organisational intelligence. Interested in a quick demo?
+
+Thanks!",https://www.postman.com,unverified,medium
+Razorpay,https://www.razorpay.com,Fintech payments,Bangalore,1000-2000 (unverified),Platform engineering, payments integrations, regulatory delivery risk,Visibility into cross-team coordination and compliance-related blockers,,,,"Hi [Name],
+
+At OneClarity we connect signals from engineering and collaboration tools to highlight delivery risk and blocked commitments. Razorpay’s platform complexity and regulatory requirements suggest value from earlier detection of blockers and clearer ownership. Can we book 20 mins to explore?
+
+Best,",https://www.razorpay.com,unverified,medium
+InMobi,https://www.inmobi.com,Adtech,Mumbai/Bangalore,1000-2000 (unverified),Real-time systems and data engineering,Understand cross-team dependencies and incident correlation across teams,,,,"Hi [Name],
+
+OneClarity provides an org-level view of execution by linking signals from incident tools, repos and chats to reveal blockers and risky commitments. InMobi’s real-time systems and distributed teams often benefit from this kind of visibility — would you be open to a short conversation?
+
+Regards,",https://www.inmobi.com,unverified,medium
+Flipkart,https://www.flipkart.com,E-commerce,Bangalore,10000+ (unverified),Large engineering organisation across many sub-teams and services,Executive visibility into delivery risks across business and engineering teams,,,,"Hi [Name],
+
+I’m with OneClarity — we help engineering leaders get proactive signals on blocked work, hidden dependencies and delivery risk by combining data from workplace and engineering tools. Flipkart’s scale makes unified visibility high impact; could we have a brief call to explore?
+
+Thanks,",https://www.flipkart.com,unverified,low
+Swiggy,https://www.swiggy.com,Foodtech and logistics,Bangalore,5000+ (unverified),Real-time operations engineering and many concurrent projects,Surface operational delivery risks and cross-functional blockers,,,,"Hi [Name],
+
+OneClarity turns signals from Slack, GitHub and trackers into actionable organisational intelligence so leaders see where delivery is at risk. Swiggy’s operational engineering complexity can benefit from early detection of blockers — interested in a 20-min chat?
+
+Cheers,",https://www.swiggy.com,unverified,medium
+Ola,https://www.olacabs.com,Mobility and mobility-tech,Bangalore,5000+ (unverified),Platform engineering, mapping, real-time services,Dependency and risk visibility across platform and product teams,,,,"Hi [Name],
+
+We help engineering organisations reduce coordination overhead by surfacing what needs attention across tools and teams. Ola’s platform and product engineering scale suggests strong fit — can we schedule a short intro meeting?
+
+Thanks,",https://www.olacabs.com,unverified,low
+Unacademy,https://unacademy.com,Edtech,Bangalore,2000-5000 (unverified),Product engineering and course/platform delivery,Visibility into multi-team project progress, blocked content pipelines and dependencies,,,,"Hi [Name],
+
+OneClarity helps engineering and product leaders understand which commitments are at risk and why by connecting workplace and repo signals. Unacademy’s distributed content and engineering efforts often need consolidated visibility — would you be open to a demo?
+
+Best,",https://unacademy.com,unverified,medium
