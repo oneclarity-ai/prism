@@ -1,413 +1,237 @@
 # Prism
 
-Prism is a self-hosted management assistant for Microsoft Teams. It turns selected
-one-to-one Teams conversations into structured updates, blockers, commitments,
-follow-ups, management risks, and a daily manager brief while retaining an auditable
-record of every automated action.
+Prism is a self-hosted AI team for a manager. You create specialised assistants, called **Prisms** (also called agents), such as a Chief of Staff, a QA analyst, a researcher or a sales assistant. You give them work in a chat. They read your Microsoft Teams conversations, browse the web in their own browser, and prepare updates, reports and drafts. **Nothing leaves your account without your approval.**
 
-> **Project status:** pre-release. Prism is under active development and has not had an
-> independent security audit. Automation is disabled by default; evaluate it in a
-> non-production Microsoft tenant before using it with a real team.
+> **Status: pre-release.** Prism is under active development and has not had an independent security audit. It is a local, single-user control plane, not a multi-tenant SaaS product. Try it in a non-production Microsoft tenant before pointing it at a real team.
 
-## Why Prism exists
+## What it does
 
-Team status is often spread across chat threads, verbal commitments, and private notes.
-Prism provides a manager-controlled workflow that keeps those signals structured without
-creating a separate employee-facing application. The manager chooses exactly which
-directory users are in scope and explicitly starts or stops Teams automation.
+**Teams chief of staff.** Ask "What needs my attention across the release team?" in one continuing conversation. Prism picks relevant Teams chats you can access, reads them (read only), and answers with the sources it used. Every claim cites stored messages. It can prepare replies as draft cards. You edit, approve or reject each card, and Prism sends only the exact approved text from your connected Microsoft account.
 
-## Capabilities
+**Prisms with their own computer.** Each Prism has its own instructions, tool permissions, task limits and a private browser (Chromium in a Docker container). Give it a web task ("Test https://example.com", "Research this topic", "Find 10 leads") and it shows a plan first. When you start it, it browses, records progress, asks you questions, and returns a report or a file (for example a CSV).
 
-- Import active users from a Microsoft Entra ID tenant.
-- Limit automation to explicitly selected managed people.
-- Send Teams check-ins and process replies through Microsoft Graph webhooks.
-- Track projects, tasks, blockers, commitments, escalations, and daily updates.
-- Apply deterministic safety validation before AI-proposed state changes or messages.
-- Preserve issue-scoped conversation evidence and organisational memory.
-- Let managers save working preferences, decision guidance, and team context for the agent.
-- Produce a five-section daily manager brief and send it through Microsoft Graph mail.
-- Expose versioned FastAPI endpoints, OpenAPI documentation, and a local dashboard.
-- Record Azure OpenAI token usage and configured cost estimates.
+**Approvals for anything risky.** Tools are set to **Allowed**, **Ask first** or **Off**. Logging in, using a new website, sending, posting, paying and deleting all wait for your decision. Passwords go through a secure login card and are stored encrypted, not typed into chat.
 
-Prism uses delegated Microsoft permissions: messages and email are visibly sent from the
-connected manager account. It is not a Teams bot or a multi-tenant SaaS service.
+**A workspace around the chat.**
 
-## Architecture
+| Area | What you do there |
+| --- | --- |
+| Chats | Talk to each Prism; one continuing, searchable conversation per Prism |
+| Workspace → Work | Tasks, Runs, Approvals, Bugs |
+| Workspace → Team | Prisms as cards or an org chart (Chief of Staff, roles, departments, reporting lines) |
+| Workspace → Setup | Target apps, Secrets, Skills |
+| Workspace → Overview | Dashboard, Spending, Run analytics |
+| Knowledge → Brain | Facts Prisms learned from chats; you approve them before they are shared |
+| Settings | Preferences, Notifications, Connections (Microsoft), AI provider, Developer |
 
-Prism is a Python 3.11 application built with FastAPI, SQLAlchemy, Alembic, PostgreSQL,
-Microsoft Graph, and optional Azure OpenAI. The application serves both its JSON API and
-static management dashboard. An optional in-process scheduler runs daily automation jobs.
+**Skills and tools.** Skills are reusable instruction sets for any department. Skills never grant tool access; permissions are set separately.
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for components, data flow, background processing,
-and security boundaries.
+**Bring your own AI model.** Azure OpenAI, OpenAI, Anthropic (Claude), DeepSeek, any OpenAI-compatible endpoint, or the local Codex CLI. Keys are encrypted at rest.
 
-### Daily operating flow
+**Optional daily automation.** Scheduled Teams check-ins, follow-ups and an end-of-day manager brief by email (off by default).
 
-Prism runs a manager-controlled loop throughout the workday. Follow-ups stay limited to
-employees selected for the active automation run; if a response names someone outside that
-scope, Prism records the dependency and explains that it cannot contact them yet.
+### How safety works
 
-```mermaid
-flowchart LR
-    A[Morning message] --> B[Employee responds]
-    B --> C[Prism records the update]
-    C --> D{Blocker?}
-    D -->|Yes| E[Contact the right owner]
-    D -->|No| F[Keep monitoring]
-    E --> F
-    F --> G[End-of-day brief]
-    G --> H[Manager receives email]
-```
-
-### What Prism includes
-
-Prism combines daily communication automation with manager-defined context:
-
-- **Manager memory:** Save useful facts, team context, working agreements, and recurring
-  guidance in the dashboard.
-- **Working style:** Record how the manager prefers updates, follow-ups, escalation, and
-  decision summaries to be handled.
-- **Decision guidance:** Add rules such as when to escalate, what evidence is needed, or
-  who owns a particular type of decision.
-- **Current work context:** Track projects, tasks, blockers, commitments, risks, and
-  employee updates in PostgreSQL.
-- **Context-aware responses:** When relevant, Prism supplies the saved guidance and current
-  operational context while processing a reply. The current message and validated records
-  remain the source of truth; saved memory does not silently override them.
-- **Manager visibility:** Review conversations, agent actions, unresolved issues, follow-ups,
-  and the end-of-day brief from the dashboard.
-
-Manager memory is supporting context, not unrestricted instruction. Prism still applies
-recipient-scope checks, structured decision validation, and audit logging before changing
-state or sending a Teams message.
-
-## Prism v2.1: one manager conversation
-
-With `PRISM_V21_ENABLED=true`, the **Agent** workspace is the main way to use Prism. You talk to one
-continuing Prism conversation, ask for an outcome ("What needs my attention across the release
-team?"), and Prism resolves, reads, and discloses the relevant Teams chats. Teams people and groups
-are sources and destinations, never separate Prism chats, and Prism is not a second Teams inbox.
-
-- **Auto by default.** Prism picks relevant authorized chats and shows what it read as source chips,
-  with a "Why these sources" view. The source filter only limits a request when you set it.
-- **Evidence you can open.** Every claim cites stored Teams messages, grouped by source.
-- **One card per action.** A request can prepare several replies. You edit, approve, or reject each
-  card on its own, and Prism sends only the exact approved text from your connected account.
-- **Clear recovery.** Reconnect, permission, throttling, and unconfirmed-delivery states say what
-  to do next and never imply a message was sent.
-- **One searchable history.** Day and topic separators, search, and "load earlier" navigate the
-  conversation.
+- Prism uses **delegated** Microsoft permissions. Messages and mail are sent visibly from the connected manager account. It is not a bot.
+- Teams text, web pages and model output are treated as untrusted data. A deterministic validation layer checks proposed actions and citations before anything changes.
+- Outward actions wait for approval. Sends use exact approved text, re-authorisation and idempotency keys, and an unconfirmed send is never retried blindly.
+- Secrets stay server side. Logins are masked from events and never enter model context.
+- Browser computers resolve traffic through a proxy that blocks private and metadata addresses.
 
 ![What needs my attention, with disclosed sources](docs/screenshots/v2.1-attention-sources-desktop.png)
 
 ![Coordinated approval cards on a narrow screen](docs/screenshots/v2.1-coordinated-approvals-narrow.png)
 
-See the [v2.2 runbook](docs/releases/v2.2-release-runbook.md) for multiple Prisms, monitoring, upgrade, and
-recovery, and the [v2.1 release runbook](docs/releases/v2.1-release-runbook.md) for setup, safe live testing, recovery, and
-the release gate.
+## How it fits together
 
-## Product screenshots
+```mermaid
+flowchart LR
+    M[Manager in browser] --> D[Prism dashboard<br/>React + TypeScript]
+    D --> P[Prism API<br/>FastAPI :8000]
+    P --> DB1[(PostgreSQL<br/>Prism)]
+    P --> G[Microsoft Graph<br/>Teams, mail]
+    P --> L[AI provider]
+    P -->|HTTP| S[Swarm API :8080]
+    S --> DB2[(PostgreSQL<br/>swarm)]
+    S --> W[Worker]
+    W --> C[Per-Prism browser<br/>Docker container]
+    W --> L
+```
 
-These screenshots show the main workflows available to a manager.
+This is a monorepo with two applications. Prism is the only user interface.
 
-### Manager attention queue
+| Path | What it is |
+| --- | --- |
+| `apps/prism/` | The Prism backend (FastAPI, SQLAlchemy, Alembic, PostgreSQL) and the dashboard in `apps/prism/frontend` (React 19, TypeScript, Vite). The built dashboard is served at `/dashboard/` |
+| `apps/swarm/` | The execution engine: agent runtime (OpenAI Agents SDK), browser computers, workers, tools, budgets, events and artifacts. API only, no UI |
+| `docs/` | Guides, release runbooks, ADRs and architecture notes |
+| `scripts/` | `dev.sh` (starts everything) and `check_secrets.py` |
+| `compose.yaml` | Docker Compose for the whole platform |
 
-The attention view highlights issues that may benefit from manager involvement. A manager
-can review why an item is visible, see the expected next step, inspect the evidence, and
-decide whether to wait for Prism's follow-up or intervene directly.
+Prism talks to the swarm only through its HTTP API. Teams access is always mediated by Prism's Graph integration; the swarm reaches Teams through a signed bridge.
 
-![Manager attention queue](<docs/screenshots/Screenshot 2026-10-06 at 8.28.48 PM.png>)
+## Requirements
 
-### Blocker resolution timeline: dependency follow-up
+| Needed for | Requirement |
+| --- | --- |
+| Everything | Git, GNU Make, PostgreSQL 14 or newer, Python 3.11 or 3.12, Node.js 22 or newer with npm |
+| Web tasks (computers) | [uv](https://docs.astral.sh/uv/), Docker Desktop running on the machine that runs the swarm worker, and an AI provider key |
+| Teams features | A Microsoft Entra ID tenant where you can register an application, and an HTTPS URL reachable by Microsoft for webhooks (ngrok works for local testing) |
 
-This timeline shows how Prism records a blocker, asks for the responsible owner, follows
-up with that person, and marks the issue resolved when the dependency is delivered.
-
-![Blocker resolution timeline](<docs/screenshots/Screenshot 2026-10-06 at 8.27.46 PM.png>)
-
-### Blocker resolution timeline: deployment dependency
-
-Managers can review the full sequence of an employee's update, Prism's acknowledgement,
-the dependency request, and the final resolution in one auditable view.
-
-![Deployment dependency timeline](<docs/screenshots/Screenshot 2026-10-06 at 8.28.08 PM.png>)
-
-### Blocker resolution timeline: API dependency
-
-When an employee names the person who owns a dependency, Prism can capture that owner and
-send a focused follow-up requesting an expected completion time.
-
-![API dependency timeline](<docs/screenshots/Screenshot 2026-10-06 at 8.28.20 PM.png>)
-
-### Manager knowledge
-
-The knowledge screen lets a manager save communication preferences, working agreements,
-decision guidance, and other context. Prism can refer to this information when preparing
-follow-ups and summaries.
-
-![Manager knowledge](<docs/screenshots/Screenshot 2026-10-06 at 9.10.24 PM.png>)
-
-### Teams automation controls
-
-The Teams automation screen shows the connected account, managed employee scope, and
-controls for starting automation, running a daily cycle, sending a digest, and renewing
-the webhook listener.
-
-![Teams automation controls](<docs/screenshots/Screenshot 2026-10-06 at 9.10.37 PM.png>)
-
-## Local setup guide
-
-For the manager-only Agent Chat release workflow, recovery behavior, safe live-send checklist, and
-backup guidance, see [the Prism v2.1 local release runbook](docs/releases/v2.1-release-runbook.md).
-
-This section takes you from a fresh checkout to a local Prism instance connected to
-Microsoft Teams. Start with automation disabled, verify the dashboard, and only then expose
-the webhook and message selected people.
-
-### 1. Install prerequisites
-
-You need:
-
-- Python 3.11 or 3.12
-- PostgreSQL 14 or newer
-- GNU Make
-- A Microsoft Entra ID tenant and permission to register an application
-- ngrok or another stable public HTTPS tunnel for local Graph webhooks
-- Azure OpenAI only if LLM-backed reply analysis is enabled
-
-On macOS with Homebrew:
+macOS with Homebrew:
 
 ```bash
-brew install python@3.11 postgresql@16 ngrok/ngrok/ngrok
+brew install python@3.11 node postgresql@16 uv ngrok/ngrok/ngrok
 brew services start postgresql@16
 ```
 
-On Linux, install the same packages through your distribution package manager. Docker
-Compose is an alternative to installing Python and PostgreSQL locally; see [Run with
-Docker](#run-with-docker).
+On Linux or Windows (WSL2), install the same packages with your package manager. Docker Compose can replace local Python and PostgreSQL; see [Run with Docker](#run-with-docker).
 
-### 2. Clone Prism and create a Python environment
+## Quick start (Prism only)
+
+This gets the dashboard and API running with no Microsoft or AI credentials. Run commands from the repository root.
 
 ```bash
 git clone https://github.com/oneclarity-ai/prism.git
-cd prism/apps/prism
-cp .env.example .env
-python3.11 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -r requirements-dev.txt
+cd prism
+
+cp apps/prism/.env.example apps/prism/.env
+make setup                   # Python venv, Python deps, dashboard deps (npm ci)
 ```
 
-This repository is a monorepo: Prism lives in `apps/prism` and the swarm execution engine in
-`apps/swarm`. Prism commands run from `apps/prism` (or from the repository root through the root
-`Makefile`, for example `make dev`). See [docs/architecture/monorepo.md](docs/architecture/monorepo.md).
-
-If your shell does not support `source`, activate the environment using the equivalent
-command for your platform. Every later command using `python`, `alembic`, or `uvicorn`
-should run with `.venv` activated.
-
-### 3. Create or connect to PostgreSQL
-
-For a new local database:
+Create a database and a user:
 
 ```bash
 createuser --pwprompt prism
 createdb --owner=prism prism
 ```
 
-Set this value in `.env`:
+Edit `apps/prism/.env`. Generate two secrets and paste them in:
+
+```bash
+python3 -c "import secrets; print(secrets.token_urlsafe(32))"                                  # OPERATOR_API_TOKEN
+python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"      # MICROSOFT_TOKEN_ENCRYPTION_KEY
+```
 
 ```dotenv
 DATABASE_URL=postgresql+psycopg://prism:<password>@localhost:5432/prism
-```
-
-If the database already exists, keep it and only point `DATABASE_URL` at it. Do not run
-integration tests against a database containing useful data; use a separate test database.
-
-### 4. Configure safe local defaults
-
-Open `.env` and generate the two local secrets:
-
-```bash
-python -c "import secrets; print(secrets.token_urlsafe(32))"
-python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-```
-
-Put the first output in `OPERATOR_API_TOKEN` and the second in
-`MICROSOFT_TOKEN_ENCRYPTION_KEY`. Keep these values private and stable. Changing the
-Fernet key later makes already-stored Microsoft tokens unreadable.
-
-Keep these settings while doing the initial setup:
-
-```dotenv
+OPERATOR_API_TOKEN=<first value>
+MICROSOFT_TOKEN_ENCRYPTION_KEY=<second value>
 APP_ENV=development
 INTELLIGENCE_LLM_ENABLED=false
 AUTOMATION_SCHEDULER_ENABLED=false
 MICROSOFT_WEBHOOK_BASE_URL=
 ```
 
-Leave the Microsoft and Azure OpenAI values blank until the corresponding setup steps are
-complete. Never commit `.env`.
+Keep both secrets private and stable. Changing the Fernet key later makes stored Microsoft tokens and provider keys unreadable. Never commit `.env`.
 
-### 5. Run migrations and start Prism
+Migrate and start:
 
 ```bash
 make migrate
 make dev
 ```
 
-`make dev` builds the dashboard (React + TypeScript + Vite in `apps/prism/frontend`, needs Node 22+) into
-`app/static` the first time. For hot reload while editing the dashboard, run `make frontend-dev` next to
-`make dev` and open <http://localhost:5173/dashboard/>.
-
-Open these URLs in the same computer:
+`make dev` builds the dashboard into `apps/prism/app/static` the first time. Open:
 
 - Dashboard: <http://127.0.0.1:8000/dashboard/>
-- OpenAPI documentation: <http://127.0.0.1:8000/docs>
-- Health check: <http://127.0.0.1:8000/health>
-- Database health check: <http://127.0.0.1:8000/health/db>
+- API docs: <http://127.0.0.1:8000/docs>
+- Health: <http://127.0.0.1:8000/health> and <http://127.0.0.1:8000/health/db>
 
-At this stage, the dashboard and core API should work without Microsoft credentials. Do not
-start automation yet.
+For hot reload while editing the dashboard, run `make frontend-dev` beside `make dev` and open <http://localhost:5173/dashboard/>.
 
-### Unified Prism + computer workspace (local development)
+If the dashboard answers `401`, open **Settings** (profile menu at the bottom of the sidebar), go to the **Developer** section, and enter the exact `OPERATOR_API_TOKEN`. The browser stores it locally and sends it as `X-Manager-Operator-Token`. With `APP_ENV=development` and no webhook URL, the API also works without a token.
 
-QA Prisms now discover internal website pages automatically. Say “Test https://example.com”;
-you do not need to list routes. New plans show **Discover pages automatically**, request
-separate approvals for new sites and secure logins, and ask before extending testing limits.
-Reports distinguish tested pages from discovered pages left untested. See the
-[website testing runbook](docs/releases/v2.4-release-runbook.md#website-testing-automatic-page-discovery)
-for dummy-data rules, limits and restart instructions.
+## Add AI model access
 
-Prism needs `PRISM_V22_ENABLED=true`, `PRISM_V24_ENABLED=true`, and the `QA_SWARM_*` connection
-settings from `.env.example` for Operations to appear and load data. After both projects are
-configured and migrated, start the Prism UI, the swarm API, and its worker together from the
-repository root with:
+Pick one provider. You can set it in the dashboard (**Settings → AI provider**, keys stored encrypted) or in `apps/prism/.env`.
 
-```bash
-make dev-all
+```dotenv
+INTELLIGENCE_LLM_ENABLED=true
+LLM_PROVIDER=azure_openai       # azure_openai | openai | anthropic | deepseek | custom | codex_local
 ```
 
-The swarm now lives in this repository at `apps/swarm`; set `SWARM_ROOT` only to run a swarm checkout
-from another location.
+| Provider | Variables |
+| --- | --- |
+| Azure OpenAI | `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_DEPLOYMENT`, `AZURE_OPENAI_API_VERSION` |
+| OpenAI | `OPENAI_API_KEY`, `OPENAI_BASE_URL` |
+| Anthropic | `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL` |
+| DeepSeek | `DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL` |
+| Any OpenAI-compatible endpoint | `CUSTOM_LLM_API_KEY` plus its base URL and model, with `LLM_PROVIDER=custom` |
 
-Stop any earlier swarm `scripts/dev.sh` session first; that older launcher occupies the swarm
-API port. The unified command checks ports 8000 and 8080 before starting.
+Restart Prism after editing `.env`. `LLM_MODEL_PRICING` is optional and is used only for cost estimates. The swarm has its own model settings (next section).
 
-Open <http://127.0.0.1:8000/dashboard/>. **Workspace** in the Prism sidebar contains three groups:
-**Organization** (org chart and its departments), **Work** (Dashboard, Tasks, Runs, Approvals,
-Bugs), and **Setup** (Agents, Target apps, Secrets, Usage & analytics). These pages follow the
-swarm interface while using Prism's shared neutral design system. The swarm has no frontend of its
-own. Prism calls the swarm API from the server, so
-the browser needs only the Prism URL and operator token when configured. Browser workers still need
-the swarm project's Docker setup.
+## Add computers for web tasks (unified workspace)
 
-The sidebar has **Chat** (your Prisms), **Workspace** (the pages above), and **Search**.
-The selected control shows its icon and title; the other controls stay icon-only. Search opens a
-field above the Prism list, finds non-archived Prism names and private conversation messages, and
-keeps the list visible while you search. Selecting a message opens that point in its Prism's chat.
+Prisms that browse the web run on the swarm. Set it up once, then start both projects with one command.
 
-The dashboard uses one Notion-style design system across chat, approvals, computer work, and
-Workspace pages, with System, Light, and Dark preferences. The sidebar's top row switches between
-Chats and Workspace, with a Search button at the right edge; the new **Spending** page and
-the Prisms page (cards or org chart view) live under Workspace. There is no Home page when Prisms are on. There is no top bar. The profile menu at the bottom of the
-sidebar offers Settings, Theme, System status and Log out; Settings is a modal with Account,
-Preferences, Notifications, Workspace, Connections and Developer sections and a settings search.
-Menus support keyboard navigation and the theme menu fits to the viewport. The app opens on Chats. Search (or Ctrl/Cmd+K) opens a universal search across Prisms, chats, pages, settings and actions.
-See [the design system guide](docs/guides/prism-design-system.md) for tokens, components, and verification.
+1. **Install and seed the swarm** (needs `uv`, creates its Python environment and database, writes `apps/swarm/backend/.env`):
 
-Prisms can have role-specific, instruction-only skills for any department. Manage reusable
-definitions in **Workspace → Skills** or **Settings → Workspace → Skills**. Confirming chat
-onboarding automatically creates three private skills and posts a notification in the chat.
-Edit them on the Prism's **Skills** tab; manage permissions separately on **Tools**.
-There is no second questionnaire, and generated skills never change tool access.
-See [Prism skills](docs/guides/prism-skills.md) for setup, permissions, revisions and migration notes.
+   ```bash
+   make swarm-setup
+   ```
 
-Dashboard pages now have direct URLs, including `/spending`, `/run-analytics` and `/tasks`.
-Each Prism receives a permanent code during creation, visible in its onboarding/chat header
-and its URL, such as `/prisms/pA7xQ2` (lowercase `p` plus five random letters/digits).
-Codes are case-sensitive; old `PR-` links still work. Refresh and Back/Forward restore the selected page.
-Run `make migrate` before restarting with this update to assign codes to existing Prisms.
-See [dashboard navigation](docs/guides/dashboard-navigation.md) for the route map and migration notes.
+2. **Fill `apps/swarm/backend/.env`:**
 
-Workspace Tasks supports search, agent/target filters, status counts, and list/board layouts.
-Runs groups sessions by date; Approvals includes pending decisions and decision history. Login
-and question approvals still open in the owning Prism's chat. Organization supports drag to pan,
-scroll to zoom, fit-to-view, department focus, and expanding/collapsing reports. It shows only your non-archived Prisms, including those
-that have not run yet. The connected user appears at the root, followed by the Chief of Staff
-and the Prism team. Saved reporting lines and departments define the chart; seeded roles,
-vacant seats, and standalone swarm agents are omitted. A Prism card opens its conversation.
-"Prism" and "agent" refer to the same user-created assistant. Usage filters query the engine for the selected
-agent and period. Task/run lists show the latest 200 records; their filters apply to that subset.
+   ```dotenv
+   AZURE_OPENAI_ENDPOINT=https://<resource>.openai.azure.com
+   AZURE_OPENAI_API_KEY=<key>
+   AZURE_OPENAI_DEPLOYMENT=<deployment>
+   PRISM_BRIDGE_URL=http://localhost:8000
+   PRISM_BRIDGE_SECRET=<long random value>     # same value as Prism's WORK_BRIDGE_SECRET
+   ```
 
-New task, target, and secret forms save through explicit server-side API adapters. New Prisms
-appear in Organization automatically.
-Saving a task does not start a computer run; start work from its Prism conversation. New Prism
-uses the existing Create Prism flow. Secret values are write-only. Deletion requires confirmation,
-and approving a computer action uses the existing Prism approval checks. Bug email/Jira/manager
-integrations remain unavailable, matching the swarm's unfinished actions; their buttons are disabled.
-When v2.4 is disabled, the earlier Work and Approvals navigation remains available.
+   The swarm creates an admin login on first setup (`SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD` in its `.env`). Change the default password before using the platform beyond your own machine.
 
-### AI employee team
+3. **Turn on the matching Prism flags in `apps/prism/.env`:**
 
-Create Prism now collects **Role**, **Department**, and **Reports to**, along with its name and
-responsibilities. New team members default to reporting to Chief of Staff. The first Prism in a
-new team is offered as Chief of Staff, who reports directly to the user. Existing Prisms can be
-edited from their chat's **Settings → Profile → Edit role, department & reporting**.
+   ```dotenv
+   PRISM_V21_ENABLED=true     # one manager conversation (Teams review)
+   PRISM_V22_ENABLED=true     # multiple Prisms, approvals, spending
+   PRISM_V24_ENABLED=true     # Prism computers, Workspace Work/Team pages
+   QA_SWARM_URL=http://localhost:8080
+   QA_SWARM_EMAIL=<the swarm admin email>
+   QA_SWARM_PASSWORD=<the swarm admin password>
+   WORK_BRIDGE_SECRET=<same value as PRISM_BRIDGE_SECRET>
+   ```
 
-Migration `20261120_0045` preserves Prism identities and histories, assigns departments to
-existing Prisms from their roles, reuses the existing Chief of Staff (or Executive Assistant),
-and places the other existing team members beneath it. Apply pending migrations with
-`.venv/bin/alembic upgrade head` before using this release. See
-[Prism team organization](docs/guides/prism-team-organization.md) for the local assignments and checks.
+4. **Start Docker Desktop**, then migrate the swarm and Prism and launch everything:
 
-The server rejects reporting cycles, self-reporting, archived managers, and a second Chief of
-Staff. Archiving a manager moves its reports to Chief of Staff; Chief of Staff cannot be archived
-while other team members remain. Roles and departments inform onboarding and working instructions;
-reporting lines do not expand tool permissions or grant access to another Prism's private memory.
+   ```bash
+   make migrate                                  # Prism schema
+   (cd apps/swarm/backend && uv run alembic upgrade head)
+   make dev-all                                  # Prism :8000, swarm API :8080, worker
+   ```
 
-### 6. Register the Microsoft Entra application
+   `make dev-all` stops with a clear message if ports 8000 or 8080 are busy. The swarm worker needs Docker to start the per-Prism browser containers (image `mcr.microsoft.com/playwright/mcp`; pin a tag with `COMPUTER_IMAGE` outside local development).
 
-Prism uses delegated Microsoft Graph permissions. Messages and email are sent as the
-connected manager account; Prism does not use an application identity to impersonate every
-user.
+5. **Check it:** open <http://127.0.0.1:8000/dashboard/>, and confirm the Workspace Prisms page loads. Operators can also run `apps/prism/.venv/bin/python apps/prism/scripts/prism_admin.py work-check`, which should print `"ok": true`.
+
+Then create a Prism (**Chats → Create Prism**: name, role, department, who it reports to, what it does), finish onboarding in its chat, and ask it for a task. Review the plan, start it, answer any question it asks, and read the report.
+
+Notes:
+
+- Computers stop by themselves after `COMPUTER_IDLE_MINUTES` (default 10). Browser profiles (logins, cookies) are kept; `prism_admin.py computers reset` clears them.
+- Each run is bounded by `WORK_MAX_TURNS_CAP`, `WORK_BUDGET_CAP_USD` and `WORK_MAX_MINUTES`. Do not raise them just to force a task to finish.
+- A task on `example.com` stays inside that origin. Other sites, including subdomains, need a separate approval.
+- Captchas and one-time codes stop a run. There is no take-control feature yet.
+
+## Connect Microsoft Teams (optional but central to Chief of Staff)
+
+Prism needs an Entra app registration and a public HTTPS callback.
+
+### 1. Register the application
 
 In the [Microsoft Entra admin center](https://entra.microsoft.com/):
 
-1. Open **Identity > Applications > App registrations** and select **New registration**.
-2. Give the app a local name such as `Prism Local`.
-3. Choose **Accounts in this organizational directory only** (single tenant).
-4. Under **Redirect URI**, choose **Web** and add:
+1. **Identity → Applications → App registrations → New registration**. Name it (for example `Prism Local`) and choose **single tenant**.
+2. Under **Redirect URI**, choose **Web** and add `http://localhost:8000/api/v1/microsoft/auth/callback`.
+3. Copy the **Application (client) ID** and **Directory (tenant) ID**.
+4. **Certificates & secrets → New client secret**. Copy the **Value** (not the secret ID).
+5. **API permissions → Add a permission → Microsoft Graph → Delegated permissions**: `User.Read`, `User.Read.All`, `Chat.Create`, `Chat.Read`, `ChatMessage.Send`, `Mail.Send`. Prism also requests `openid`, `profile` and `offline_access` at sign-in.
+6. Select **Grant admin consent** if your tenant requires it.
 
-   ```text
-   http://localhost:8000/api/v1/microsoft/auth/callback
-   ```
-
-5. Select **Register** and copy the **Application (client) ID** and **Directory (tenant) ID**.
-6. Open **Certificates & secrets**, create a **new client secret**, and copy its **Value**
-   immediately. Do not use the secret ID; Prism needs the secret value.
-7. Open **API permissions > Add a permission > Microsoft Graph > Delegated permissions**.
-8. Add these permissions:
-
-   ```text
-   User.Read
-   User.Read.All
-   Chat.Create
-   Chat.Read
-   ChatMessage.Send
-   Mail.Send
-   ```
-
-   Prism also requests the standard `openid`, `profile`, and `offline_access` scopes during
-   sign-in so it can identify the connected account and refresh delegated access.
-9. Select **Grant admin consent** if your tenant requires administrator approval. Confirm
-   that the permissions show a green consent status.
-
-Microsoft’s official references are [Register an application](https://learn.microsoft.com/en-us/graph/auth-register-app-v2),
-[Graph permissions](https://learn.microsoft.com/en-us/graph/permissions-reference), and
-[redirect URI guidance](https://learn.microsoft.com/en-us/entra/identity-platform/reply-url).
-
-Copy the values into `.env`:
+Add to `apps/prism/.env`:
 
 ```dotenv
 MICROSOFT_TENANT_ID=<directory-tenant-id>
@@ -416,349 +240,115 @@ MICROSOFT_CLIENT_SECRET=<client-secret-value>
 MICROSOFT_REDIRECT_URI=http://localhost:8000/api/v1/microsoft/auth/callback
 ```
 
-Restart Prism after changing `.env`.
+Restart Prism.
 
-### 7. Connect the manager account
+### 2. Connect the manager account
 
-1. Open the dashboard and select **Connect Microsoft account**.
-2. Sign in with the manager account that should send Teams messages and email.
-3. Accept the requested delegated permissions.
-4. Confirm that the dashboard shows the connected display name and email.
+In the dashboard open **Settings → Connections** and choose **Connect Microsoft account**. Sign in with the account that should send Teams messages and mail, and accept the permissions. The dashboard then shows the connected name and email. `AADSTS50011` means the Entra redirect URI does not exactly match `MICROSOFT_REDIRECT_URI`.
 
-If Microsoft shows `AADSTS50011`, the redirect URI in Entra does not exactly match
-`MICROSOFT_REDIRECT_URI`, including the scheme, hostname, path, and trailing slash behavior.
-If consent is denied, ask a tenant administrator to grant the configured permissions.
+You can now ask Chief of Staff questions about your Teams chats. Reading is read only and limited to chats you can already access.
 
-### 8. Import people and choose the managed scope
+### 3. Webhooks, scope and automation (only for live Teams monitoring)
 
-From the Teams automation panel:
-
-1. Select **Import active directory users**.
-2. Review the imported directory list.
-3. Add only the people Prism is allowed to manage.
-4. Confirm that the managed-people count is correct.
-
-Importing the directory does not send messages. Starting automation sends the first check-in
-only to the explicitly selected managed people.
-
-### 9. Expose the local webhook with ngrok
-
-Microsoft Graph must reach Prism over a public HTTPS URL. Keep Prism running on port `8000`
-and open a second terminal:
+Microsoft must reach Prism over public HTTPS to deliver message notifications:
 
 ```bash
-ngrok config add-authtoken <your-ngrok-auth-token>
+ngrok config add-authtoken <token>
 ngrok http 8000
 ```
 
-Copy the HTTPS forwarding address, for example:
-
-```text
-https://example.ngrok-free.app
+```dotenv
+MICROSOFT_WEBHOOK_BASE_URL=https://example.ngrok-free.app   # origin only, no trailing slash
 ```
 
-Set only the public origin—without a trailing slash—in `.env`:
+Restart Prism. A configured webhook URL makes the management API require the operator token. If the ngrok URL changes, stop automation, update the variable, restart, and start automation again. Use a stable domain beyond local testing.
+
+For managed daily check-ins, import directory users, add **only** the people Prism may contact to the managed scope, test with one willing person, and then start automation. To schedule it:
 
 ```dotenv
-MICROSOFT_WEBHOOK_BASE_URL=https://example.ngrok-free.app
-OPERATOR_API_TOKEN=<the-same-random-token-generated-earlier>
-```
-
-Restart Prism after changing the URL. Prism will create the webhook endpoint at:
-
-```text
-https://example.ngrok-free.app/api/v1/microsoft/teams/webhook
-```
-
-The dashboard’s management APIs are protected whenever a webhook URL is configured. Click
-the key icon in the dashboard and enter the same `OPERATOR_API_TOKEN` value. The token is
-stored in that browser’s local storage and sent as `X-Manager-Operator-Token`.
-
-The default free ngrok URL can change whenever ngrok restarts. If it changes, stop Prism
-automation, update `MICROSOFT_WEBHOOK_BASE_URL`, restart Prism, and start automation again so
-the Graph subscription points to the new URL. A stable reserved domain or deployed HTTPS
-endpoint is recommended for anything beyond local testing.
-
-### 10. Start and verify automation
-
-Before starting, verify:
-
-- Microsoft account is connected.
-- The intended people are the only managed people.
-- ngrok is running and forwards to port `8000`.
-- `MICROSOFT_WEBHOOK_BASE_URL` has no trailing slash.
-- The operator token is entered in the dashboard.
-- You are testing with people who have agreed to receive the messages.
-
-Select **Start automation**. Prism sends the initial Teams message only to the selected
-managed people and creates reply listeners for their direct conversations.
-
-Use this safe first test:
-
-1. Select one test employee.
-2. Start automation.
-3. Confirm that employee receives the check-in.
-4. Reply with a normal work update and confirm Prism acknowledges it.
-5. Reply with a synthetic blocker that names another selected employee.
-6. Confirm Prism contacts that owner and records the dependency.
-7. Stop automation immediately after the test if you do not want scheduled messages.
-
-If the named owner is not part of the active managed run, Prism records the dependency and
-tells the source employee that the owner cannot be contacted in the current run.
-
-### 11. Enable scheduled daily automation
-
-After the manual test succeeds, set the schedule in `.env`:
-
-```dotenv
-AUTOMATION_SCHEDULER_ENABLED=true
+AUTOMATION_SCHEDULER_ENABLED=true     # enable in exactly one process
 MANAGER_TIMEZONE=Asia/Kolkata
 DAILY_CHECKIN_TIME=10:00
 DAILY_FOLLOWUP_TIME=13:00
 DAILY_DIGEST_TIME=19:30
 ```
 
-Restart Prism. The scheduler runs inside the API process, so enable it in only one process.
-It performs morning check-ins, follow-ups, listener renewal, memory consolidation, and the
-end-of-day five-section brief.
-
-The digest email is sent to the connected manager account. `MANAGER_NOTIFICATION_EMAIL` is
-optional and is used for configured manager alert routing; it is not required for the normal
-connected-account digest.
-
-You can send a one-time digest from the dashboard’s **Send digest** button. Use **Run daily
-cycle** only for controlled testing because it can trigger due automation actions.
-
-### 12. Add manager memory and working preferences
-
-Open the dashboard’s memory and knowledge areas to record:
-
-- How the manager prefers updates to be written.
-- What evidence is needed before escalating an issue.
-- How blockers and ownership should be handled.
-- Team working agreements and recurring context.
-- Decision ownership and escalation guidance.
-
-Prism supplies relevant saved context when processing replies. Current messages, explicit
-managed scope, database state, and deterministic validation remain authoritative; saved
-memory cannot directly authorize an out-of-scope message.
-
-### 13. Enable Azure OpenAI analysis (optional)
-
-Prism can run without Azure OpenAI. Enable it only after the deterministic Teams workflow is
-working:
-
-```dotenv
-INTELLIGENCE_LLM_ENABLED=true
-AZURE_OPENAI_ENDPOINT=https://<resource-name>.openai.azure.com
-AZURE_OPENAI_API_KEY=<key>
-AZURE_OPENAI_DEPLOYMENT=<chat-deployment-name>
-AZURE_OPENAI_REASONING_DEPLOYMENT=
-AZURE_OPENAI_API_VERSION=2024-10-21
-```
-
-The deployment names must match deployments in your Azure OpenAI resource. Restart Prism
-after changing these values. `LLM_MODEL_PRICING` is optional and is used only to estimate
-costs in the dashboard; leave it as `{}` if you do not want cost estimates.
-
-Do not place Azure keys in the README, issue reports, screenshots, browser storage, or Git.
-Use a managed secret store for anything beyond local development.
-
-### 14. Troubleshooting
-
-**`ERR_NGROK_8012` or “connection refused”**
-
-The ngrok agent is running, but Prism is not reachable at the forwarded address. Confirm that
-Prism is running on port `8000`, that ngrok uses `ngrok http 8000`, and that the forwarding
-address in `MICROSOFT_WEBHOOK_BASE_URL` matches the currently running tunnel.
-
-**Dashboard returns `401` or `503` for management actions**
-
-Click the dashboard key icon and enter the exact value of `OPERATOR_API_TOKEN`. A `503`
-usually means a public webhook URL or non-development `APP_ENV` is configured but the token
-is blank. Restart Prism after changing `.env`.
-
-**Microsoft returns `AADSTS50011`**
-
-The redirect URI is not an exact match. Check the Entra Web redirect URI and
-`MICROSOFT_REDIRECT_URI` character by character. For same-computer local development, use:
-
-```text
-http://localhost:8000/api/v1/microsoft/auth/callback
-```
-
-**Automation starts but replies are not processed**
-
-Confirm that ngrok is still running, the public webhook URL is current, automation is active,
-and the listener has not expired. Use **Renew listener** for a controlled test, or stop and
-start automation after changing the ngrok URL. Check the dashboard activity and delivery-health
-sections for failed runs.
-
-**Only one person receives a message**
-
-That is expected when only one person is in the managed list at the time automation starts.
-Importing people does not add them to the managed scope; add them explicitly before starting
-the next run.
-
-**The daily email is not received**
-
-Confirm the connected Microsoft account, `Mail.Send` delegated permission, the configured
-timezone and `DAILY_DIGEST_TIME`, and that the scheduler is enabled in exactly one Prism
-process. Use **Send digest** once to test email delivery independently of the schedule.
-
-**Database connection errors**
-
-Confirm PostgreSQL is running, the database exists, the credentials in `DATABASE_URL` are
-correct, and migrations have been applied with `make migrate`.
-
 ## Run with Docker
 
 ```bash
 cp apps/prism/.env.example apps/prism/.env
 cp apps/swarm/backend/.env.example apps/swarm/backend/.env
-# Set a unique local-only database password in a root .env (read by Compose) before continuing.
-# For example: PRISM_DATABASE_PASSWORD=choose-a-long-local-password
+echo 'PRISM_DATABASE_PASSWORD=<a long local-only password>' > .env     # read by Compose
 docker compose up --build
 ```
 
-Run these from the repository root. Compose starts Prism's PostgreSQL, applies Alembic migrations and
-starts Prism on port `8000`, then starts the swarm database, API (port `8080`) and worker. Prism reaches
-the swarm at `http://swarm-api:8000` inside Compose. Compose deliberately refuses to start until
-`PRISM_DATABASE_PASSWORD` is set. Choose a unique local password; do not use a default value or commit
-any `.env` file.
-
-Stop the services with `docker compose down`. Add `--volumes` only when you intentionally
-want to delete the local PostgreSQL data volume.
+Compose starts Prism's database, applies migrations and starts Prism on port 8000, then starts the swarm database, API (8080) and worker. Prism reaches the swarm at `http://swarm-api:8000` inside Compose. It refuses to start until `PRISM_DATABASE_PASSWORD` is set. Stop with `docker compose down`; add `--volumes` only to delete the data.
 
 ## Configuration
 
-All configuration is read from environment variables or an ignored `.env` file. The
-complete, commented list is in [apps/prism/.env.example](apps/prism/.env.example).
+Everything comes from environment variables or an ignored `.env` file. The complete, commented list is [apps/prism/.env.example](apps/prism/.env.example) (swarm: [apps/swarm/backend/.env.example](apps/swarm/backend/.env.example)).
 
-| Variable | Purpose | Default/safe state |
+| Variable | Purpose | Safe default |
 | --- | --- | --- |
-| `APP_ENV` | Runtime environment; non-development modes require operator authentication | `development` |
-| `DATABASE_URL` | PostgreSQL SQLAlchemy URL | Required |
-| `MANAGER_TIMEZONE` | Interprets scheduled times and incomplete employee ETAs | `UTC` |
-| `AGENT_SIGNATURE` | Signature appended to automated Teams messages | `Sent by Prism` |
-| `OPERATOR_API_TOKEN` | Protects management APIs through `X-Manager-Operator-Token` | Required when public |
-| `MICROSOFT_*` | Entra OAuth, token encryption, and webhook configuration | Disabled when blank |
-| `INTELLIGENCE_LLM_ENABLED` | Enables Azure OpenAI-backed analysis | `false` in the example |
-| `AZURE_OPENAI_*` | Azure OpenAI endpoint, key, API version, and deployments | Disabled when blank |
-| `AUTOMATION_SCHEDULER_ENABLED` | Runs scheduled automation inside the API process | `false` |
-| `DAILY_*_TIME` | Daily check-in, follow-up, and digest times | See `.env.example` |
-| `MANAGER_NOTIFICATION_EMAIL` | Optional directory target for manager alerts | Blank |
-| `MEMORY_*` | Organisational-memory limits and consolidation | Conservative defaults |
+| `APP_ENV` | `development` allows unauthenticated local use; anything else requires the operator token | `development` |
+| `DATABASE_URL` | PostgreSQL URL (`postgresql+psycopg://...`) | required |
+| `OPERATOR_API_TOKEN` | Protects management APIs via `X-Manager-Operator-Token` | required when public |
+| `MICROSOFT_*` | Entra OAuth, token encryption key, webhook URL | disabled when blank |
+| `LLM_PROVIDER`, `*_API_KEY`, `AZURE_OPENAI_*` | AI provider settings | disabled when blank |
+| `PRISM_V21_ENABLED`, `PRISM_V22_ENABLED`, `PRISM_V24_ENABLED` | Teams conversation, multiple Prisms, computers | `false` in the example |
+| `QA_SWARM_URL`, `QA_SWARM_EMAIL`, `QA_SWARM_PASSWORD` | Prism's connection to the swarm API | blank |
+| `WORK_BRIDGE_SECRET` | Shared secret for the signed Teams bridge (matches the swarm's `PRISM_BRIDGE_SECRET`) | blank |
+| `WORK_MAX_TURNS_CAP`, `WORK_BUDGET_CAP_USD`, `WORK_MAX_MINUTES` | Hard ceilings on any computer task | see `.env.example` |
+| `AUTOMATION_SCHEDULER_ENABLED`, `DAILY_*_TIME`, `MANAGER_TIMEZONE` | Scheduled daily automation | off |
 
-Generate local secret values without storing them in shell history manually:
+Health checks, the Microsoft OAuth callback and the Teams webhook are public by design. `/api/v2/bridge/` bypasses operator auth but verifies a timestamped HMAC. The static dashboard is public; the token lives in your browser's local storage.
 
-```bash
-python -c "import secrets; print(secrets.token_urlsafe(32))"
-python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-```
+## Troubleshooting
 
-Never commit `.env`. Changing `MICROSOFT_TOKEN_ENCRYPTION_KEY` without reauthorizing the
-Microsoft connection makes stored tokens unreadable.
+| Symptom | Likely cause and fix |
+| --- | --- |
+| Dashboard or API returns `401` | Enter the exact `OPERATOR_API_TOKEN` in **Settings → Developer**. A `503` means a public webhook URL or non-development `APP_ENV` is set with a blank token |
+| `make dev` says the dashboard is not built | Run `make frontend-build` (needs Node 22+). A `503` from `/dashboard/` means `app/static` is missing |
+| Database errors | Check PostgreSQL is running, the database exists, `DATABASE_URL` is right, and `make migrate` has run |
+| Workspace pages empty or "computer service unavailable" | Swarm API or worker is not running, `QA_SWARM_*` is wrong, or `PRISM_V22_ENABLED` / `PRISM_V24_ENABLED` is off. Run `make dev-all` |
+| A run fails with "Docker is not available" | Start Docker Desktop on the machine running the swarm worker |
+| A run stays at zero steps ("Waiting for workspace") | Check the swarm API and worker. A listening port alone does not prove the API is healthy; restart a stale Uvicorn process |
+| `AADSTS50011` | The Entra redirect URI must match `MICROSOFT_REDIRECT_URI` exactly |
+| `ERR_NGROK_8012` or connection refused | ngrok is not forwarding to port 8000, or the URL in `MICROSOFT_WEBHOOK_BASE_URL` is stale |
+| Replies are not processed | Check the tunnel, that automation is active, and renew the listener |
+| Daily email missing | Check `Mail.Send` permission, timezone, `DAILY_DIGEST_TIME`, and that the scheduler runs in exactly one process |
+| Browser site blocked (`ERR_BLOCKED_BY_CLIENT`) | The computer allows exact origins only; a site's own API on another host needs a separate approval |
 
-## Microsoft Graph behavior
+## Development
 
-Every Graph notification is matched to an active subscription and validated with its
-encrypted `clientState` before Prism fetches or stores the message. Graph subscriptions are
-renewed periodically while automation is running; the dashboard also exposes a manual
-listener-renewal action for controlled testing.
-
-For production, use a stable HTTPS deployment and a managed secret store. An ngrok tunnel is
-intended for local development and testing, not as a production deployment strategy.
-
-## API and authentication
-
-The main API groups are:
-
-- `/api/v1`: employees, projects, tasks, daily updates, blockers, commitments,
-  conversations, escalations, memory, Microsoft integration, and usage.
-- `/api/v2/management`: aggregated management state, dependency graph, risks, decisions,
-  attention, daily briefs, changes, feedback, and bounded queries.
-
-When `APP_ENV` is not `development`, or a public webhook URL or operator token is set,
-management APIs require this header:
-
-```http
-X-Manager-Operator-Token: <OPERATOR_API_TOKEN>
-```
-
-Health checks, Microsoft OAuth callbacks, and the Graph webhook remain public by design.
-Domain errors use a stable JSON body with `detail` and `code` fields. Consult `/docs` for
-the generated request and response schemas.
-
-## Background jobs
-
-The optional scheduler performs check-ins, follow-ups, listener renewal, daily briefs, and
-memory consolidation. It is off by default. The scheduler runs inside the API process, so
-enable it in only one process or replica; multiple scheduler-enabled workers can contend for
-the same jobs even though outbound actions use idempotency keys.
-
-## Testing and quality
+Run from the repository root (the root `Makefile` forwards to `apps/prism`):
 
 ```bash
-make check          # lint, formatting check, type checking, unit tests, secret patterns
-make test           # fast tests; PostgreSQL tests are skipped
-make test-integration
-make audit          # dependency vulnerability audit; requires network access
+make check               # lint, format, mypy, tests, secret scan, dashboard checks
+make test                # fast tests; database and browser suites are skipped
+make test-integration    # PostgreSQL tests (RUN_DB_TESTS=1), disposable database only
+make test-e2e            # Playwright browser journeys against a built dashboard
+make frontend-check      # tsc, ESLint, Vitest for the dashboard
+make frontend-types      # regenerate API types after backend schema changes
+make audit               # dependency audit (needs network)
 ```
 
-Integration tests use `DATABASE_URL` and can modify that database. Always point them at a
-dedicated test database—never a development or production database.
+Swarm tests: `cd apps/swarm/backend && uv run pytest` (uses a separate `oneclarity_test` database).
 
-Tests block live HTTP POST requests by default. Microsoft Graph and Azure OpenAI boundaries
-must be mocked unless a deliberately isolated live acceptance test is being performed.
+Integration tests can modify the database they use. Point them only at a dedicated test database, never one with useful data. Tests fake Graph, AI providers and the swarm, and block live `httpx.post` calls by default. Schema changes need a reviewed Alembic migration with a downgrade. Do not edit a published migration.
 
-## Database migrations
+## Documentation
 
-```bash
-make migrate
-.venv/bin/alembic current
-.venv/bin/alembic history
-```
-
-Create schema changes with Alembic and include both upgrade and downgrade behavior. Do not
-edit an already published migration once external installations may have applied it.
-
-## Project structure
-
-```text
-app/
-  agents/       Structured AI decision prompts and orchestration
-  api/routes/   FastAPI route groups
-  core/         Configuration and request security
-  db/           SQLAlchemy engine and sessions
-  models/       PostgreSQL ORM models
-  schemas/      API and decision validation models
-  services/     Business logic and external integrations
-  static/       Built dashboard (generated from frontend/)
-frontend/       Dashboard source: React, TypeScript, Vite
-alembic/        Database migration chain
-scripts/        Repository maintenance checks
-tests/          Unit and opt-in PostgreSQL integration tests
-.github/        Contribution templates and CI/security automation
-```
-
-## Contributing
-
-Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. Changes should remain
-small, preserve the deterministic safety layer around AI decisions, and include regression
-tests for message sending, authorization, data integrity, or migration behavior they affect.
+- [AGENTS.md](AGENTS.md): conventions, architecture and safety rules for contributors and coding agents
+- [ARCHITECTURE.md](ARCHITECTURE.md): components, data flow, security boundaries
+- [Monorepo layout](docs/architecture/monorepo.md) and [changes since v2.4](docs/releases/post-v2.4-changes.md)
+- Runbooks: [v2.1](docs/releases/v2.1-release-runbook.md), [v2.2](docs/releases/v2.2-release-runbook.md), [v2.4 computers and website testing](docs/releases/v2.4-release-runbook.md)
+- Guides: [dashboard navigation](docs/guides/dashboard-navigation.md), [design system](docs/guides/prism-design-system.md), [skills](docs/guides/prism-skills.md), [team organization](docs/guides/prism-team-organization.md)
+- [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), [ROADMAP.md](ROADMAP.md), [SUPPORT.md](SUPPORT.md), [CHANGELOG.md](CHANGELOG.md)
 
 ## Security
 
-Do not report vulnerabilities in a public issue. Follow [SECURITY.md](SECURITY.md) to open a
-private GitHub security advisory. Prism handles employee messages and delegated Microsoft
-tokens, so deployments should use isolated infrastructure, encrypted backups, HTTPS, a strong
-operator token, and a managed secret store.
-
-## Roadmap and support
-
-See [ROADMAP.md](ROADMAP.md) for near-term priorities and [SUPPORT.md](SUPPORT.md) for support
-boundaries. Changes are recorded in [CHANGELOG.md](CHANGELOG.md).
+Do not report vulnerabilities in a public issue; follow [SECURITY.md](SECURITY.md). Prism handles employee messages and delegated Microsoft tokens, so use isolated infrastructure, HTTPS, a strong operator token, encrypted backups and a managed secret store beyond local development. Never put keys in the README, issues, screenshots or Git.
 
 ## Licence
 
