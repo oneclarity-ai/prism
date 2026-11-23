@@ -301,7 +301,7 @@ describe("focusRun and the run view", () => {
 
 describe("screen, frames and blob lifecycle", () => {
   it("fetches the saved frame, shows it, and revokes the old one 2s after a newer frame arrives", async () => {
-    const net = setup({ "GET /api/v2/qa/runs/run-1/frame": () => new Response(new Blob(["jpg"])) });
+    const net = setup({ "GET /api/v2/qa/runs/run-1/frame": () => new Response("jpg") });
     const timeouts = vi.spyOn(globalThis, "setTimeout");
     mount();
     act(() => onPrism(qaPrism));
