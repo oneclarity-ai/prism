@@ -1,0 +1,62 @@
+run,agent,status,model,attempt,dur_s,input_tokens,output_tokens,cached,cost,calls,bad_results,navs,err,is_resume
+456e6e8c,prism-07a6dfa4,failed,gpt-5-mini,1,0,0,0,0,0.0000,0,0,0,ComputerError: Docker is not available: failed to connect to the docker API at unix:///Use,False
+6363fc4e,prism-07a6dfa4,succeeded,gpt-5-mini,1,32,24001,1305,14720,0.0053,6,0,0,,False
+2266ac94,prism-07a6dfa4,succeeded,gpt-5-mini,1,57,106671,2401,25600,0.0257,9,0,2,,False
+e1176809,prism-17372fa4,succeeded,gpt-5-mini,0,51,20724,388,15744,0.0024,5,2,1,,False
+be7c5b95,prism-17372fa4,succeeded,gpt-5-mini,0,35,29483,2034,26368,0.0055,7,0,0,,True
+ea4f2d96,prism-17372fa4,succeeded,gpt-5-mini,0,30,37267,2603,33408,0.0070,7,0,0,,True
+1cf2a635,prism-17372fa4,succeeded,gpt-5-mini,0,20,28120,610,24960,0.0026,8,0,1,,False
+b825e32e,prism-17372fa4,succeeded,gpt-5-mini,0,14,23541,348,20864,0.0019,7,0,1,,False
+ea3fde4d,prism-17372fa4,succeeded,gpt-5-mini,0,18,27372,565,24448,0.0025,8,0,1,,False
+5478b2bc,prism-17372fa4,succeeded,gpt-5-mini,0,110,92748,1864,81664,0.0085,16,0,4,,False
+dca1e1df,prism-17372fa4,succeeded,gpt-5-mini,0,86,239640,3172,231808,0.0141,23,0,3,,True
+0501d0fa,prism-17372fa4,succeeded,gpt-5-mini,0,29,37671,1033,33792,0.0039,10,1,1,,False
+41fdd01e,prism-17372fa4,succeeded,gpt-5-mini,0,25,37279,1031,33536,0.0038,10,1,1,,False
+7da2479f,prism-17372fa4,succeeded,gpt-5-mini,0,39,94387,975,85888,0.0062,16,3,2,,False
+3db03bbc,prism-266a5448,succeeded,gpt-5-mini,1,36,24444,764,13696,0.0046,4,0,0,,False
+b7bd8070,prism-266a5448,succeeded,gpt-5-mini,1,24,21817,522,20224,0.0019,4,0,1,,True
+572ed190,prism-266a5448,succeeded,gpt-5-mini,1,12,17720,684,15744,0.0023,4,0,1,,True
+53394e0f,prism-5e0a0c68,failed,gpt-5-mini,1,0,0,0,0,0.0000,0,0,0,ComputerError: Docker is not available: failed to connect to the docker API at unix:///Use,False
+e418dd9f,prism-5e0a0c68,failed,gpt-5-mini,1,0,0,0,0,0.0000,0,0,0,ComputerError: Docker is not available: failed to connect to the docker API at unix:///Use,False
+b9291c32,prism-5e0a0c68,succeeded,gpt-5-mini,1,60,0,0,0,0.0000,11,0,2,,False
+ea01b00b,prism-cf3c8a04,failed,gpt-5-mini,0,0,0,0,0,0.0000,0,0,0,ComputerError: Docker is not available: failed to connect to the docker API at unix:///Use,False
+ce6a2760,prism-cf3c8a04,succeeded,gpt-5-mini,0,67,28060,1263,19072,0.0052,8,2,2,,False
+ad379e98,prism-cf3c8a04,succeeded,gpt-5-mini,0,41,36731,875,24960,0.0053,8,0,1,,False
+e822d579,prism-cf3c8a04,succeeded,gpt-5-mini,0,38,27989,1316,25216,0.0040,6,0,0,,True
+79daddaa,prism-cf3c8a04,succeeded,gpt-5-mini,0,22,15430,632,13824,0.0020,4,0,1,,True
+d693bb55,prism-cf3c8a04,succeeded,gpt-5-mini,1,32,29197,1802,19072,0.0066,7,1,1,,False
+25c8e19b,prism-cf3c8a04,succeeded,gpt-5-mini,1,40,20003,809,17920,0.0026,4,0,1,,False
+50b32766,prism-cf3c8a04,succeeded,gpt-5-mini,1,20,18635,999,12800,0.0038,5,0,1,,True
+cad81cdd,prism-ea6d9357,failed,gpt-5-mini,0,0,0,0,0,0.0000,0,0,0,ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception),False
+3181686e,prism-ea6d9357,failed,gpt-5-mini,0,38,63555,864,49536,0.0065,15,1,1,Stopped after 15 turns (max turns). Raise 'Max turns per run' on the agent or narrow the t,False
+dfdfae97,prism-ea6d9357,succeeded,gpt-5-mini,0,48,106021,1713,89728,0.0097,21,11,2,,False
+9b05f23c,prism-ea6d9357,succeeded,gpt-5-mini,0,198,1923394,4963,1780864,0.0901,58,9,7,,False
+8deeb553,prism-ea6d9357,failed,gpt-5-mini,0,80,362373,1854,313728,0.0237,25,1,1,Stopped after 25 turns (max turns). Raise 'Max turns per run' on the agent or narrow the t,False
+5d5617d4,prism-ea6d9357,failed,gpt-5-mini,0,9,0,0,0,0.0000,0,0,0,"BadRequestError: Error code: 400 - {'error': {'message': ""The response was filtered due to",False
+e828f5b4,prism-ea6d9357,succeeded,gpt-5-mini,0,30,28799,263,19072,0.0034,4,0,1,,False
+1932f5d9,prism-ea6d9357,succeeded,gpt-5-mini,0,91,143248,3034,133376,0.0119,20,0,0,,True
+61d17f2b,prism-ea6d9357,succeeded,gpt-5-mini,0,55,17130,812,15616,0.0024,2,0,0,,True
+c3ecc73f,prism-ea6d9357,succeeded,gpt-5-mini,0,119,86233,1186,77696,0.0064,8,0,0,,True
+56f73048,prism-ea6d9357,succeeded,gpt-5-mini,0,37,84141,945,77568,0.0055,6,0,0,,True
+4cddd920,prism-ea6d9357,succeeded,gpt-5-mini,0,44,79925,618,74624,0.0044,5,0,0,,True
+bfc64d2c,prism-ea6d9357,succeeded,gpt-5-mini,0,57,68039,647,50048,0.0070,4,0,0,,True
+02a105cc,prism-ea6d9357,cancelled,gpt-5-mini,0,60,290802,2530,281472,0.0144,17,0,0,Cancelled by a user.,True
+0effecb6,prism-ea6d9357,cancelled,,0,,0,0,0,0.0000,0,0,0,,False
+3d7e0275,prism-ea6d9357,succeeded,gpt-5-mini,0,27,21835,403,15360,0.0028,3,1,1,,False
+177ac1ad,prism-ea6d9357,succeeded,gpt-5-mini,0,31,16354,540,14848,0.0018,3,0,0,,True
+56f4b9ce,prism-ea6d9357,cancelled,gpt-5-mini,0,24,23341,792,21248,0.0026,4,1,1,,True
+7b3ec04c,prism-ea6d9357,failed,gpt-5-mini,0,169,1481171,6015,1391744,0.0692,60,17,4,Stopped after 60 turns (max turns). Raise 'Max turns per run' on the agent or narrow the t,False
+ac317ce0,prism-ea6d9357,succeeded,gpt-5-mini,0,27,20123,612,17152,0.0024,3,1,0,,False
+5819c290,prism-ea6d9357,succeeded,gpt-5-mini,0,337,58383,869,51584,0.0047,9,1,1,,True
+400e9464,prism-ea6d9357,failed,gpt-5-mini,0,177,1019460,7649,956544,0.0549,61,21,1,Stopped after 60 turns (max turns). Raise 'Max turns per run' on the agent or narrow the t,True
+1d69e0a9,prism-ea6d9357,succeeded,gpt-5-mini,1,962,15532,157,9600,0.0020,2,0,0,,False
+05fc0845,prism-ea6d9357,succeeded,gpt-5-mini,1,39,72328,500,59776,0.0056,6,1,1,,True
+8d1a7f6a,prism-ea6d9357,succeeded,gpt-5-mini,1,59,218544,717,177024,0.0162,9,1,0,,True
+c746858d,prism-ea6d9357,succeeded,gpt-5-mini,1,18,27590,244,27136,0.0013,1,0,0,,True
+1624c7ee,prism-ea6d9357,succeeded,gpt-5-mini,1,55,350985,2368,333440,0.0175,15,6,1,,True
+08573823,qa-agent,failed,rule-based planner,0,288,0,0,0,0.0007,0,0,0,All sub-agents failed. Open a sub-agent to see why.,False
+a38db371,qa-agent,failed,gpt-5-mini,0,282,3889093,11337,3709440,0.1603,80,6,6,Stopped after 80 turns (max turns). Raise 'Max turns per run' on the agent or narrow the t,False
+f1d4bcce,qa-agent,failed,gpt-5-mini,0,0,0,0,0,0.0000,0,0,0,ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception),False
+2f38006e,qa-agent,failed,gpt-5-mini,0,0,0,0,0,0.0000,0,0,0,ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception),False
+02496bbd,qa-agent,succeeded,gpt-5-mini,0,83,529977,2992,472704,0.0321,29,4,2,,False
+43be57c5,sales-outreach-agent,cancelled,gpt-5-mini,0,113,184287,5680,161664,0.0211,38,0,0,Cancelled by a user.,False

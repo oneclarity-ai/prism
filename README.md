@@ -38,9 +38,71 @@ Prism is a self-hosted AI team for a manager. You create specialised assistants,
 - Secrets stay server side. Logins are masked from events and never enter model context.
 - Browser computers resolve traffic through a proxy that blocks private and metadata addresses.
 
-![What needs my attention, with disclosed sources](docs/screenshots/v2.1-attention-sources-desktop.png)
+## Product tour
 
-![Coordinated approval cards on a narrow screen](docs/screenshots/v2.1-coordinated-approvals-narrow.png)
+These are real screenshots of a running Prism instance. Sidebar message previews, the profile name and email, and Teams conversations are hidden or left out. Regenerate them against your own instance with `PRISM_OPERATOR_TOKEN=<token> apps/prism/.venv/bin/python scripts/capture_screenshots.py` (output goes to `docs/screenshots/`; check every image before committing, since it shows your own data).
+
+### Chat: one continuing conversation per Prism
+
+Each Prism has its own private chat. Your messages and the Prism's replies use the same rounded bubbles. When a Prism finishes a task it posts a **report card** in the chat: a short summary, the structured results in a table (with a **Download** button when it saved a file such as a CSV), a **Needs your attention** list, **What I can do next**, and the time and cost of the run. The AI Researcher below shows a plan it started, the manager approval it received ("You allowed it."), and its results.
+
+![AI Researcher chat with a report card](docs/screenshots/chat-p817fY.png)
+
+The Sales Outreach Prism's report below lists the companies it found, with a link per website and a downloadable CSV. Its **Needs your attention** list says plainly what is still unverified.
+
+![Sales Outreach report with a CSV download](docs/screenshots/chat-pocA9q.png)
+
+The dashboard follows your system theme or the choice you make in the profile menu.
+
+![Dark theme](docs/screenshots/chat-p817fY-dark.png)
+
+### Workspace: everything that is not a chat
+
+The briefcase tab opens **Workspace**, grouped as Overview (Dashboard, Spending, Run analytics), Work (Tasks, Runs, Approvals, Bugs), Team (Prisms), Setup (Target apps, Secrets) and Knowledge (Skills, Brain).
+
+**Prisms** shows your whole AI team as cards or an org chart. Each card shows the Prism's role and department, how many tools it has, how many of those ask first, its open tasks and its monthly budget. **Open chat** jumps to its conversation and **More settings** opens its instructions, tools and limits.
+
+![Workspace Prisms](docs/screenshots/workspace-prisms.png)
+
+**Tasks** lists the work assigned to your Prisms, with search, Prism and target filters, status counts (To do, In progress, Blocked, Done, Failed), and list or board layouts. Every task traces back to the goal that created it.
+
+![Workspace Tasks](docs/screenshots/workspace-tasks.png)
+
+**Runs** shows every work session of every Prism, grouped by day, with its status, duration, tokens and cost. Open a run to see its progress, screenshots and results.
+
+![Workspace Runs](docs/screenshots/workspace-runs.png)
+
+**Approvals** collects the actions your Prisms want to take that need your decision first, with history of what you approved or rejected. Sign-in cards and questions continue inside the owning Prism's chat.
+
+![Workspace Approvals](docs/screenshots/workspace-approvals.png)
+
+**Spending** puts what the Prisms and the swarm cost in one place: today, the last 7 days, this month and total, split into Prism and swarm, and broken down by feature or model. Costs are estimated from exact token counts and each model's rate, shown in INR or USD.
+
+![Workspace Spending](docs/screenshots/workspace-spending.png)
+
+### Search and settings
+
+The search button, or Ctrl/Cmd+K, searches Prisms, chat messages, Workspace pages, settings and quick actions in one place.
+
+![Universal search](docs/screenshots/search.png)
+
+**Settings → AI provider** lets you save a key for OpenAI, Anthropic, DeepSeek, Azure OpenAI or any OpenAI-compatible endpoint. Keys are stored encrypted on your Prism server and never shown again. The active provider is highlighted, and **Test key** checks a key before you rely on it. Other sections cover Account, Preferences, Notifications, Skills, People, Connections (Microsoft), Access and Developer (where the operator token goes).
+
+![AI provider settings](docs/screenshots/settings-provider.png)
+
+### Creating a Prism and giving it work
+
+**Create Prism** (the **+** in the sidebar) asks for a colour, name, role, department, who it reports to, and what it is responsible for. The description can be drafted for you. The first Prism is offered as your **Chief of Staff**. It then asks a few onboarding questions in its own chat to learn how you work, and creates three private skills from your answers.
+
+For a web task (testing a site, research, lead lists) the flow is:
+
+1. **Ask.** You describe the job in the Prism's chat.
+2. **Plan.** Prism shows a plan card: steps, the tools it will use, what it will ask you about, and its limits (turns, cost, time).
+3. **Start.** You start it. The Prism's own browser computer opens in a Docker container and works through the plan.
+4. **Ask first.** If it needs a login, a new website, or permission for something risky, the run pauses and a card appears in the chat. You approve, answer, or decline.
+5. **Report.** It finishes with a report and any files, as in the screenshots above.
+
+For Teams work, ask in the Chief of Staff's chat ("What needs my attention across the release team?"). Prism picks relevant chats you can access, reads them read only, answers with cited sources, and prepares one draft card per message. Each card states "Nothing is sent until you approve." You edit, **Reject**, **Redraft** or **Approve and send**, and only the exact approved text is sent from your own account. No Teams conversation is shown in this README.
 
 ## How it fits together
 

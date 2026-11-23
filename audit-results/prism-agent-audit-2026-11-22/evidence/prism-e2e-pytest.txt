@@ -1,0 +1,1776 @@
+FF..FF......FF..F..............................................FF.FFFFF. [ 80%]
+................ss                                                       [100%]
+=================================== FAILURES ===================================
+_____ test_keyboard_theme_menu_persistence_and_system_preference[desktop] ______
+
+page = <Page url='http://127.0.0.1:63815/assistant'>
+
+    def test_keyboard_theme_menu_persistence_and_system_preference(page: Page) -> None:
+        page.emulate_media(color_scheme="dark", reduced_motion="reduce")
+        page.evaluate("window.prismTheme.set('system')")
+        expect(page.locator("html")).to_have_attribute("data-theme", "dark")
+        trigger = page.locator("#profile-menu-trigger")
+        trigger.focus()
+        page.keyboard.press("ArrowDown")
+        expect(page.get_by_role("menuitem", name="Settings", exact=True)).to_be_focused()
+        page.keyboard.press("ArrowDown")
+        expect(page.get_by_role("radio", name="System", exact=True)).to_be_focused()
+        bounds = page.locator(".profile-theme-options").bounding_box()
+>       assert bounds and bounds["x"] >= 0
+E       assert (None)
+
+tests/e2e/test_design_system.py:39: AssertionError
+______ test_keyboard_theme_menu_persistence_and_system_preference[narrow] ______
+
+page = <Page url='http://127.0.0.1:63815/assistant'>
+
+    def test_keyboard_theme_menu_persistence_and_system_preference(page: Page) -> None:
+        page.emulate_media(color_scheme="dark", reduced_motion="reduce")
+        page.evaluate("window.prismTheme.set('system')")
+        expect(page.locator("html")).to_have_attribute("data-theme", "dark")
+        trigger = page.locator("#profile-menu-trigger")
+        trigger.focus()
+        page.keyboard.press("ArrowDown")
+>       expect(page.get_by_role("menuitem", name="Settings", exact=True)).to_be_focused()
+E       AssertionError: Locator expected to be focused
+E       Actual value: None
+E       Error: element(s) not found 
+E       Call log:
+E         - Expect "to_be_focused" get_by_role("menuitem", name="Settings", exact=True) with timeout 5000ms
+E         - waiting for get_by_role("menuitem", name="Settings", exact=True)
+E       
+E       Aria snapshot:
+E       - complementary "Primary":
+E         - text: Prism
+E         - button "Create Prism"
+E         - button "Close sidebar"
+E         - tablist "Sidebar view":
+E           - tab "Chats" [selected]
+E           - tab "Workspace"
+E           - tab "Notifications"
+E         - button "Search"
+E         - navigation "Dashboard sections":
+E           - tabpanel "Chats":
+E             - text: Prisms
+E             - button "Show archived Prisms": Show archived
+E             - paragraph: No Prisms yet.
+E         - button "Open profile menu": M Microsoft account
+E         - button "Settings"
+E       - main:
+E         - status
+E         - button "Open sidebar"
+E         - strong: Prism
+E         - button "Search"
+E         - button "Preferences and settings": Preferences
+E         - strong: Finish setting up Prism
+E         - list:
+E           - listitem: Add the Microsoft settings to .env and restart the API to connect Teams.
+E           - listitem:
+E             - text: "AI provider: Intelligence is disabled"
+E             - button "Open settings"
+E         - text: P
+E         - heading "Talk to your manager Prism" [level=2]
+E         - paragraph: Ask naturally and Prism will disclose which Teams chats it reads. Use the chat selector in the message box to limit a request to one chat.
+E         - list:
+E           - listitem: Ask naturally and Prism will choose the relevant chats
+E           - listitem: Select a chat only when you want a hard one-chat limit
+E           - listitem: Check the evidence and approve only actions you requested
+E         - text: Message Prism
+E         - textbox "Message Prism"
+E         - button "All chats"
+E         - button "Ask Prism" [disabled]
+
+tests/e2e/test_design_system.py:35: AssertionError
+____________ test_workspace_surfaces_and_semantic_contrast[desktop] ____________
+
+page = <Page url='http://127.0.0.1:63815/runs'>
+
+    def test_workspace_surfaces_and_semantic_contrast(page: Page) -> None:
+        now = datetime.now(timezone.utc).isoformat()
+        page.route(
+            "**/api/v2/qa/status",
+            lambda route: route.fulfill(json={"available": True, "computers": True, "reason": ""}),
+        )
+        page.route(
+            "**/api/v2/operations/overview",
+            lambda route: route.fulfill(
+                json={
+                    "agents": [{"id": "synthetic-agent", "name": "Research Prism", "status": "active"}],
+                    "tasks": [
+                        {
+                            "id": "synthetic-task",
+                            "title": "Review release readiness",
+                            "goal": "Check the release with evidence",
+                            "agent_id": "synthetic-agent",
+                            "status": "todo",
+                            "created_at": now,
+                        }
+                    ],
+                    "runs": [
+                        {
+                            "id": "synthetic-run",
+                            "task_title": "Review release readiness",
+                            "agent_id": "synthetic-agent",
+                            "status": "succeeded",
+                            "created_at": now,
+                            "started_at": now,
+                            "ended_at": now,
+                            "total_tokens": 1200,
+                            "cost_usd": 0.03,
+                        }
+                    ],
+                    "targets": [],
+                    "approvals": [],
+                    "bugs": [],
+                    "positions": [],
+                }
+            ),
+        )
+        page.route("**/api/v2/operations/secrets", lambda route: route.fulfill(json=[]))
+        page.route("**/api/v2/work/approvals?**", lambda route: route.fulfill(json=[]))
+        page.route(
+            "**/api/v2/operations/analytics?**",
+            lambda route: route.fulfill(
+                json={"totals": {}, "by_day": [], "by_agent": [], "by_model": []}
+            ),
+        )
+        page.reload()
+        expect(page.locator("#sidebar-workspace-tab")).to_be_visible()
+        page.evaluate("window.prism.setSidebarSection('workspace')")
+        # The desktop invocation also covers the tablet breakpoint.
+        widths = [1440, 900, 720] if page.viewport_size["width"] > 700 else [390, 320]
+        for width in widths:
+            page.set_viewport_size({"width": width, "height": 960 if width > 700 else 844})
+            for theme in ("dark", "light"):
+                page.evaluate("theme => window.prismTheme.set(theme)", theme)
+                for target in (
+                    "overview",
+                    "tasks",
+                    "runs",
+                    "approvals",
+                    "bugs",
+                    "agents",
+                    "positions",
+                    "targets",
+                    "secrets",
+                    "usage",
+                ):
+>                   page.locator(f"[data-workspace-page='{target}']").evaluate(
+                        "button => button.click()"
+                    )
+
+tests/e2e/test_design_system.py:199: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.11/site-packages/playwright/sync_api/_generated.py:11491: in evaluate
+    self._sync(
+.venv/lib/python3.11/site-packages/playwright/_impl/_locator.py:204: in evaluate
+    return await self._with_element(
+.venv/lib/python3.11/site-packages/playwright/_impl/_locator.py:123: in _with_element
+    handle = await self.element_handle(timeout=timeout)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.11/site-packages/playwright/_impl/_locator.py:334: in element_handle
+    handle = await self._frame.wait_for_selector(
+.venv/lib/python3.11/site-packages/playwright/_impl/_frame.py:395: in wait_for_selector
+    await self._channel.send(
+.venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:78: in send
+    return await self._connection.wrap_api_call(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <playwright._impl._connection.Connection object at 0x107d5ec90>
+cb = <function Channel.send.<locals>.<lambda> at 0x11135af20>
+is_internal = False, title = None
+
+    async def wrap_api_call(
+        self, cb: Callable[[], Any], is_internal: bool = False, title: str = None
+    ) -> Any:
+        if self._api_zone.get():
+            return await cb()
+        task = asyncio.current_task(self._loop)
+        parsed_st = _attach_api_call_information(
+            getattr(task, "__pw_stack__", None) or _capture_stack_trace(),
+            is_internal,
+            title,
+        )
+        self._api_zone.set(parsed_st)
+        try:
+            return await cb()
+        except Exception as error:
+>           raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+E           playwright._impl._errors.Error: Locator.evaluate: Error: strict mode violation: locator("[data-workspace-page='approvals']") resolved to 2 elements:
+E               1) <button type="button" data-workspace-page="approvals" class="nav-item workspace-nav-item">…</button> aka get_by_role("button", name="Approvals")
+E               2) <button type="button" data-workspace-page="approvals" class="nav-item workspace-nav-item">…</button> aka locator("button").filter(has_text="Approvals waiting")
+E           
+E           Call log:
+E             - waiting for locator("[data-workspace-page='approvals']")
+
+.venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:636: Error
+____________ test_workspace_surfaces_and_semantic_contrast[narrow] _____________
+
+page = <Page url='http://127.0.0.1:63815/runs'>
+
+    def test_workspace_surfaces_and_semantic_contrast(page: Page) -> None:
+        now = datetime.now(timezone.utc).isoformat()
+        page.route(
+            "**/api/v2/qa/status",
+            lambda route: route.fulfill(json={"available": True, "computers": True, "reason": ""}),
+        )
+        page.route(
+            "**/api/v2/operations/overview",
+            lambda route: route.fulfill(
+                json={
+                    "agents": [{"id": "synthetic-agent", "name": "Research Prism", "status": "active"}],
+                    "tasks": [
+                        {
+                            "id": "synthetic-task",
+                            "title": "Review release readiness",
+                            "goal": "Check the release with evidence",
+                            "agent_id": "synthetic-agent",
+                            "status": "todo",
+                            "created_at": now,
+                        }
+                    ],
+                    "runs": [
+                        {
+                            "id": "synthetic-run",
+                            "task_title": "Review release readiness",
+                            "agent_id": "synthetic-agent",
+                            "status": "succeeded",
+                            "created_at": now,
+                            "started_at": now,
+                            "ended_at": now,
+                            "total_tokens": 1200,
+                            "cost_usd": 0.03,
+                        }
+                    ],
+                    "targets": [],
+                    "approvals": [],
+                    "bugs": [],
+                    "positions": [],
+                }
+            ),
+        )
+        page.route("**/api/v2/operations/secrets", lambda route: route.fulfill(json=[]))
+        page.route("**/api/v2/work/approvals?**", lambda route: route.fulfill(json=[]))
+        page.route(
+            "**/api/v2/operations/analytics?**",
+            lambda route: route.fulfill(
+                json={"totals": {}, "by_day": [], "by_agent": [], "by_model": []}
+            ),
+        )
+        page.reload()
+        expect(page.locator("#sidebar-workspace-tab")).to_be_visible()
+        page.evaluate("window.prism.setSidebarSection('workspace')")
+        # The desktop invocation also covers the tablet breakpoint.
+        widths = [1440, 900, 720] if page.viewport_size["width"] > 700 else [390, 320]
+        for width in widths:
+            page.set_viewport_size({"width": width, "height": 960 if width > 700 else 844})
+            for theme in ("dark", "light"):
+                page.evaluate("theme => window.prismTheme.set(theme)", theme)
+                for target in (
+                    "overview",
+                    "tasks",
+                    "runs",
+                    "approvals",
+                    "bugs",
+                    "agents",
+                    "positions",
+                    "targets",
+                    "secrets",
+                    "usage",
+                ):
+>                   page.locator(f"[data-workspace-page='{target}']").evaluate(
+                        "button => button.click()"
+                    )
+
+tests/e2e/test_design_system.py:199: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.11/site-packages/playwright/sync_api/_generated.py:11491: in evaluate
+    self._sync(
+.venv/lib/python3.11/site-packages/playwright/_impl/_locator.py:204: in evaluate
+    return await self._with_element(
+.venv/lib/python3.11/site-packages/playwright/_impl/_locator.py:123: in _with_element
+    handle = await self.element_handle(timeout=timeout)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.11/site-packages/playwright/_impl/_locator.py:334: in element_handle
+    handle = await self._frame.wait_for_selector(
+.venv/lib/python3.11/site-packages/playwright/_impl/_frame.py:395: in wait_for_selector
+    await self._channel.send(
+.venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:78: in send
+    return await self._connection.wrap_api_call(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <playwright._impl._connection.Connection object at 0x107d5ec90>
+cb = <function Channel.send.<locals>.<lambda> at 0x1112c5c60>
+is_internal = False, title = None
+
+    async def wrap_api_call(
+        self, cb: Callable[[], Any], is_internal: bool = False, title: str = None
+    ) -> Any:
+        if self._api_zone.get():
+            return await cb()
+        task = asyncio.current_task(self._loop)
+        parsed_st = _attach_api_call_information(
+            getattr(task, "__pw_stack__", None) or _capture_stack_trace(),
+            is_internal,
+            title,
+        )
+        self._api_zone.set(parsed_st)
+        try:
+            return await cb()
+        except Exception as error:
+>           raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+E           playwright._impl._errors.Error: Locator.evaluate: Error: strict mode violation: locator("[data-workspace-page='approvals']") resolved to 2 elements:
+E               1) <button type="button" data-workspace-page="approvals" class="nav-item workspace-nav-item">…</button> aka get_by_role("button", name="Approvals")
+E               2) <button type="button" data-workspace-page="approvals" class="nav-item workspace-nav-item">…</button> aka locator("button").filter(has_text="Approvals waiting")
+E           
+E           Call log:
+E             - waiting for locator("[data-workspace-page='approvals']")
+
+.venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:636: Error
+_________________ test_page_urls_refresh_and_history[desktop] __________________
+
+page = <Page url='http://127.0.0.1:63815/workspace'>
+
+    def test_page_urls_refresh_and_history(page: Page):
+        workspace_fakes(page)
+        errors = []
+        page.on("pageerror", lambda error: errors.append(str(error)))
+        page.goto("/workspace")
+        expect(page).to_have_url(re.compile(r"/workspace$"))
+        expect(page.locator("#app")).to_have_attribute("data-view", "operations")
+        for key, path in (
+            ("tasks", "tasks"),
+            ("runs", "runs"),
+            ("approvals", "approvals"),
+            ("bugs", "bugs"),
+            ("agents", "prisms"),
+            ("positions", "organization"),
+            ("targets", "target-apps"),
+            ("secrets", "secrets"),
+            ("brain", "brain"),
+            ("skills", "skills"),
+            ("usage", "run-analytics"),
+        ):
+            page.evaluate(
+                "page => document.dispatchEvent(new CustomEvent('prism:workspace-navigate', {detail: {page}}))",
+                key,
+            )
+>           expect(page).to_have_url(re.compile(f"/{path}$"))
+E           AssertionError: Page URL expected to be 're.compile('/tasks$')'
+E           Actual value: http://127.0.0.1:63815/workspace 
+E           Call log:
+E             - Expect "to_have_url" with timeout 5000ms
+E               14 × locator resolved to <html lang="en" data-theme="light" data-contrast="normal" data-notify-approvals="on">…</html>
+E                  - unexpected value "http://127.0.0.1:63815/workspace"
+E           
+E           Aria snapshot:
+E           - complementary "Primary":
+E             - text: Prism
+E             - button "Create Prism"
+E             - button "Close sidebar"
+E             - tablist "Sidebar view":
+E               - tab "Chats"
+E               - tab "Workspace" [selected]
+E               - tab "Notifications"
+E             - button "Search"
+E             - navigation "Dashboard sections":
+E               - tabpanel "Workspace":
+E                 - text: Overview
+E                 - button "Dashboard"
+E                 - button "Spending"
+E                 - button "Run analytics"
+E                 - text: Work
+E                 - button "Tasks"
+E                 - button "Runs"
+E                 - button "Approvals"
+E                 - button "Bugs"
+E                 - text: Team
+E                 - button "Prisms"
+E                 - text: Setup
+E                 - button "Target apps"
+E                 - button "Secrets"
+E                 - text: Knowledge
+E                 - button "Skills"
+E                 - button "Brain"
+E             - button "Open profile menu": M Microsoft account
+E             - button "Settings"
+E           - banner:
+E             - heading "Good evening" [level=1]
+E             - paragraph: Here is what your Prism team is working on.
+E             - combobox "Date range":
+E               - option "Last 7 days" [selected]
+E               - option "Last 30 days"
+E               - option "Last 90 days"
+E               - option "Last year"
+E               - option "All available"
+E             - button "New task"
+E             - button "Refresh workspace"
+E           - main:
+E             - status
+E             - article:
+E               - text: Active Prisms
+E               - strong: "0"
+E               - text: 0 open tasks
+E             - article:
+E               - text: Runs · Last 7 days
+E               - strong: "0"
+E               - text: 0 succeeded · 0 failed
+E             - article:
+E               - text: Needs approval
+E               - strong: "0"
+E               - text: Computer actions waiting on you
+E             - article:
+E               - text: Cost
+E               - strong: $0.00
+E               - text: $0.00 per run
+E             - heading "Recent runs" [level=3]
+E             - paragraph: Last 7 days · newest first
+E             - button "View all"
+E             - strong: No runs in this period
+E             - paragraph: Start a task from a Prism conversation.
+E             - heading "Latest bugs" [level=3]
+E             - paragraph: Last 7 days
+E             - button "View all"
+E             - strong: No bugs in this period.
+E             - heading "Your Prisms" [level=3]
+E             - button "Manage"
+E             - strong: No Prisms yet
+E             - paragraph: Create a Prism to get started.
+
+tests/e2e/test_navigation.py:60: AssertionError
+__________________ test_page_urls_refresh_and_history[narrow] __________________
+
+page = <Page url='http://127.0.0.1:63815/workspace'>
+
+    def test_page_urls_refresh_and_history(page: Page):
+        workspace_fakes(page)
+        errors = []
+        page.on("pageerror", lambda error: errors.append(str(error)))
+        page.goto("/workspace")
+        expect(page).to_have_url(re.compile(r"/workspace$"))
+        expect(page.locator("#app")).to_have_attribute("data-view", "operations")
+        for key, path in (
+            ("tasks", "tasks"),
+            ("runs", "runs"),
+            ("approvals", "approvals"),
+            ("bugs", "bugs"),
+            ("agents", "prisms"),
+            ("positions", "organization"),
+            ("targets", "target-apps"),
+            ("secrets", "secrets"),
+            ("brain", "brain"),
+            ("skills", "skills"),
+            ("usage", "run-analytics"),
+        ):
+            page.evaluate(
+                "page => document.dispatchEvent(new CustomEvent('prism:workspace-navigate', {detail: {page}}))",
+                key,
+            )
+>           expect(page).to_have_url(re.compile(f"/{path}$"))
+E           AssertionError: Page URL expected to be 're.compile('/tasks$')'
+E           Actual value: http://127.0.0.1:63815/workspace 
+E           Call log:
+E             - Expect "to_have_url" with timeout 5000ms
+E               13 × locator resolved to <html lang="en" data-theme="light" data-contrast="normal" data-notify-approvals="on">…</html>
+E                  - unexpected value "http://127.0.0.1:63815/workspace"
+E           
+E           Aria snapshot:
+E           - complementary "Primary":
+E             - text: Prism
+E             - button "Create Prism"
+E             - button "Close sidebar"
+E             - tablist "Sidebar view":
+E               - tab "Chats"
+E               - tab "Workspace" [selected]
+E               - tab "Notifications"
+E             - button "Search"
+E             - navigation "Dashboard sections":
+E               - tabpanel "Workspace":
+E                 - text: Overview
+E                 - button "Dashboard"
+E                 - button "Spending"
+E                 - button "Run analytics"
+E                 - text: Work
+E                 - button "Tasks"
+E                 - button "Runs"
+E                 - button "Approvals"
+E                 - button "Bugs"
+E                 - text: Team
+E                 - button "Prisms"
+E                 - text: Setup
+E                 - button "Target apps"
+E                 - button "Secrets"
+E                 - text: Knowledge
+E                 - button "Skills"
+E                 - button "Brain"
+E             - button "Open profile menu": M Microsoft account
+E             - button "Settings"
+E           - button "Open sidebar"
+E           - banner:
+E             - heading "Good evening" [level=1]
+E             - paragraph: Here is what your Prism team is working on.
+E             - combobox "Date range":
+E               - option "Last 7 days" [selected]
+E               - option "Last 30 days"
+E               - option "Last 90 days"
+E               - option "Last year"
+E               - option "All available"
+E             - button "New task"
+E             - button "Refresh workspace"
+E           - main:
+E             - status
+E             - article:
+E               - text: Active Prisms
+E               - strong: "0"
+E               - text: 0 open tasks
+E             - article:
+E               - text: Runs · Last 7 days
+E               - strong: "0"
+E               - text: 0 succeeded · 0 failed
+E             - article:
+E               - text: Needs approval
+E               - strong: "0"
+E               - text: Computer actions waiting on you
+E             - article:
+E               - text: Cost
+E               - strong: $0.00
+E               - text: $0.00 per run
+E             - heading "Recent runs" [level=3]
+E             - paragraph: Last 7 days · newest first
+E             - button "View all"
+E             - strong: No runs in this period
+E             - paragraph: Start a task from a Prism conversation.
+E             - heading "Latest bugs" [level=3]
+E             - paragraph: Last 7 days
+E             - button "View all"
+E             - strong: No bugs in this period.
+E             - heading "Your Prisms" [level=3]
+E             - button "Manage"
+E             - strong: No Prisms yet
+E             - paragraph: Create a Prism to get started.
+
+tests/e2e/test_navigation.py:60: AssertionError
+_______ test_prism_settings_and_modal_subroutes_preserve_draft[desktop] ________
+
+page = <Page url='http://127.0.0.1:63815/prisms/pj5Ika/settings/tools'>
+
+    def test_prism_settings_and_modal_subroutes_preserve_draft(page: Page):
+        workspace_fakes(page)
+        prism = create_prism(page)
+        page.goto(f"/prisms/{prism['code']}/settings/skills")
+        expect(page.get_by_role("tab", name="Skills", exact=True)).to_have_attribute(
+            "aria-selected", "true"
+        )
+        page.get_by_role("tab", name="Tools").click()
+        expect(page).to_have_url(re.compile(f"/prisms/{prism['code']}/settings/tools$"))
+        page.reload()
+        expect(page.get_by_role("tab", name="Tools")).to_have_attribute("aria-selected", "true")
+        page.go_back()
+>       expect(page.get_by_role("tab", name="Skills", exact=True)).to_have_attribute(
+            "aria-selected", "true"
+        )
+E       AssertionError: Locator expected to have attribute 'true'
+E       Actual value: false 
+E       Call log:
+E         - Expect "to_have_attribute" get_by_role("tab", name="Skills", exact=True) with timeout 5000ms
+E         - waiting for get_by_role("tab", name="Skills", exact=True)
+E           14 × locator resolved to <button role="tab" type="button" class="pd-tab" aria-selected="false">…</button>
+E              - unexpected value "false"
+E       
+E       Aria snapshot:
+E       - tab "Skills"
+
+tests/e2e/test_navigation.py:127: AssertionError
+------------------------------ Captured log setup ------------------------------
+WARNING  app.services.llm.llm_service:llm_service.py:151 llm_attempt_failed feature=prism_onboarding_tailoring attempt=2 detail=KeyError output_tokens=None
+WARNING  app.services.llm.llm_service:llm_service.py:151 llm_attempt_failed feature=prism_first_suggestions attempt=2 detail=KeyError output_tokens=None
+WARNING  app.services.llm.llm_service:llm_service.py:151 llm_attempt_failed feature=prism_first_suggestions attempt=2 detail=KeyError output_tokens=None
+_____________ test_profile_menu_theme_and_provider_spend[desktop] ______________
+
+page = <Page url='http://127.0.0.1:63815/assistant'>
+
+    def test_profile_menu_theme_and_provider_spend(page: Page) -> None:
+        page.route(
+            "https://open.er-api.com/v6/latest/USD",
+            lambda route: route.fulfill(json={"rates": {"INR": 83}}),
+        )
+    
+        def usage(route):
+            item = {
+                "calls": 1,
+                "estimated_cost_usd": "0.12",
+                "unpriced_calls": 0,
+                "input_tokens": 100,
+                "cached_input_tokens": 0,
+                "output_tokens": 20,
+            }
+            periods = {
+                name: {"prism": item, "swarm": {**item, "estimated_cost_usd": "0.08"}}
+                for name in ("today", "week", "month", "total")
+            }
+            route.fulfill(
+                json={
+                    "timezone": "Asia/Kolkata",
+                    "range": {"from": "2026-11-01", "to": "2026-11-21"},
+                    "periods": periods,
+                    "by_feature": {
+                        "prism": [{**item, "group": "prism_work_plan"}],
+                        "swarm": [
+                            {**item, "estimated_cost_usd": "0.08", "group": "qa_tester_test_runs"}
+                        ],
+                    },
+                    "by_model": {
+                        "prism": [{**item, "group": "test-model"}],
+                        "swarm": [{**item, "estimated_cost_usd": "0.08", "group": "test-model"}],
+                    },
+                    "by_provider": [
+                        {**item, "group": "openai"},
+                        {**item, "group": "qa_workspace", "estimated_cost_usd": "0.08"},
+                    ],
+                }
+            )
+    
+        page.route("**/api/v1/usage/llm/sources?**", usage)
+        page.route(
+            "**/api/v1/usage/llm/azure-billed?**",
+            lambda route: route.fulfill(json={"configured": False}),
+        )
+    
+        page.locator("#profile-menu-trigger").click()
+        expect(page.locator("#profile-menu")).to_be_visible()
+        page.locator("[data-profile-theme='dark']").click()
+        expect(page.locator("html")).to_have_attribute("data-theme", "dark")
+    
+        page.locator("#profile-menu-trigger").click()
+>       page.locator("[data-profile-action='settings']").click()
+
+tests/e2e/test_opencode_theme.py:61: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.11/site-packages/playwright/sync_api/_generated.py:11021: in click
+    self._sync(
+.venv/lib/python3.11/site-packages/playwright/_impl/_locator.py:174: in click
+    return await self._frame._click(self._selector, strict=True, **params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.11/site-packages/playwright/_impl/_frame.py:598: in _click
+    await self._channel.send("click", self._timeout, locals_to_params(locals()))
+.venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:78: in send
+    return await self._connection.wrap_api_call(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <playwright._impl._connection.Connection object at 0x107d5ec90>
+cb = <function Channel.send.<locals>.<lambda> at 0x1120f3c40>
+is_internal = False, title = None
+
+    async def wrap_api_call(
+        self, cb: Callable[[], Any], is_internal: bool = False, title: str = None
+    ) -> Any:
+        if self._api_zone.get():
+            return await cb()
+        task = asyncio.current_task(self._loop)
+        parsed_st = _attach_api_call_information(
+            getattr(task, "__pw_stack__", None) or _capture_stack_trace(),
+            is_internal,
+            title,
+        )
+        self._api_zone.set(parsed_st)
+        try:
+            return await cb()
+        except Exception as error:
+>           raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+E           playwright._impl._errors.TimeoutError: Locator.click: Timeout 15000ms exceeded.
+E           Call log:
+E             - waiting for locator("[data-profile-action='settings']")
+E               - locator resolved to <button type="button" role="menuitem" data-profile-action="settings">…</button>
+E             - attempting click action
+E               2 × waiting for element to be visible, enabled and stable
+E                 - element is not visible
+E               - retrying click action
+E               - waiting 20ms
+E               2 × waiting for element to be visible, enabled and stable
+E                 - element is not visible
+E               - retrying click action
+E                 - waiting 100ms
+E               29 × waiting for element to be visible, enabled and stable
+E                  - element is not visible
+E                - retrying click action
+E                  - waiting 500ms
+
+.venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:636: TimeoutError
+----------------------------- Captured stderr call -----------------------------
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
+    self.dialect.do_execute(
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
+    cursor.execute(statement, parameters)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/psycopg/cursor.py", line 97, in execute
+    raise ex.with_traceback(None)
+psycopg.errors.UniqueViolation: duplicate key value violates unique constraint "uq_agent_threads_one_legacy_canonical"
+DETAIL:  Key (is_canonical)=(t) already exists.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/uvicorn/protocols/http/h11_impl.py", line 409, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/applications.py", line 1215, in __call__
+    await super().__call__(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/applications.py", line 96, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    raise exc
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/telemetry/_asgi.py", line 151, in __call__
+    await self.app(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/middleware/base.py", line 197, in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/app/core/security.py", line 45, in protect_operator_api
+    return await call_next(request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/middleware/base.py", line 173, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/middleware/base.py", line 149, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/routing.py", line 676, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 2786, in app
+    await route.handle(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 1817, in handle
+    await self.original_router.handle(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 2869, in handle
+    await included_router._handle_selected(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 1843, in _handle_selected
+    await original_route.handle(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 1308, in handle
+    await effective_context.app(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 165, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 151, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 727, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 362, in run_endpoint_function
+    return await run_in_threadpool(
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/concurrency.py", line 34, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/anyio/to_thread.py", line 65, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/anyio/_backends/_asyncio.py", line 2706, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/anyio/_backends/_asyncio.py", line 1100, in run
+    result = context.run(func, *args)
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/telemetry/_api.py", line 240, in _run_sync_endpoint
+    return function(**arguments)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/app/api/routes/prisms/agent_v21.py", line 134, in canonical_conversation
+    return AgentStateService.canonical_thread(db)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/app/services/prisms/agent_state_service.py", line 111, in canonical_thread
+    db.commit()
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2035, in commit
+    trans.commit(_to_root=True)
+  File "<string>", line 2, in commit
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/state_changes.py", line 137, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 1316, in commit
+    self._prepare_impl()
+  File "<string>", line 2, in _prepare_impl
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/state_changes.py", line 137, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 1290, in _prepare_impl
+    self.session.flush()
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 4353, in flush
+    self._flush(objects)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 4488, in _flush
+    with util.safe_reraise():
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/util/langhelpers.py", line 122, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 4449, in _flush
+    flush_context.execute()
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/unitofwork.py", line 465, in execute
+    rec.execute(self)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/unitofwork.py", line 641, in execute
+    util.preloaded.orm_persistence.save_obj(
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/persistence.py", line 94, in save_obj
+    _emit_insert_statements(
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/persistence.py", line 1234, in _emit_insert_statements
+    result = connection.execute(
+             ^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1421, in execute
+    return meth(
+           ^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/sql/elements.py", line 526, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1643, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1848, in _execute_context
+    return self._exec_single_context(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1988, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 2365, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
+    self.dialect.do_execute(
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
+    cursor.execute(statement, parameters)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/psycopg/cursor.py", line 97, in execute
+    raise ex.with_traceback(None)
+sqlalchemy.exc.IntegrityError: (psycopg.errors.UniqueViolation) duplicate key value violates unique constraint "uq_agent_threads_one_legacy_canonical"
+DETAIL:  Key (is_canonical)=(t) already exists.
+[SQL: INSERT INTO agent_threads (id, prism_id, title, source_kind, source_external_id, source_label, source_metadata, is_canonical) VALUES (%(id)s::UUID, %(prism_id)s::UUID, %(title)s::VARCHAR, %(source_kind)s::VARCHAR, %(source_external_id)s::VARCHAR, %(source_label)s::VARCHAR, %(source_metadata)s::JSONB, %(is_canonical)s) RETURNING agent_threads.created_at, agent_threads.updated_at]
+[parameters: {'id': UUID('5f06226f-f3de-461d-84ed-b533d6d2f0a4'), 'prism_id': None, 'title': 'Prism', 'source_kind': None, 'source_external_id': None, 'source_label': None, 'source_metadata': Jsonb({}), 'is_canonical': True}]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+------------------------------ Captured log call -------------------------------
+WARNING  app.services.qa.qa_swarm_client:qa_swarm_client.py:67 qa_swarm_unreachable
+ERROR    uvicorn.error:h11_impl.py:414 Exception in ASGI application
+Traceback (most recent call last):
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
+    self.dialect.do_execute(
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
+    cursor.execute(statement, parameters)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/psycopg/cursor.py", line 97, in execute
+    raise ex.with_traceback(None)
+psycopg.errors.UniqueViolation: duplicate key value violates unique constraint "uq_agent_threads_one_legacy_canonical"
+DETAIL:  Key (is_canonical)=(t) already exists.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/uvicorn/protocols/http/h11_impl.py", line 409, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/applications.py", line 1215, in __call__
+    await super().__call__(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/applications.py", line 96, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    raise exc
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/telemetry/_asgi.py", line 151, in __call__
+    await self.app(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/middleware/base.py", line 197, in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/app/core/security.py", line 45, in protect_operator_api
+    return await call_next(request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/middleware/base.py", line 173, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/middleware/base.py", line 149, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/routing.py", line 676, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 2786, in app
+    await route.handle(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 1817, in handle
+    await self.original_router.handle(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 2869, in handle
+    await included_router._handle_selected(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 1843, in _handle_selected
+    await original_route.handle(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 1308, in handle
+    await effective_context.app(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 165, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 151, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 727, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 362, in run_endpoint_function
+    return await run_in_threadpool(
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/concurrency.py", line 34, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/anyio/to_thread.py", line 65, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/anyio/_backends/_asyncio.py", line 2706, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/anyio/_backends/_asyncio.py", line 1100, in run
+    result = context.run(func, *args)
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/telemetry/_api.py", line 240, in _run_sync_endpoint
+    return function(**arguments)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/app/api/routes/prisms/agent_v21.py", line 134, in canonical_conversation
+    return AgentStateService.canonical_thread(db)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/app/services/prisms/agent_state_service.py", line 111, in canonical_thread
+    db.commit()
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2035, in commit
+    trans.commit(_to_root=True)
+  File "<string>", line 2, in commit
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/state_changes.py", line 137, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 1316, in commit
+    self._prepare_impl()
+  File "<string>", line 2, in _prepare_impl
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/state_changes.py", line 137, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 1290, in _prepare_impl
+    self.session.flush()
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 4353, in flush
+    self._flush(objects)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 4488, in _flush
+    with util.safe_reraise():
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/util/langhelpers.py", line 122, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 4449, in _flush
+    flush_context.execute()
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/unitofwork.py", line 465, in execute
+    rec.execute(self)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/unitofwork.py", line 641, in execute
+    util.preloaded.orm_persistence.save_obj(
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/persistence.py", line 94, in save_obj
+    _emit_insert_statements(
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/persistence.py", line 1234, in _emit_insert_statements
+    result = connection.execute(
+             ^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1421, in execute
+    return meth(
+           ^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/sql/elements.py", line 526, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1643, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1848, in _execute_context
+    return self._exec_single_context(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1988, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 2365, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
+    self.dialect.do_execute(
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
+    cursor.execute(statement, parameters)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/psycopg/cursor.py", line 97, in execute
+    raise ex.with_traceback(None)
+sqlalchemy.exc.IntegrityError: (psycopg.errors.UniqueViolation) duplicate key value violates unique constraint "uq_agent_threads_one_legacy_canonical"
+DETAIL:  Key (is_canonical)=(t) already exists.
+[SQL: INSERT INTO agent_threads (id, prism_id, title, source_kind, source_external_id, source_label, source_metadata, is_canonical) VALUES (%(id)s::UUID, %(prism_id)s::UUID, %(title)s::VARCHAR, %(source_kind)s::VARCHAR, %(source_external_id)s::VARCHAR, %(source_label)s::VARCHAR, %(source_metadata)s::JSONB, %(is_canonical)s) RETURNING agent_threads.created_at, agent_threads.updated_at]
+[parameters: {'id': UUID('5f06226f-f3de-461d-84ed-b533d6d2f0a4'), 'prism_id': None, 'title': 'Prism', 'source_kind': None, 'source_external_id': None, 'source_label': None, 'source_metadata': Jsonb({}), 'is_canonical': True}]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+______________ test_profile_menu_theme_and_provider_spend[narrow] ______________
+
+page = <Page url='http://127.0.0.1:63815/assistant'>
+
+    def test_profile_menu_theme_and_provider_spend(page: Page) -> None:
+        page.route(
+            "https://open.er-api.com/v6/latest/USD",
+            lambda route: route.fulfill(json={"rates": {"INR": 83}}),
+        )
+    
+        def usage(route):
+            item = {
+                "calls": 1,
+                "estimated_cost_usd": "0.12",
+                "unpriced_calls": 0,
+                "input_tokens": 100,
+                "cached_input_tokens": 0,
+                "output_tokens": 20,
+            }
+            periods = {
+                name: {"prism": item, "swarm": {**item, "estimated_cost_usd": "0.08"}}
+                for name in ("today", "week", "month", "total")
+            }
+            route.fulfill(
+                json={
+                    "timezone": "Asia/Kolkata",
+                    "range": {"from": "2026-11-01", "to": "2026-11-21"},
+                    "periods": periods,
+                    "by_feature": {
+                        "prism": [{**item, "group": "prism_work_plan"}],
+                        "swarm": [
+                            {**item, "estimated_cost_usd": "0.08", "group": "qa_tester_test_runs"}
+                        ],
+                    },
+                    "by_model": {
+                        "prism": [{**item, "group": "test-model"}],
+                        "swarm": [{**item, "estimated_cost_usd": "0.08", "group": "test-model"}],
+                    },
+                    "by_provider": [
+                        {**item, "group": "openai"},
+                        {**item, "group": "qa_workspace", "estimated_cost_usd": "0.08"},
+                    ],
+                }
+            )
+    
+        page.route("**/api/v1/usage/llm/sources?**", usage)
+        page.route(
+            "**/api/v1/usage/llm/azure-billed?**",
+            lambda route: route.fulfill(json={"configured": False}),
+        )
+    
+>       page.locator("#profile-menu-trigger").click()
+
+tests/e2e/test_opencode_theme.py:55: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.11/site-packages/playwright/sync_api/_generated.py:11021: in click
+    self._sync(
+.venv/lib/python3.11/site-packages/playwright/_impl/_locator.py:174: in click
+    return await self._frame._click(self._selector, strict=True, **params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.11/site-packages/playwright/_impl/_frame.py:598: in _click
+    await self._channel.send("click", self._timeout, locals_to_params(locals()))
+.venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:78: in send
+    return await self._connection.wrap_api_call(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <playwright._impl._connection.Connection object at 0x107d5ec90>
+cb = <function Channel.send.<locals>.<lambda> at 0x11180af20>
+is_internal = False, title = None
+
+    async def wrap_api_call(
+        self, cb: Callable[[], Any], is_internal: bool = False, title: str = None
+    ) -> Any:
+        if self._api_zone.get():
+            return await cb()
+        task = asyncio.current_task(self._loop)
+        parsed_st = _attach_api_call_information(
+            getattr(task, "__pw_stack__", None) or _capture_stack_trace(),
+            is_internal,
+            title,
+        )
+        self._api_zone.set(parsed_st)
+        try:
+            return await cb()
+        except Exception as error:
+>           raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+E           playwright._impl._errors.TimeoutError: Locator.click: Timeout 15000ms exceeded.
+E           Call log:
+E             - waiting for locator("#profile-menu-trigger")
+E               - locator resolved to <button type="button" class="account-chip" aria-haspopup="menu" aria-expanded="false" id="profile-menu-trigger" aria-controls="profile-menu" aria-label="Open profile menu">…</button>
+E             - attempting click action
+E               2 × waiting for element to be visible, enabled and stable
+E                 - element is visible, enabled and stable
+E                 - scrolling into view if needed
+E                 - done scrolling
+E                 - element is outside of the viewport
+E               - retrying click action
+E               - waiting 20ms
+E               2 × waiting for element to be visible, enabled and stable
+E                 - element is visible, enabled and stable
+E                 - scrolling into view if needed
+E                 - done scrolling
+E                 - element is outside of the viewport
+E               - retrying click action
+E                 - waiting 100ms
+E               29 × waiting for element to be visible, enabled and stable
+E                  - element is visible, enabled and stable
+E                  - scrolling into view if needed
+E                  - done scrolling
+E                  - element is outside of the viewport
+E                - retrying click action
+E                  - waiting 500ms
+
+.venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:636: TimeoutError
+----------------------------- Captured stderr call -----------------------------
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
+    self.dialect.do_execute(
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
+    cursor.execute(statement, parameters)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/psycopg/cursor.py", line 97, in execute
+    raise ex.with_traceback(None)
+psycopg.errors.UniqueViolation: duplicate key value violates unique constraint "uq_agent_threads_one_legacy_canonical"
+DETAIL:  Key (is_canonical)=(t) already exists.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/uvicorn/protocols/http/h11_impl.py", line 409, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/applications.py", line 1215, in __call__
+    await super().__call__(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/applications.py", line 96, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    raise exc
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/telemetry/_asgi.py", line 151, in __call__
+    await self.app(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/middleware/base.py", line 197, in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/app/core/security.py", line 45, in protect_operator_api
+    return await call_next(request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/middleware/base.py", line 173, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/middleware/base.py", line 149, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/routing.py", line 676, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 2786, in app
+    await route.handle(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 1817, in handle
+    await self.original_router.handle(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 2869, in handle
+    await included_router._handle_selected(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 1843, in _handle_selected
+    await original_route.handle(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 1308, in handle
+    await effective_context.app(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 165, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 151, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 727, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 362, in run_endpoint_function
+    return await run_in_threadpool(
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/concurrency.py", line 34, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/anyio/to_thread.py", line 65, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/anyio/_backends/_asyncio.py", line 2706, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/anyio/_backends/_asyncio.py", line 1100, in run
+    result = context.run(func, *args)
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/telemetry/_api.py", line 240, in _run_sync_endpoint
+    return function(**arguments)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/app/api/routes/prisms/agent_v21.py", line 134, in canonical_conversation
+    return AgentStateService.canonical_thread(db)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/app/services/prisms/agent_state_service.py", line 111, in canonical_thread
+    db.commit()
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2035, in commit
+    trans.commit(_to_root=True)
+  File "<string>", line 2, in commit
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/state_changes.py", line 137, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 1316, in commit
+    self._prepare_impl()
+  File "<string>", line 2, in _prepare_impl
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/state_changes.py", line 137, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 1290, in _prepare_impl
+    self.session.flush()
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 4353, in flush
+    self._flush(objects)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 4488, in _flush
+    with util.safe_reraise():
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/util/langhelpers.py", line 122, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 4449, in _flush
+    flush_context.execute()
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/unitofwork.py", line 465, in execute
+    rec.execute(self)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/unitofwork.py", line 641, in execute
+    util.preloaded.orm_persistence.save_obj(
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/persistence.py", line 94, in save_obj
+    _emit_insert_statements(
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/persistence.py", line 1234, in _emit_insert_statements
+    result = connection.execute(
+             ^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1421, in execute
+    return meth(
+           ^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/sql/elements.py", line 526, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1643, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1848, in _execute_context
+    return self._exec_single_context(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1988, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 2365, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
+    self.dialect.do_execute(
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
+    cursor.execute(statement, parameters)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/psycopg/cursor.py", line 97, in execute
+    raise ex.with_traceback(None)
+sqlalchemy.exc.IntegrityError: (psycopg.errors.UniqueViolation) duplicate key value violates unique constraint "uq_agent_threads_one_legacy_canonical"
+DETAIL:  Key (is_canonical)=(t) already exists.
+[SQL: INSERT INTO agent_threads (id, prism_id, title, source_kind, source_external_id, source_label, source_metadata, is_canonical) VALUES (%(id)s::UUID, %(prism_id)s::UUID, %(title)s::VARCHAR, %(source_kind)s::VARCHAR, %(source_external_id)s::VARCHAR, %(source_label)s::VARCHAR, %(source_metadata)s::JSONB, %(is_canonical)s) RETURNING agent_threads.created_at, agent_threads.updated_at]
+[parameters: {'id': UUID('8fb9a5e5-2eda-4734-8471-94573d2737f8'), 'prism_id': None, 'title': 'Prism', 'source_kind': None, 'source_external_id': None, 'source_label': None, 'source_metadata': Jsonb({}), 'is_canonical': True}]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+------------------------------ Captured log call -------------------------------
+WARNING  app.services.qa.qa_swarm_client:qa_swarm_client.py:67 qa_swarm_unreachable
+ERROR    uvicorn.error:h11_impl.py:414 Exception in ASGI application
+Traceback (most recent call last):
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
+    self.dialect.do_execute(
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
+    cursor.execute(statement, parameters)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/psycopg/cursor.py", line 97, in execute
+    raise ex.with_traceback(None)
+psycopg.errors.UniqueViolation: duplicate key value violates unique constraint "uq_agent_threads_one_legacy_canonical"
+DETAIL:  Key (is_canonical)=(t) already exists.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/uvicorn/protocols/http/h11_impl.py", line 409, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/applications.py", line 1215, in __call__
+    await super().__call__(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/applications.py", line 96, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    raise exc
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/telemetry/_asgi.py", line 151, in __call__
+    await self.app(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/middleware/base.py", line 197, in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/app/core/security.py", line 45, in protect_operator_api
+    return await call_next(request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/middleware/base.py", line 173, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/middleware/base.py", line 149, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/routing.py", line 676, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 2786, in app
+    await route.handle(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 1817, in handle
+    await self.original_router.handle(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 2869, in handle
+    await included_router._handle_selected(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 1843, in _handle_selected
+    await original_route.handle(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 1308, in handle
+    await effective_context.app(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 165, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 151, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 727, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 362, in run_endpoint_function
+    return await run_in_threadpool(
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/starlette/concurrency.py", line 34, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/anyio/to_thread.py", line 65, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/anyio/_backends/_asyncio.py", line 2706, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/anyio/_backends/_asyncio.py", line 1100, in run
+    result = context.run(func, *args)
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/telemetry/_api.py", line 240, in _run_sync_endpoint
+    return function(**arguments)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/app/api/routes/prisms/agent_v21.py", line 134, in canonical_conversation
+    return AgentStateService.canonical_thread(db)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/app/services/prisms/agent_state_service.py", line 111, in canonical_thread
+    db.commit()
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2035, in commit
+    trans.commit(_to_root=True)
+  File "<string>", line 2, in commit
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/state_changes.py", line 137, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 1316, in commit
+    self._prepare_impl()
+  File "<string>", line 2, in _prepare_impl
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/state_changes.py", line 137, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 1290, in _prepare_impl
+    self.session.flush()
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 4353, in flush
+    self._flush(objects)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 4488, in _flush
+    with util.safe_reraise():
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/util/langhelpers.py", line 122, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 4449, in _flush
+    flush_context.execute()
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/unitofwork.py", line 465, in execute
+    rec.execute(self)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/unitofwork.py", line 641, in execute
+    util.preloaded.orm_persistence.save_obj(
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/persistence.py", line 94, in save_obj
+    _emit_insert_statements(
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/orm/persistence.py", line 1234, in _emit_insert_statements
+    result = connection.execute(
+             ^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1421, in execute
+    return meth(
+           ^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/sql/elements.py", line 526, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1643, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1848, in _execute_context
+    return self._exec_single_context(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1988, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 2365, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
+    self.dialect.do_execute(
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
+    cursor.execute(statement, parameters)
+  File "/Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/psycopg/cursor.py", line 97, in execute
+    raise ex.with_traceback(None)
+sqlalchemy.exc.IntegrityError: (psycopg.errors.UniqueViolation) duplicate key value violates unique constraint "uq_agent_threads_one_legacy_canonical"
+DETAIL:  Key (is_canonical)=(t) already exists.
+[SQL: INSERT INTO agent_threads (id, prism_id, title, source_kind, source_external_id, source_label, source_metadata, is_canonical) VALUES (%(id)s::UUID, %(prism_id)s::UUID, %(title)s::VARCHAR, %(source_kind)s::VARCHAR, %(source_external_id)s::VARCHAR, %(source_label)s::VARCHAR, %(source_metadata)s::JSONB, %(is_canonical)s) RETURNING agent_threads.created_at, agent_threads.updated_at]
+[parameters: {'id': UUID('8fb9a5e5-2eda-4734-8471-94573d2737f8'), 'prism_id': None, 'title': 'Prism', 'source_kind': None, 'source_external_id': None, 'source_label': None, 'source_metadata': Jsonb({}), 'is_canonical': True}]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+WARNING  app.services.qa.qa_swarm_client:qa_swarm_client.py:67 qa_swarm_unreachable
+__________ test_people_page_shows_me_the_team_and_keeps_edits[narrow] __________
+
+page = <Page url='http://127.0.0.1:63815/settings/teams'>
+e2e_app = namespace(url='http://127.0.0.1:63815', graph=<class 'conftest.FakeGraph'>)
+
+    def test_people_page_shows_me_the_team_and_keeps_edits(page: Page, e2e_app) -> None:
+        seed_org()
+        page.reload()
+        open_people(page)
+    
+        me = page.locator("#people-me")
+        expect(me).to_contain_text("Yash Mandi")
+        expect(me).to_contain_text("Engineering Manager · Engineering")
+        expect(me).to_contain_text("Reports to Bela Boss")
+        expect(me).to_contain_text("1 direct report")
+    
+        expect(page.locator(".people-group-title", has_text="Your manager")).to_be_visible()
+        expect(page.locator(".people-group-title", has_text="Reports to you")).to_be_visible()
+        expect(page.locator(".person-row", has_text="Asha Rao")).to_contain_text(
+            "Reports to Yash Mandi"
+        )
+        # Bela is only there so the tree connects.
+        expect(page.locator(".person-row", has_text="Bela Boss")).to_contain_text("Org link")
+    
+        # Tell Prism what I do; it is saved against me.
+        page.get_by_role("button", name="Edit about me").click()
+        page.locator("#person-edit-responsibilities").fill("I run engineering delivery.")
+        page.get_by_role("button", name="Save").click()
+        expect(page.locator("#people-me")).to_contain_text("I run engineering delivery.")
+    
+        # Edit Asha: a hand-set title is marked as edited and survives a reload.
+        page.locator(".person-row", has_text="Asha Rao").click()
+        page.locator("#person-edit-title").fill("Tech Lead")
+        page.get_by_role("button", name="Save").click()
+        expect(page.locator(".person-row", has_text="Asha Rao")).to_contain_text("Tech Lead")
+        expect(page.locator(".person-row", has_text="Asha Rao")).to_contain_text("Edited")
+        page.reload()
+>       open_people(page)
+
+tests/e2e/test_people_directory.py:101: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/e2e/test_people_directory.py:65: in open_people
+    page.locator("#nav-settings").click()
+.venv/lib/python3.11/site-packages/playwright/sync_api/_generated.py:11021: in click
+    self._sync(
+.venv/lib/python3.11/site-packages/playwright/_impl/_locator.py:174: in click
+    return await self._frame._click(self._selector, strict=True, **params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.11/site-packages/playwright/_impl/_frame.py:598: in _click
+    await self._channel.send("click", self._timeout, locals_to_params(locals()))
+.venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:78: in send
+    return await self._connection.wrap_api_call(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <playwright._impl._connection.Connection object at 0x107d5ec90>
+cb = <function Channel.send.<locals>.<lambda> at 0x1123ce840>
+is_internal = False, title = None
+
+    async def wrap_api_call(
+        self, cb: Callable[[], Any], is_internal: bool = False, title: str = None
+    ) -> Any:
+        if self._api_zone.get():
+            return await cb()
+        task = asyncio.current_task(self._loop)
+        parsed_st = _attach_api_call_information(
+            getattr(task, "__pw_stack__", None) or _capture_stack_trace(),
+            is_internal,
+            title,
+        )
+        self._api_zone.set(parsed_st)
+        try:
+            return await cb()
+        except Exception as error:
+>           raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+E           playwright._impl._errors.TimeoutError: Locator.click: Timeout 15000ms exceeded.
+E           Call log:
+E             - waiting for locator("#nav-settings")
+E               - locator resolved to <button type="button" id="nav-settings" class="icon-button" aria-label="Settings" data-tooltip="Settings" data-tab-target="settings">…</button>
+E             - attempting click action
+E               2 × waiting for element to be visible, enabled and stable
+E                 - element is not stable
+E               - retrying click action
+E               - waiting 20ms
+E               - waiting for element to be visible, enabled and stable
+E               - element is not stable
+E             2 × retrying click action
+E                 - waiting 100ms
+E                 - waiting for element to be visible, enabled and stable
+E                 - element is visible, enabled and stable
+E                 - scrolling into view if needed
+E                 - done scrolling
+E                 - <div class="settings-body">…</div> from <dialog open="" id="settings-dialog" class="settings-dialog" aria-labelledby="settings-dialog-title">…</dialog> subtree intercepts pointer events
+E             28 × retrying click action
+E                  - waiting 500ms
+E                  - waiting for element to be visible, enabled and stable
+E                  - element is visible, enabled and stable
+E                  - scrolling into view if needed
+E                  - done scrolling
+E                  - <div class="settings-body">…</div> from <dialog open="" id="settings-dialog" class="settings-dialog" aria-labelledby="settings-dialog-title">…</dialog> subtree intercepts pointer events
+E             - retrying click action
+E               - waiting 500ms
+
+.venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:636: TimeoutError
+------------------------------ Captured log call -------------------------------
+WARNING  app.services.qa.qa_swarm_client:qa_swarm_client.py:67 qa_swarm_unreachable
+WARNING  app.services.qa.qa_swarm_client:qa_swarm_client.py:67 qa_swarm_unreachable
+____ test_create_activate_and_resume_a_private_prism_conversation[desktop] _____
+
+page = <Page url='http://127.0.0.1:63815/assistant'>
+
+    def test_create_activate_and_resume_a_private_prism_conversation(page: Page) -> None:
+        open_sidebar_if_narrow(page)
+        page.get_by_role("button", name="Create Prism").click()
+        dialog = page.locator("#prism-editor-dialog")
+        dialog.get_by_label("Name").fill("Executive Updates")
+>       dialog.get_by_label("What is this Prism responsible for?").fill(
+            "Keep me informed about important Teams work in a friendly tone."
+        )
+
+tests/e2e/test_prism_directory.py:38: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.11/site-packages/playwright/sync_api/_generated.py:11640: in fill
+    self._sync(
+.venv/lib/python3.11/site-packages/playwright/_impl/_locator.py:228: in fill
+    return await self._frame.fill(self._selector, strict=True, **params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.11/site-packages/playwright/_impl/_frame.py:641: in fill
+    await self._fill(**locals_to_params(locals()))
+.venv/lib/python3.11/site-packages/playwright/_impl/_frame.py:653: in _fill
+    await self._channel.send("fill", self._timeout, locals_to_params(locals()))
+.venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:78: in send
+    return await self._connection.wrap_api_call(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <playwright._impl._connection.Connection object at 0x107d5ec90>
+cb = <function Channel.send.<locals>.<lambda> at 0x111180720>
+is_internal = False, title = None
+
+    async def wrap_api_call(
+        self, cb: Callable[[], Any], is_internal: bool = False, title: str = None
+    ) -> Any:
+        if self._api_zone.get():
+            return await cb()
+        task = asyncio.current_task(self._loop)
+        parsed_st = _attach_api_call_information(
+            getattr(task, "__pw_stack__", None) or _capture_stack_trace(),
+            is_internal,
+            title,
+        )
+        self._api_zone.set(parsed_st)
+        try:
+            return await cb()
+        except Exception as error:
+>           raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+E           playwright._impl._errors.TimeoutError: Locator.fill: Timeout 15000ms exceeded.
+E           Call log:
+E             - waiting for locator("#prism-editor-dialog").get_by_label("What is this Prism responsible for?")
+
+.venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:636: TimeoutError
+------------------------------ Captured log call -------------------------------
+WARNING  app.services.qa.qa_swarm_client:qa_swarm_client.py:67 qa_swarm_unreachable
+_____ test_create_activate_and_resume_a_private_prism_conversation[narrow] _____
+
+page = <Page url='http://127.0.0.1:63815/assistant'>
+
+    def test_create_activate_and_resume_a_private_prism_conversation(page: Page) -> None:
+        open_sidebar_if_narrow(page)
+        page.get_by_role("button", name="Create Prism").click()
+        dialog = page.locator("#prism-editor-dialog")
+        dialog.get_by_label("Name").fill("Executive Updates")
+>       dialog.get_by_label("What is this Prism responsible for?").fill(
+            "Keep me informed about important Teams work in a friendly tone."
+        )
+
+tests/e2e/test_prism_directory.py:38: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.11/site-packages/playwright/sync_api/_generated.py:11640: in fill
+    self._sync(
+.venv/lib/python3.11/site-packages/playwright/_impl/_locator.py:228: in fill
+    return await self._frame.fill(self._selector, strict=True, **params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.11/site-packages/playwright/_impl/_frame.py:641: in fill
+    await self._fill(**locals_to_params(locals()))
+.venv/lib/python3.11/site-packages/playwright/_impl/_frame.py:653: in _fill
+    await self._channel.send("fill", self._timeout, locals_to_params(locals()))
+.venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:78: in send
+    return await self._connection.wrap_api_call(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <playwright._impl._connection.Connection object at 0x107d5ec90>
+cb = <function Channel.send.<locals>.<lambda> at 0x11208c680>
+is_internal = False, title = None
+
+    async def wrap_api_call(
+        self, cb: Callable[[], Any], is_internal: bool = False, title: str = None
+    ) -> Any:
+        if self._api_zone.get():
+            return await cb()
+        task = asyncio.current_task(self._loop)
+        parsed_st = _attach_api_call_information(
+            getattr(task, "__pw_stack__", None) or _capture_stack_trace(),
+            is_internal,
+            title,
+        )
+        self._api_zone.set(parsed_st)
+        try:
+            return await cb()
+        except Exception as error:
+>           raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+E           playwright._impl._errors.TimeoutError: Locator.fill: Timeout 15000ms exceeded.
+E           Call log:
+E             - waiting for locator("#prism-editor-dialog").get_by_label("What is this Prism responsible for?")
+
+.venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:636: TimeoutError
+------------------------------ Captured log call -------------------------------
+WARNING  app.services.qa.qa_swarm_client:qa_swarm_client.py:67 qa_swarm_unreachable
+WARNING  app.services.qa.qa_swarm_client:qa_swarm_client.py:67 qa_swarm_unreachable
+____________ test_browser_tab_title_follows_the_open_prism[desktop] ____________
+
+page = <Page url='http://127.0.0.1:63815/assistant'>
+
+    def test_browser_tab_title_follows_the_open_prism(page: Page) -> None:
+        open_sidebar_if_narrow(page)
+        page.get_by_role("button", name="Create Prism").click()
+        dialog = page.locator("#prism-editor-dialog")
+        dialog.get_by_label("Name").fill("Tab Tester")
+>       dialog.get_by_label("What is this Prism responsible for?").fill("Checks the tab title.")
+
+tests/e2e/test_prism_directory.py:87: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.11/site-packages/playwright/sync_api/_generated.py:11640: in fill
+    self._sync(
+.venv/lib/python3.11/site-packages/playwright/_impl/_locator.py:228: in fill
+    return await self._frame.fill(self._selector, strict=True, **params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.11/site-packages/playwright/_impl/_frame.py:641: in fill
+    await self._fill(**locals_to_params(locals()))
+.venv/lib/python3.11/site-packages/playwright/_impl/_frame.py:653: in _fill
+    await self._channel.send("fill", self._timeout, locals_to_params(locals()))
+.venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:78: in send
+    return await self._connection.wrap_api_call(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <playwright._impl._connection.Connection object at 0x107d5ec90>
+cb = <function Channel.send.<locals>.<lambda> at 0x112090180>
+is_internal = False, title = None
+
+    async def wrap_api_call(
+        self, cb: Callable[[], Any], is_internal: bool = False, title: str = None
+    ) -> Any:
+        if self._api_zone.get():
+            return await cb()
+        task = asyncio.current_task(self._loop)
+        parsed_st = _attach_api_call_information(
+            getattr(task, "__pw_stack__", None) or _capture_stack_trace(),
+            is_internal,
+            title,
+        )
+        self._api_zone.set(parsed_st)
+        try:
+            return await cb()
+        except Exception as error:
+>           raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+E           playwright._impl._errors.TimeoutError: Locator.fill: Timeout 15000ms exceeded.
+E           Call log:
+E             - waiting for locator("#prism-editor-dialog").get_by_label("What is this Prism responsible for?")
+
+.venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:636: TimeoutError
+------------------------------ Captured log call -------------------------------
+WARNING  app.services.qa.qa_swarm_client:qa_swarm_client.py:67 qa_swarm_unreachable
+____________ test_browser_tab_title_follows_the_open_prism[narrow] _____________
+
+page = <Page url='http://127.0.0.1:63815/assistant'>
+
+    def test_browser_tab_title_follows_the_open_prism(page: Page) -> None:
+        open_sidebar_if_narrow(page)
+        page.get_by_role("button", name="Create Prism").click()
+        dialog = page.locator("#prism-editor-dialog")
+        dialog.get_by_label("Name").fill("Tab Tester")
+>       dialog.get_by_label("What is this Prism responsible for?").fill("Checks the tab title.")
+
+tests/e2e/test_prism_directory.py:87: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.11/site-packages/playwright/sync_api/_generated.py:11640: in fill
+    self._sync(
+.venv/lib/python3.11/site-packages/playwright/_impl/_locator.py:228: in fill
+    return await self._frame.fill(self._selector, strict=True, **params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.11/site-packages/playwright/_impl/_frame.py:641: in fill
+    await self._fill(**locals_to_params(locals()))
+.venv/lib/python3.11/site-packages/playwright/_impl/_frame.py:653: in _fill
+    await self._channel.send("fill", self._timeout, locals_to_params(locals()))
+.venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:78: in send
+    return await self._connection.wrap_api_call(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <playwright._impl._connection.Connection object at 0x107d5ec90>
+cb = <function Channel.send.<locals>.<lambda> at 0x112183240>
+is_internal = False, title = None
+
+    async def wrap_api_call(
+        self, cb: Callable[[], Any], is_internal: bool = False, title: str = None
+    ) -> Any:
+        if self._api_zone.get():
+            return await cb()
+        task = asyncio.current_task(self._loop)
+        parsed_st = _attach_api_call_information(
+            getattr(task, "__pw_stack__", None) or _capture_stack_trace(),
+            is_internal,
+            title,
+        )
+        self._api_zone.set(parsed_st)
+        try:
+            return await cb()
+        except Exception as error:
+>           raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+E           playwright._impl._errors.TimeoutError: Locator.fill: Timeout 15000ms exceeded.
+E           Call log:
+E             - waiting for locator("#prism-editor-dialog").get_by_label("What is this Prism responsible for?")
+
+.venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:636: TimeoutError
+------------------------------ Captured log call -------------------------------
+WARNING  app.services.qa.qa_swarm_client:qa_swarm_client.py:67 qa_swarm_unreachable
+=============================== warnings summary ===============================
+tests/e2e/test_dynamic_prism.py::test_a_custom_prism_plans_works_asks_and_reports[desktop]
+  /Users/yashmandi/code/prism-monorepo/apps/prism/.venv/lib/python3.11/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/e2e/test_design_system.py::test_keyboard_theme_menu_persistence_and_system_preference[desktop]
+FAILED tests/e2e/test_design_system.py::test_keyboard_theme_menu_persistence_and_system_preference[narrow]
+FAILED tests/e2e/test_design_system.py::test_workspace_surfaces_and_semantic_contrast[desktop]
+FAILED tests/e2e/test_design_system.py::test_workspace_surfaces_and_semantic_contrast[narrow]
+FAILED tests/e2e/test_navigation.py::test_page_urls_refresh_and_history[desktop]
+FAILED tests/e2e/test_navigation.py::test_page_urls_refresh_and_history[narrow]
+FAILED tests/e2e/test_navigation.py::test_prism_settings_and_modal_subroutes_preserve_draft[desktop]
+FAILED tests/e2e/test_opencode_theme.py::test_profile_menu_theme_and_provider_spend[desktop]
+FAILED tests/e2e/test_opencode_theme.py::test_profile_menu_theme_and_provider_spend[narrow]
+FAILED tests/e2e/test_people_directory.py::test_people_page_shows_me_the_team_and_keeps_edits[narrow]
+FAILED tests/e2e/test_prism_directory.py::test_create_activate_and_resume_a_private_prism_conversation[desktop]
+FAILED tests/e2e/test_prism_directory.py::test_create_activate_and_resume_a_private_prism_conversation[narrow]
+FAILED tests/e2e/test_prism_directory.py::test_browser_tab_title_follows_the_open_prism[desktop]
+FAILED tests/e2e/test_prism_directory.py::test_browser_tab_title_follows_the_open_prism[narrow]
+14 failed, 74 passed, 2 skipped, 1 warning in 261.36s (0:04:21)
